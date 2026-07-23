@@ -25,4 +25,12 @@ server {
     # WooCommerce webhooks land here too (POST /api/webhooks/woocommerce) —
     # no special handling needed, they go through the same proxy_pass above.
     client_max_body_size 5m;
+
+    # GitHub's deploy webhook — see README's "Auto-deploy on push" section.
+    # Proxies to the `webhook` tool listening locally on 9000.
+    location /hooks/ {
+        proxy_pass http://127.0.0.1:9000/hooks/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
 }

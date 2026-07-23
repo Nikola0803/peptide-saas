@@ -160,6 +160,63 @@ pm2 restart peptides-command-center
 pg_dump -U cc_app peptides_crm | gzip > /var/backups/peptides_crm_$(date +%F).sql.gz
 ```
 
+## Auto-deploy on push
+
+Every push to `main` on GitHub triggers `deploy/deploy.sh` on the VPS
+automatically, via a webhook — no SSH key needs to live in GitHub, and
+the deploy runs locally on the box using the lightweight `webhook` tool.
+
+```bash
+# --- one-time setup on the VPS ---
+sudo apt install -y webhook
+chmod +x deploy/deploy.sh
+
+sudo mkdir -p /etc/webhook
+sudo cp deploy/hooks.json.example /etc/webhook/hooks.json
+sudo nano /etc/webhook/hooks.json   # replace REPLACE_WITH_A_RANDOM_SECRET
+
+# run webhook as a persistent service
+sudo tee /etc/systemd/system/webhook.service > /dev/null <<'EOF'
+[Unit]
+Description=webhook
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/webhook -hooks /etc/webhook/hooks.json -port 9000 -verbose
+Restart=always
+User=root
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now webhook
+```
+
+Then add the `/hooks/` location block from `deploy/nginx.conf.example` to
+your existing nginx site config and reload it:
+```bash
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+Finally, on GitHub: repo → **Settings → Webhooks → Add webhook**
+- Payload URL: `https://your-domain.com/hooks/deploy-peptide-crm`
+- Content type: `application/json`
+- Secret: the same random string you put in `hooks.json`
+- Events: just **push**
+
+Push to `main` and check it worked:
+```bash
+sudo journalctl -u webhook -f
+```
+You should see the hook fire and `deploy.sh`'s output stream through.
+
+**Note:** `deploy.sh` runs `prisma db push` on every deploy — fine while
+you're actively iterating on the schema solo, but once this has real
+customer data, swap that for `prisma migrate deploy` against reviewed
+migrations instead, so a schema change can't silently apply on push.
+
 ## Performance
 
 The dashboard streams in independent pieces (`Suspense` per section —

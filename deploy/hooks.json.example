@@ -1,0 +1,32 @@
+[
+  {
+    "id": "deploy-peptide-crm",
+    "execute-command": "/var/www/peptide-command-center/deploy/deploy.sh",
+    "command-working-directory": "/var/www/peptide-command-center",
+    "response-message": "Deploy triggered",
+    "trigger-rule": {
+      "and": [
+        {
+          "match": {
+            "type": "payload-hmac-sha256",
+            "secret": "REPLACE_WITH_A_RANDOM_SECRET",
+            "parameter": {
+              "source": "header",
+              "name": "X-Hub-Signature-256"
+            }
+          }
+        },
+        {
+          "match": {
+            "type": "value",
+            "value": "refs/heads/main",
+            "parameter": {
+              "source": "payload",
+              "name": "ref"
+            }
+          }
+        }
+      ]
+    }
+  }
+]
