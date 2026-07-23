@@ -90,19 +90,27 @@ export default async function WebhooksPage() {
 
                 {!b.verifiedAt ? (
                   <div className="rounded-md bg-accent-50 border border-accent-200 p-3">
-                    <p className="text-xs text-accent-800 mb-2">
-                      Paste this code anywhere in the page source of <span className="font-medium">{b.domain}</span>'s
-                      homepage (a meta tag in the header, or just as plain text in a footer widget both work), then
-                      click Verify:
-                    </p>
-                    <CopyableField
-                      label="Verification code"
-                      value={`<meta name="command-center-verification" content="${b.verificationToken}" />`}
-                      monospace
-                    />
-                    <div className="mt-2">
-                      <VerifyButton verifyAction={verifyBrandOwnership.bind(null, b.id)} />
-                    </div>
+                    {b.verificationToken ? (
+                      <>
+                        <p className="text-xs text-accent-800 mb-2">
+                          Paste this code anywhere in the page source of <span className="font-medium">{b.domain}</span>'s
+                          homepage (a meta tag in the header, or just as plain text in a footer widget both work), then
+                          click Verify:
+                        </p>
+                        <CopyableField
+                          label="Verification code"
+                          value={`<meta name="command-center-verification" content="${b.verificationToken}" />`}
+                          monospace
+                        />
+                        <div className="mt-2">
+                          <VerifyButton verifyAction={verifyBrandOwnership.bind(null, b.id)} />
+                        </div>
+                      </>
+                    ) : (
+                      <p className="text-xs text-accent-800">
+                        This brand was added before verification codes existed — remove it and add it again to get one.
+                      </p>
+                    )}
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2">

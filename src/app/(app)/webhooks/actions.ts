@@ -94,6 +94,13 @@ export async function verifyBrandOwnership(
     return { error: lastError, success: false };
   }
 
+  if (!brand.verificationToken) {
+    return {
+      error: "This brand predates verification codes — remove it and add it again to get a code.",
+      success: false,
+    };
+  }
+
   if (!html.includes(brand.verificationToken)) {
     return {
       error: "Verification code not found on the page — double-check it's pasted and the page is cached/updated, then try again.",

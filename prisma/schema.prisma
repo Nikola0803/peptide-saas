@@ -101,7 +101,7 @@ model Brand {
   // anywhere in the homepage's HTML, click Verify, done. Plugin-registered
   // brands skip this (possessing the org API key is already proof enough)
   // and get verifiedAt set immediately.
-  verificationToken String    @unique @default(cuid())
+  verificationToken String?   @unique @default(cuid())
   verifiedAt        DateTime?
 
   lastSyncedAt   DateTime?
