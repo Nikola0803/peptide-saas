@@ -1,0 +1,342 @@
+// Peptide Command Center — data model
+//
+// Multi-tenant from the ground up: every row that belongs to a customer's
+// workspace hangs off Organization, so the same schema serves both "internal
+// use for my own brands" and "sold as a SaaS to other store owners" without
+// a rewrite.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Tenancy & auth
+// ---------------------------------------------------------------------------
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  // Long-lived key shown on the Webhooks/Settings page. The WP plugin uses
+  // this once, on first install, to self-register the site as a new Brand —
+  // this is the "automatic recognition of new websites" handshake.
+  apiKey    String   @unique @default(cuid())
+  plan      Plan     @default(TRIAL)
+  createdAt DateTime @default(now())
+
+  memberships Membership[]
+  brands      Brand[]
+  products    Product[]
+  contacts    Contact[]
+  affiliates  Affiliate[]
+  orders      Order[]
+  webhookLogs WebhookEvent[]
+  trackingEvents TrackingEvent[]
+}
+
+enum Plan {
+  TRIAL
+  STARTER
+  GROWTH
+  AGENCY
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String?
+  createdAt    DateTime @default(now())
+
+  memberships Membership[]
+}
+
+model Membership {
+  id             String       @id @default(cuid())
+  role           Role         @default(MEMBER)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId         String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+  createdAt      DateTime     @default(now())
+
+  @@unique([userId, organizationId])
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+// ---------------------------------------------------------------------------
+// Brands (one row per connected WooCommerce store)
+// ---------------------------------------------------------------------------
+
+model Brand {
+  id             String       @id @default(cuid())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+
+  name   String
+  slug   String // e.g. "brand_alpha" — used as the ?store= query param
+  domain String
+
+  status         BrandStatus @default(PENDING)
+  // Generated when the site self-registers via the plugin; the plugin signs
+  // every subsequent webhook with this so the ingestion endpoint can verify
+  // it came from this specific store (see /webhooks page + HMAC note there).
+  webhookSecret  String      @default(cuid())
+  wooConsumerKey String?
+  wooConsumerSecret String?
+  lastSyncedAt   DateTime?
+  createdAt      DateTime    @default(now())
+
+  @@unique([organizationId, slug])
+  products      StoreMapping[]
+  contactLinks  ContactBrandLink[]
+  orders        Order[]
+  webhookEvents WebhookEvent[]
+  trackingConfig TrackingConfig?
+  trackingEvents TrackingEvent[]
+}
+
+enum BrandStatus {
+  PENDING // API key issued, plugin not yet installed / no successful sync
+  CONNECTED
+  ERROR
+}
+
+// ---------------------------------------------------------------------------
+// Master product catalog
+// ---------------------------------------------------------------------------
+
+model Product {
+  id             String       @id @default(cuid())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+
+  sku          String
+  chemicalName String
+  cogsCents    Int
+  masterStock  Int    @default(0)
+
+  coas          CoaDocument[]
+  storeMappings StoreMapping[]
+  orderItems    OrderItem[]
+
+  createdAt DateTime @default(now())
+
+  @@unique([organizationId, sku])
+  @@index([organizationId, masterStock])
+}
+
+model CoaDocument {
+  id        String   @id @default(cuid())
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId String
+  url       String
+  label     String? // e.g. lot/batch number
+  createdAt DateTime @default(now())
+}
+
+// Links a master Product to its listing on one specific brand's store.
+model StoreMapping {
+  id                String  @id @default(cuid())
+  product           Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId         String
+  brand             Brand   @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  brandId           String
+  externalProductId String // WooCommerce product ID on that store
+  storePriceCents   Int?
+
+  @@unique([brandId, externalProductId])
+}
+
+// ---------------------------------------------------------------------------
+// Contacts (unified customer identity across brands)
+// ---------------------------------------------------------------------------
+
+model Contact {
+  id             String       @id @default(cuid())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+  email          String
+  createdAt      DateTime     @default(now())
+
+  brandLinks ContactBrandLink[]
+  orders     Order[]
+
+  @@unique([organizationId, email])
+  @@index([organizationId, createdAt])
+}
+
+// Per-brand customer identity, so the same email on two WooCommerce stores
+// resolves to one Contact but we still know the store-local customer id.
+model ContactBrandLink {
+  id                 String  @id @default(cuid())
+  contact            Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  contactId          String
+  brand              Brand   @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  brandId            String
+  externalCustomerId String?
+
+  @@unique([contactId, brandId])
+}
+
+// ---------------------------------------------------------------------------
+// Orders
+// ---------------------------------------------------------------------------
+
+model Order {
+  id             String       @id @default(cuid())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+  brand          Brand        @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  brandId        String
+  contact        Contact?     @relation(fields: [contactId], references: [id])
+  contactId      String?
+
+  externalOrderNumber String
+  status              OrderStatus
+  couponCode          String?
+  grossCents          Int
+  netProfitCents      Int?
+  placedAt            DateTime
+
+  items       OrderItem[]
+  attribution AffiliateOrderAttribution?
+
+  createdAt DateTime @default(now())
+
+  @@unique([brandId, externalOrderNumber])
+  @@index([organizationId, placedAt])
+  @@index([brandId, placedAt])
+}
+
+enum OrderStatus {
+  COMPLETED
+  PROCESSING
+  ON_HOLD
+  REFUNDED
+}
+
+model OrderItem {
+  id            String   @id @default(cuid())
+  order         Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId       String
+  product       Product? @relation(fields: [productId], references: [id])
+  productId     String?
+  sku           String
+  name          String
+  quantity      Int
+  unitPriceCents Int
+}
+
+// ---------------------------------------------------------------------------
+// Affiliates
+// ---------------------------------------------------------------------------
+
+model Affiliate {
+  id             String       @id @default(cuid())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+
+  name        String
+  slug        String
+  ratePercent Float
+  couponCode  String
+
+  attributions AffiliateOrderAttribution[]
+  createdAt    DateTime                     @default(now())
+
+  @@unique([organizationId, slug])
+}
+
+model AffiliateOrderAttribution {
+  id            String    @id @default(cuid())
+  affiliate     Affiliate @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+  affiliateId   String
+  order         Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId       String    @unique
+  commissionCents Int
+}
+
+// ---------------------------------------------------------------------------
+// Webhook ingestion log (every inbound call from a store, verified or not)
+// ---------------------------------------------------------------------------
+
+model WebhookEvent {
+  id             String       @id @default(cuid())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+  brand          Brand?       @relation(fields: [brandId], references: [id])
+  brandId        String?
+
+  topic           String
+  payload         Json
+  signatureValid  Boolean
+  processedAt     DateTime?
+  error           String?
+  createdAt       DateTime  @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Tracking & Pixels — first-party conversion tracking + server-side relay
+// to ad platforms (Meta Conversions API, TikTok Events API, GA4
+// Measurement Protocol), so conversions still get credited even when a
+// client-side pixel is blocked.
+// ---------------------------------------------------------------------------
+
+model TrackingConfig {
+  id      String @id @default(cuid())
+  brand   Brand  @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  brandId String @unique
+
+  // Safe to expose client-side — the embed snippet on the brand's storefront
+  // sends this, never a secret. Rotating it invalidates the old snippet.
+  publicKey String @unique @default(cuid())
+
+  metaPixelId       String?
+  metaAccessToken   String?
+  tiktokPixelId     String?
+  tiktokAccessToken String?
+  ga4MeasurementId  String?
+  ga4ApiSecret      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TrackingEvent {
+  id             String       @id @default(cuid())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+  brand          Brand        @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  brandId        String
+
+  eventName  String // page_view | view_content | add_to_cart | lead | purchase | custom
+  visitorId  String // first-party cookie id set by the embed snippet
+  valueCents Int?
+  currency   String?
+  properties Json?
+  clickIds   Json? // fbclid / ttclid / gclid captured from the landing URL
+  pageUrl    String?
+
+  relayedMeta   Boolean @default(false)
+  relayedTiktok Boolean @default(false)
+  relayedGa4    Boolean @default(false)
+  relayError    String?
+
+  createdAt DateTime @default(now())
+
+  @@index([organizationId, createdAt])
+  @@index([brandId, eventName, createdAt])
+}
+
