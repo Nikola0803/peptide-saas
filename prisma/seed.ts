@@ -152,6 +152,12 @@ async function main() {
         grossCents: seed.gross,
         netProfitCents: netProfit,
         placedAt,
+        shipToName: contact.email.split("@")[0].replace(".", " "),
+        shipToAddress1: "123 Example St",
+        shipToCity: "Austin",
+        shipToState: "TX",
+        shipToPostalCode: "78701",
+        shipToCountry: "US",
       },
     });
 

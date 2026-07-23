@@ -38,6 +38,7 @@ model Organization {
   orders      Order[]
   webhookLogs WebhookEvent[]
   trackingEvents TrackingEvent[]
+  shipstationConfig ShipStationConfig?
 }
 
 enum Plan {
@@ -213,6 +214,24 @@ model Order {
   items       OrderItem[]
   attribution AffiliateOrderAttribution?
 
+  // ShipStation fulfillment — populated once the order's been pushed and
+  // (later) marked shipped, either by our own push or a shipped webhook
+  // from ShipStation.
+  shipstationOrderId String?
+  carrierCode        String?
+  trackingNumber     String?
+  shippedAt          DateTime?
+
+  // Captured straight from the WooCommerce webhook's `shipping` object —
+  // needed to push a usable order (with a printable label) to ShipStation.
+  shipToName       String?
+  shipToAddress1   String?
+  shipToAddress2   String?
+  shipToCity       String?
+  shipToState      String?
+  shipToPostalCode String?
+  shipToCountry    String?
+
   createdAt DateTime @default(now())
 
   @@unique([brandId, externalOrderNumber])
@@ -276,7 +295,7 @@ model WebhookEvent {
   id             String       @id @default(cuid())
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   organizationId String
-  brand          Brand?       @relation(fields: [brandId], references: [id])
+  brand          Brand?       @relation(fields: [brandId], references: [id], onDelete: SetNull)
   brandId        String?
 
   topic           String
@@ -339,4 +358,26 @@ model TrackingEvent {
   @@index([organizationId, createdAt])
   @@index([brandId, eventName, createdAt])
 }
+
+// ---------------------------------------------------------------------------
+// ShipStation — one connection per organization (ShipStation accounts
+// aren't typically split per brand/store the way ad pixels are).
+// ---------------------------------------------------------------------------
+
+model ShipStationConfig {
+  id             String       @id @default(cuid())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String       @unique
+
+  apiKey    String
+  apiSecret String
+  // If on, every new order from the live webhook is pushed to ShipStation
+  // automatically; if off, pushing is manual only (Shipping page button).
+  autoPush  Boolean @default(true)
+
+  lastSyncedAt DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
 

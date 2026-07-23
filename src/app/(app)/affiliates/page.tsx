@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireOrg } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader, StatCard, Card, EmptyState } from "@/components/ui";
@@ -29,9 +30,9 @@ export default async function AffiliatesPage() {
         subtitle="Coupon-driven referral tracking"
         actions={
           <>
-            <button className="text-sm border border-background-300 rounded-md px-3 py-1.5 text-foreground-800 hover:bg-background-100">
+            <Link href="/affiliates/new" className="text-sm border border-background-300 rounded-md px-3 py-1.5 text-foreground-800 hover:bg-background-100">
               New affiliate
-            </button>
+            </Link>
             <button className="text-sm bg-primary-500 text-background-50 rounded-md px-3 py-1.5 font-medium hover:bg-primary-600">
               Sync all brands
             </button>

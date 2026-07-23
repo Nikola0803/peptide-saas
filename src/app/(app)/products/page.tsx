@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireOrg } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader, StatCard, EmptyState } from "@/components/ui";
@@ -26,9 +27,9 @@ export default async function ProductsPage() {
         subtitle="Central catalog, COA documents, and product images"
         actions={
           <>
-            <button className="text-sm border border-background-300 rounded-md px-3 py-1.5 text-foreground-800 hover:bg-background-100">
+            <Link href="/products/new" className="text-sm border border-background-300 rounded-md px-3 py-1.5 text-foreground-800 hover:bg-background-100">
               Add product
-            </button>
+            </Link>
             <button className="text-sm bg-primary-500 text-background-50 rounded-md px-3 py-1.5 font-medium hover:bg-primary-600">
               Sync all brands
             </button>
@@ -68,17 +69,34 @@ export default async function ProductsPage() {
             </thead>
             <tbody>
               {products.map((p) => (
-                <tr key={p.id} className="border-b border-background-100 last:border-0">
-                  <td className="py-3 px-4 font-mono text-xs text-foreground-800">{p.sku}</td>
-                  <td className="py-3 px-4 text-foreground-800">{p.chemicalName}</td>
-                  <td className="py-3 px-4 text-right tabular-nums">{money(p.cogsCents)}</td>
+                <tr
+                  key={p.id}
+                  className="border-b border-background-100 last:border-0 hover:bg-background-100 cursor-pointer"
+                >
+                  <td className="py-3 px-4 font-mono text-xs text-foreground-800">
+                    <Link href={`/products/${p.id}`} className="block">
+                      {p.sku}
+                    </Link>
+                  </td>
+                  <td className="py-3 px-4 text-foreground-800">
+                    <Link href={`/products/${p.id}`} className="block">
+                      {p.chemicalName}
+                    </Link>
+                  </td>
+                  <td className="py-3 px-4 text-right tabular-nums">
+                    <Link href={`/products/${p.id}`} className="block">
+                      {money(p.cogsCents)}
+                    </Link>
+                  </td>
                   <td
                     className={clsx(
                       "py-3 px-4 text-right tabular-nums font-medium",
                       p.masterStock <= 0 ? "text-accent-700" : "text-foreground-800"
                     )}
                   >
-                    {p.masterStock}
+                    <Link href={`/products/${p.id}`} className="block">
+                      {p.masterStock}
+                    </Link>
                   </td>
                   <td className="py-3 px-4 text-xs text-foreground-600">
                     {p.storeMappings.map((m) => m.brand.name).join(", ") || "—"}

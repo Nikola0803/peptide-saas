@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifySignature } from "@/lib/signature";
 import { OrderStatus } from "@prisma/client";
+import { pushOrderToShipStation } from "@/lib/shipstation";
 
 // Flat-rate assumption for a card processor fee, used until each
 // organization can configure its own merchant fee schedule per brand.
@@ -87,7 +88,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    await processOrder(brand.id, brand.organizationId, payload);
+    const orderId = await processOrder(brand.id, brand.organizationId, payload);
     await prisma.webhookEvent.create({
       data: {
         organizationId: brand.organizationId,
@@ -99,6 +100,7 @@ export async function POST(req: NextRequest) {
       },
     });
     await prisma.brand.update({ where: { id: brand.id }, data: { lastSyncedAt: new Date() } });
+    autoPushToShipStation(brand.organizationId, orderId).catch(() => {});
     return NextResponse.json({ ok: true });
   } catch (err: any) {
     await prisma.webhookEvent.create({
@@ -123,14 +125,57 @@ function safeJson(rawBody: string) {
   }
 }
 
-async function processOrder(brandId: string, organizationId: string, payload: any) {
+/**
+ * If the organization has ShipStation connected with auto-push on, push
+ * this order over as soon as it lands — same call the manual "Push"
+ * button on the Shipping page makes, just triggered automatically instead
+ * of waiting for the operator to click it.
+ */
+async function autoPushToShipStation(organizationId: string, orderId: string) {
+  const config = await prisma.shipStationConfig.findUnique({ where: { organizationId } });
+  if (!config || !config.autoPush) return;
+
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: { items: true, contact: true, brand: true },
+  });
+  if (!order || order.shipstationOrderId) return;
+  if (order.status !== "COMPLETED" && order.status !== "PROCESSING") return;
+
+  const result = await pushOrderToShipStation(config.apiKey, config.apiSecret, {
+    orderNumber: `${order.brand.slug}-${order.externalOrderNumber}`,
+    orderDate: order.placedAt.toISOString(),
+    orderStatus: "awaiting_shipment",
+    billToEmail: order.contact?.email,
+    shipTo: {
+      name: order.shipToName ?? undefined,
+      street1: order.shipToAddress1 ?? undefined,
+      street2: order.shipToAddress2 ?? undefined,
+      city: order.shipToCity ?? undefined,
+      state: order.shipToState ?? undefined,
+      postalCode: order.shipToPostalCode ?? undefined,
+      country: order.shipToCountry ?? undefined,
+    },
+    amountPaid: order.grossCents / 100,
+    items: order.items.map((i) => ({
+      sku: i.sku,
+      name: i.name,
+      quantity: i.quantity,
+      unitPrice: i.unitPriceCents / 100,
+    })),
+  });
+
+  await prisma.order.update({ where: { id: order.id }, data: { shipstationOrderId: String(result.orderId) } });
+}
+
+async function processOrder(brandId: string, organizationId: string, payload: any): Promise<string> {
   const email: string | undefined = payload?.billing?.email?.toLowerCase();
   const externalOrderNumber = String(payload?.number ?? payload?.id);
   const grossCents = toCents(payload?.total ?? 0);
   const couponCode: string | undefined = payload?.coupon_lines?.[0]?.code;
   const lineItems: any[] = payload?.line_items ?? [];
 
-  await prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx) => {
     // 1. Resolve / create the unified contact + its per-brand identity link.
     let contactId: string | undefined;
     if (email) {
@@ -202,6 +247,9 @@ async function processOrder(brandId: string, organizationId: string, payload: an
     const merchantFeeCents = Math.round((grossCents * MERCHANT_FEE_PERCENT) / 100) + MERCHANT_FEE_FIXED_CENTS;
     const netProfitCents = grossCents - cogsCentsTotal - merchantFeeCents - commissionCents;
 
+    const shipping = payload?.shipping ?? {};
+    const shipToName = [shipping.first_name, shipping.last_name].filter(Boolean).join(" ") || undefined;
+
     // 4. Upsert the order itself and its line items.
     const order = await tx.order.upsert({
       where: { brandId_externalOrderNumber: { brandId, externalOrderNumber } },
@@ -211,6 +259,13 @@ async function processOrder(brandId: string, organizationId: string, payload: an
         grossCents,
         netProfitCents,
         contactId,
+        shipToName,
+        shipToAddress1: shipping.address_1 || undefined,
+        shipToAddress2: shipping.address_2 || undefined,
+        shipToCity: shipping.city || undefined,
+        shipToState: shipping.state || undefined,
+        shipToPostalCode: shipping.postcode || undefined,
+        shipToCountry: shipping.country || undefined,
       },
       create: {
         organizationId,
@@ -222,6 +277,13 @@ async function processOrder(brandId: string, organizationId: string, payload: an
         grossCents,
         netProfitCents,
         placedAt: payload?.date_created ? new Date(payload.date_created) : new Date(),
+        shipToName,
+        shipToAddress1: shipping.address_1 || undefined,
+        shipToAddress2: shipping.address_2 || undefined,
+        shipToCity: shipping.city || undefined,
+        shipToState: shipping.state || undefined,
+        shipToPostalCode: shipping.postcode || undefined,
+        shipToCountry: shipping.country || undefined,
       },
     });
 
@@ -243,5 +305,7 @@ async function processOrder(brandId: string, organizationId: string, payload: an
         create: { orderId: order.id, affiliateId, commissionCents },
       });
     }
+
+    return order.id;
   });
 }

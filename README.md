@@ -253,6 +253,32 @@ latency is still the bottleneck on a warm, pooled connection,
 `npx prisma studio` plus `EXPLAIN ANALYZE` on the slow query is the next
 thing to check, not more indexes blindly.
 
+## ShipStation (Shipping page)
+
+Connect once (org-wide — Shipping page → paste API key/secret from
+ShipStation → Account Settings → API Settings). Once connected:
+
+- Every new order from the live WooCommerce webhook **auto-pushes to
+  ShipStation** as soon as it lands (toggle this off per-org if you'd
+  rather push manually)
+- **"Sync all unshipped orders"** bulk-pushes anything not yet sent
+- **"Refresh tracking status"** pulls back tracking numbers/carriers for
+  orders ShipStation has since shipped, matched back to the right order
+  by the `<brand-slug>-<order-number>` order number scheme used on push
+- Per-order **"Push"** button for one-off cases
+
+## Editing things (products, brands, affiliates)
+
+- **Master Products** — click any row to open its detail page: edit SKU,
+  chemical name, COGS, and master stock; add/remove COA documents; delete
+  the product entirely (order history keeps the SKU/name as plain text
+  even after the catalog row is gone, so past orders don't break)
+- **Webhooks page** — add a brand manually (for a non-WooCommerce site —
+  you get a delivery URL + secret to wire up by hand) or **remove any
+  brand**, including the seeded demo ones, which cascades to delete its
+  orders/contacts/products mappings/tracking data too
+- **Affiliates** — "New affiliate" now actually creates one
+
 ## What's NOT built yet
 
 - **Multi-org signup/onboarding flow.** Right now organizations only
@@ -265,10 +291,16 @@ thing to check, not more indexes blindly.
   order's status and totals on re-delivery, but doesn't currently re-diff
   line items, so a partial refund that changes quantities won't be
   reflected in `OrderItem` rows.
-- **Shipping, Payments, Email Marketing, Social Analytics, AI Blog Tool,
-  Reddit Marketing** — still placeholders with a description of what
-  they'll do, matching the mockup's structure, no logic behind them yet.
-  (Tracking & Pixels is now fully implemented — see above.)
+- **Shipping** is now real (ShipStation) — see above. **Payments, Email
+  Marketing, Social Analytics, AI Blog Tool, Reddit Marketing** are still
+  placeholders with a description of what they'll do, no logic behind
+  them yet.
+- **ShipStation gaps**: no per-brand ShipStation account support (one
+  connection per organization only), no handling of partial shipments
+  (multiple packages per order), and pushed orders don't include a
+  shipping address yet — add `payload.shipping` from the WooCommerce
+  webhook into `pushOrderToShipStation`'s `shipTo` field before relying on
+  this for real label printing.
 - **Real merchant fee configuration** — the profit calculation assumes a
   flat 2.9% + $0.30 processor fee; make this configurable per brand
   before trusting the net profit numbers.
