@@ -139,11 +139,42 @@ model Product {
   coas          CoaDocument[]
   storeMappings StoreMapping[]
   orderItems    OrderItem[]
+  lots          ProductLot[]
 
   createdAt DateTime @default(now())
 
   @@unique([organizationId, sku])
   @@index([organizationId, masterStock])
+}
+
+model ProductLot {
+  id        String  @id @default(cuid())
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId String
+
+  lotNumber         String
+  status            LotStatus @default(ACTIVE)
+  coaUrl            String?
+  quantityReceived  Int
+  quantityRemaining Int
+  receivedAt        DateTime  @default(now())
+  expiresAt         DateTime?
+  recalledAt        DateTime?
+  recallReason      String?
+
+  orderItems OrderItem[]
+
+  createdAt DateTime @default(now())
+
+  @@unique([productId, lotNumber])
+  @@index([productId, status])
+}
+
+enum LotStatus {
+  ACTIVE
+  DEPLETED
+  EXPIRED
+  RECALLED
 }
 
 model CoaDocument {
@@ -264,6 +295,15 @@ model OrderItem {
   name          String
   quantity      Int
   unitPriceCents Int
+
+  // Which batch fulfilled this line item — set automatically (FIFO, oldest
+  // active lot first) if the product has any lots recorded. This is the
+  // whole point of lot tracking: if a batch ever gets recalled, every
+  // OrderItem row pointing at it IS the recall list.
+  lot   ProductLot? @relation(fields: [lotId], references: [id])
+  lotId String?
+
+  @@index([lotId])
 }
 
 // ---------------------------------------------------------------------------

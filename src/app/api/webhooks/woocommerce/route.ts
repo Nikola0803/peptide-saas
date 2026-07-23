@@ -198,7 +198,8 @@ async function processOrder(brandId: string, organizationId: string, payload: an
     }
 
     // 2. Match line items against the master catalog, decrement stock,
-    //    and total up COGS for the net-profit calculation.
+    //    allocate against the oldest active batch (FIFO — this is what
+    //    makes a recall list possible later), and total up COGS.
     let cogsCentsTotal = 0;
     const resolvedItems: {
       productId?: string;
@@ -206,6 +207,7 @@ async function processOrder(brandId: string, organizationId: string, payload: an
       name: string;
       quantity: number;
       unitPriceCents: number;
+      lotId?: string;
     }[] = [];
 
     for (const item of lineItems) {
@@ -214,6 +216,7 @@ async function processOrder(brandId: string, organizationId: string, payload: an
       const unitPriceCents = toCents(Number(item.total ?? 0) / Math.max(quantity, 1));
 
       let productId: string | undefined;
+      let lotId: string | undefined;
       if (sku) {
         const product = await tx.product.findUnique({
           where: { organizationId_sku: { organizationId, sku } },
@@ -225,10 +228,29 @@ async function processOrder(brandId: string, organizationId: string, payload: an
             where: { id: product.id },
             data: { masterStock: { decrement: quantity } },
           });
+
+          // FIFO batch allocation: oldest active lot with stock left gets
+          // used first. Products with no lots recorded just skip this —
+          // lot tracking is opt-in, not required for the order to process.
+          const lot = await tx.productLot.findFirst({
+            where: { productId: product.id, status: "ACTIVE", quantityRemaining: { gt: 0 } },
+            orderBy: { receivedAt: "asc" },
+          });
+          if (lot) {
+            lotId = lot.id;
+            const remaining = lot.quantityRemaining - quantity;
+            await tx.productLot.update({
+              where: { id: lot.id },
+              data: {
+                quantityRemaining: Math.max(remaining, 0),
+                status: remaining <= 0 ? "DEPLETED" : "ACTIVE",
+              },
+            });
+          }
         }
       }
 
-      resolvedItems.push({ productId, sku: sku ?? "unknown", name: item.name ?? sku ?? "Item", quantity, unitPriceCents });
+      resolvedItems.push({ productId, lotId, sku: sku ?? "unknown", name: item.name ?? sku ?? "Item", quantity, unitPriceCents });
     }
 
     // 3. Affiliate attribution, if the order used a tracked coupon code.

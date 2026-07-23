@@ -46,6 +46,10 @@ const badgeStyles: Record<string, string> = {
   connected: "bg-primary-100 text-primary-700",
   pending: "bg-accent-100 text-accent-700",
   error: "bg-accent-200 text-accent-800",
+  active: "bg-primary-100 text-primary-700",
+  depleted: "bg-background-200 text-foreground-600",
+  expired: "bg-background-200 text-foreground-600",
+  recalled: "bg-accent-200 text-accent-800",
 };
 
 export function Badge({ status }: { status: string }) {

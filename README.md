@@ -283,6 +283,26 @@ ShipStation → Account Settings → API Settings). Once connected:
   mappings/tracking data too.
 - **Affiliates** — "New affiliate" now actually creates one
 
+## Batch/lot tracking & recalls
+
+Any product can have batches recorded (Master Products → a product's
+detail page → "Batches / lots"): lot number, quantity received, optional
+COA URL, optional expiry date. From then on, **every order that comes in
+through the live WooCommerce webhook auto-allocates against the oldest
+active batch with stock left (FIFO)** — that allocation is what makes a
+recall list possible later, since each `OrderItem` row remembers exactly
+which lot fulfilled it.
+
+If a batch ever needs recalling: open it, click "Recall this batch," give
+a reason. That instantly turns into an actionable report at
+`/products/[id]/lots/[lotId]/recall` — every affected order, customer
+email, brand, and quantity — and a red banner appears at the top of the
+Dashboard until it's resolved (can't be missed, doesn't wait behind any
+loading state).
+
+Products without any lots recorded skip all of this silently — lot
+tracking is opt-in per product, not required for orders to process.
+
 ## What's NOT built yet
 
 - **Multi-org signup/onboarding flow.** Right now organizations only

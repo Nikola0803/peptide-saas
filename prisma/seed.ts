@@ -46,6 +46,7 @@ async function main() {
   ];
 
   const products = [];
+  const productLots = new Map<string, string>();
   for (const def of productDefs) {
     const product = await prisma.product.upsert({
       where: { organizationId_sku: { organizationId: org.id, sku: def.sku } },
@@ -77,6 +78,19 @@ async function main() {
         data: { productId: product.id, url: `https://example.com/coa/${def.sku}.pdf`, label: "Lot 001" },
       });
     }
+
+    const lot = await prisma.productLot.upsert({
+      where: { productId_lotNumber: { productId: product.id, lotNumber: `LOT-${def.sku}-001` } },
+      update: {},
+      create: {
+        productId: product.id,
+        lotNumber: `LOT-${def.sku}-001`,
+        quantityReceived: def.masterStock + 40,
+        quantityRemaining: def.masterStock,
+        coaUrl: def.sku !== "IPAM-2MG" ? `https://example.com/coa/${def.sku}.pdf` : null,
+      },
+    });
+    productLots.set(def.sku, lot.id);
   }
 
   const affiliateDefs = [
@@ -171,6 +185,7 @@ async function main() {
           name: product.chemicalName,
           quantity: seed.qty,
           unitPriceCents: Math.round(seed.gross / seed.qty),
+          lotId: productLots.get(product.sku),
         },
       });
     }
