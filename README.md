@@ -273,10 +273,14 @@ ShipStation → Account Settings → API Settings). Once connected:
   chemical name, COGS, and master stock; add/remove COA documents; delete
   the product entirely (order history keeps the SKU/name as plain text
   even after the catalog row is gone, so past orders don't break)
-- **Webhooks page** — add a brand manually (for a non-WooCommerce site —
-  you get a delivery URL + secret to wire up by hand) or **remove any
-  brand**, including the seeded demo ones, which cascades to delete its
-  orders/contacts/products mappings/tracking data too
+- **Webhooks page** — add any website by URL (name + URL, no plugin
+  needed), then prove ownership with a paste-this-code-and-click-Verify
+  flow (same idea as Google Search Console — the code just needs to
+  appear anywhere in the homepage's HTML, a meta tag or plain footer text
+  both work). Plugin-registered brands skip this since possessing the org
+  API key is already proof enough. **Remove any brand**, including the
+  seeded demo ones, which cascades to delete its orders/contacts/product
+  mappings/tracking data too.
 - **Affiliates** — "New affiliate" now actually creates one
 
 ## What's NOT built yet

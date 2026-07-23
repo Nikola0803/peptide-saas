@@ -96,6 +96,14 @@ model Brand {
   webhookSecret  String      @default(cuid())
   wooConsumerKey String?
   wooConsumerSecret String?
+
+  // Domain ownership proof for manually-added sites — paste this token
+  // anywhere in the homepage's HTML, click Verify, done. Plugin-registered
+  // brands skip this (possessing the org API key is already proof enough)
+  // and get verifiedAt set immediately.
+  verificationToken String    @unique @default(cuid())
+  verifiedAt        DateTime?
+
   lastSyncedAt   DateTime?
   createdAt      DateTime    @default(now())
 
