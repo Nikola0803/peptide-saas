@@ -39,6 +39,7 @@ model Organization {
   webhookLogs WebhookEvent[]
   trackingEvents TrackingEvent[]
   shipstationConfig ShipStationConfig?
+  invoices    Invoice[]
 }
 
 enum Plan {
@@ -114,6 +115,7 @@ model Brand {
   webhookEvents WebhookEvent[]
   trackingConfig TrackingConfig?
   trackingEvents TrackingEvent[]
+  invoices       Invoice[]
 }
 
 enum BrandStatus {
@@ -271,11 +273,60 @@ model Order {
   shipToPostalCode String?
   shipToCountry    String?
 
+  // Fraud/risk review — a manual toggle, not automated scoring, but cheap
+  // and often enough: flag on suspicion (mismatched billing/shipping,
+  // large first order, etc.), see it at a glance on the order.
+  flaggedRisk Boolean @default(false)
+  riskReason  String?
+
+  notes   OrderNote[]
+  refunds Refund[]
+  invoices Invoice[]
+
   createdAt DateTime @default(now())
 
   @@unique([brandId, externalOrderNumber])
   @@index([organizationId, placedAt])
   @@index([brandId, placedAt])
+}
+
+model OrderNote {
+  id      String @id @default(cuid())
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId String
+  body    String
+
+  createdAt DateTime @default(now())
+
+  @@index([orderId, createdAt])
+}
+
+model Refund {
+  id      String @id @default(cuid())
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId String
+
+  type         RefundType
+  amountCents  Int
+  reason       String?
+  status       RefundStatus @default(PENDING)
+  resolvedAt   DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([orderId])
+}
+
+enum RefundType {
+  REFUND
+  CHARGEBACK
+}
+
+enum RefundStatus {
+  PENDING
+  WON
+  LOST
+  COMPLETED
 }
 
 enum OrderStatus {
@@ -426,6 +477,66 @@ model ShipStationConfig {
   lastSyncedAt DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Invoices — covers both a simple auto-generated retail receipt (rendered
+// on demand straight from an Order, no row needed) and real wholesale
+// invoices with their own lifecycle (draft → sent → paid/overdue), which
+// can optionally originate from an Order or stand alone for an ad-hoc
+// wholesale quote that never touched WooCommerce.
+// ---------------------------------------------------------------------------
+
+model Invoice {
+  id             String       @id @default(cuid())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+  brand          Brand?       @relation(fields: [brandId], references: [id])
+  brandId        String?
+  order          Order?       @relation(fields: [orderId], references: [id])
+  orderId        String?
+
+  invoiceNumber String @unique
+
+  customerName    String
+  customerEmail   String?
+  customerAddress String?
+
+  status  InvoiceStatus @default(DRAFT)
+  poNumber String?
+  notes    String?
+
+  issueDate DateTime  @default(now())
+  dueDate   DateTime?
+  paidAt    DateTime?
+
+  subtotalCents Int
+  taxCents      Int @default(0)
+  totalCents    Int
+
+  lineItems InvoiceLineItem[]
+
+  createdAt DateTime @default(now())
+
+  @@index([organizationId, status])
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+  VOID
+}
+
+model InvoiceLineItem {
+  id             String  @id @default(cuid())
+  invoice        Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  invoiceId      String
+  description    String
+  quantity       Int
+  unitPriceCents Int
+  totalCents     Int
 }
 
 

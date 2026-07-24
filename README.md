@@ -303,6 +303,41 @@ loading state).
 Products without any lots recorded skip all of this silently — lot
 tracking is opt-in per product, not required for orders to process.
 
+## Invoices, receipts, refunds/chargebacks, order notes
+
+**Order detail page** (new — Orders list rows now link to it): items,
+a notes thread, a fraud-flag toggle with a reason, and a refund/chargeback
+log with a won/lost resolution workflow for chargebacks.
+
+**Receipts** — every order gets one for free, no setup: "Download
+receipt" on its detail page streams a PDF generated on the spot from the
+order's own data (itemized, dated, with the standard research-use-only
+disclaimer footer) — nothing stored, nothing to configure.
+
+**Invoices** — a separate, real lifecycle (draft → sent → paid/overdue/
+void) for wholesale. Create one from scratch (`/invoices/new`) or straight
+from an order ("Create invoice" button on its detail page, which
+pre-fills customer info and line items from that order). Supports PO
+numbers, due dates, tax, and notes/terms (e.g. "Net 30"). Invoice numbers
+are sequential per organization (`INV-000123`).
+
+**Chargeback rate** — a stat card on the Orders page (all-time
+chargebacks ÷ all-time orders) — the number that actually determines
+whether your payment processor keeps your account open.
+
+Both PDFs are generated with `@react-pdf/renderer`, rendered server-side
+to a buffer (not streamed as a raw Node stream — that doesn't work
+reliably as a Next.js response body, worth knowing if you ever touch
+`src/lib/billing-pdf.tsx`).
+
+**Gaps worth knowing about:** invoice numbering is a simple count-based
+scheme (`count + 1`), not race-safe under concurrent invoice creation —
+fine at low volume, worth a real sequence/lock before this sees heavy
+concurrent use. The new-invoice form has a fixed number of line-item
+rows (8) rather than a dynamic add/remove list. Chargeback disputes
+don't auto-attach the receipt PDF anywhere (e.g. to an email) — that's a
+manual step for now.
+
 ## What's NOT built yet
 
 - **Multi-org signup/onboarding flow.** Right now organizations only

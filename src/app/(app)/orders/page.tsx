@@ -1,6 +1,7 @@
+import Link from "next/link";
 import { requireOrg } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
-import { PageHeader, Badge, EmptyState } from "@/components/ui";
+import { PageHeader, Badge, EmptyState, StatCard } from "@/components/ui";
 import { OrdersFilters } from "@/components/orders-filters";
 import { money, dateTime } from "@/lib/format";
 
@@ -18,7 +19,7 @@ export default async function OrdersPage({
 }) {
   const { organization } = await requireOrg();
 
-  const [brands, orders] = await Promise.all([
+  const [brands, orders, totalOrderCount, chargebackCount] = await Promise.all([
     prisma.brand.findMany({ where: { organizationId: organization.id }, orderBy: { name: "asc" } }),
     prisma.order.findMany({
       where: {
@@ -30,7 +31,11 @@ export default async function OrdersPage({
       include: { brand: true, contact: true },
       take: 100,
     }),
+    prisma.order.count({ where: { organizationId: organization.id } }),
+    prisma.refund.count({ where: { type: "CHARGEBACK", order: { organizationId: organization.id } } }),
   ]);
+
+  const chargebackRate = totalOrderCount > 0 ? ((chargebackCount / totalOrderCount) * 100).toFixed(2) : "0.00";
 
   return (
     <div>
@@ -49,6 +54,14 @@ export default async function OrdersPage({
           </>
         }
       />
+
+      <div className="mb-4 max-w-xs">
+        <StatCard
+          label="Chargeback rate"
+          value={`${chargebackRate}%`}
+          hint={`${chargebackCount} of ${totalOrderCount} orders, all-time`}
+        />
+      </div>
 
       {orders.length === 0 ? (
         <EmptyState
@@ -73,10 +86,19 @@ export default async function OrdersPage({
             </thead>
             <tbody>
               {orders.map((o) => (
-                <tr key={o.id} className="border-b border-background-100 last:border-0">
-                  <td className="py-3 px-4 font-mono text-xs text-foreground-700">#{o.externalOrderNumber}</td>
-                  <td className="py-3 px-4 text-foreground-800">{o.contact?.email ?? "—"}</td>
-                  <td className="py-3 px-4 text-foreground-700">{o.brand.name}</td>
+                <tr key={o.id} className="border-b border-background-100 last:border-0 hover:bg-background-100">
+                  <td className="py-3 px-4 font-mono text-xs text-foreground-700">
+                    <Link href={`/orders/${o.id}`} className="flex items-center gap-1.5">
+                      {o.flaggedRisk && <i className="ri-alert-line text-accent-600" title="Flagged for risk review" />}
+                      #{o.externalOrderNumber}
+                    </Link>
+                  </td>
+                  <td className="py-3 px-4 text-foreground-800">
+                    <Link href={`/orders/${o.id}`} className="block">{o.contact?.email ?? "—"}</Link>
+                  </td>
+                  <td className="py-3 px-4 text-foreground-700">
+                    <Link href={`/orders/${o.id}`} className="block">{o.brand.name}</Link>
+                  </td>
                   <td className="py-3 px-4">
                     <Badge status={o.status} />
                   </td>

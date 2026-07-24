@@ -50,6 +50,13 @@ const badgeStyles: Record<string, string> = {
   depleted: "bg-background-200 text-foreground-600",
   expired: "bg-background-200 text-foreground-600",
   recalled: "bg-accent-200 text-accent-800",
+  won: "bg-primary-100 text-primary-700",
+  lost: "bg-accent-200 text-accent-800",
+  draft: "bg-background-200 text-foreground-600",
+  sent: "bg-secondary-100 text-secondary-700",
+  paid: "bg-primary-100 text-primary-700",
+  overdue: "bg-accent-200 text-accent-800",
+  void: "bg-background-200 text-foreground-500",
 };
 
 export function Badge({ status }: { status: string }) {
