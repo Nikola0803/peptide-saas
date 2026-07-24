@@ -338,6 +338,39 @@ rows (8) rather than a dynamic add/remove list. Chargeback disputes
 don't auto-attach the receipt PDF anywhere (e.g. to an email) — that's a
 manual step for now.
 
+## Support inbox (WhatsApp + contact forms)
+
+One inbox (`/support`) for two channels:
+
+**WhatsApp** — connect once (Meta Business app → WhatsApp → API setup):
+give Meta the shown webhook URL + a verify token you make up, and paste
+the phone number ID, access token, app secret, and that same verify token
+into the Support page. One webhook URL serves every organization —
+Meta's verification handshake resolves the right one by matching the
+verify token, and incoming messages resolve by the payload's phone
+number ID, so nothing org-specific needs to be in the URL itself.
+Replies send for real through the WhatsApp Cloud API.
+
+**Contact form submissions** — the WP plugin auto-forwards **Contact
+Form 7** and **WPForms** submissions with no configuration; other form
+plugins can POST directly to the URL/key shown in the plugin's admin
+page (or on the Tracking & Pixels page — same public key the tracking
+pixel uses). Each submission becomes its own conversation/ticket; unlike
+WhatsApp, these aren't a two-way channel — reply by email.
+
+All of this was smoke-tested end-to-end against a real database during
+development: a real contact-form POST landed correctly in the inbox, the
+WhatsApp GET verification handshake correctly accepted a matching
+verify token and rejected a wrong one, and a POST with a valid
+HMAC-SHA256 signature was accepted and stored while an invalid signature
+was rejected (401).
+
+**Gaps worth knowing about:** no read/unread tracking (every message
+just shows in the thread, nothing marks a conversation "seen"), no
+assignment to a specific team member, and WhatsApp media messages
+(images, documents) aren't handled — only `text` message types are
+ingested today; anything else gets stored as a `[type]` placeholder.
+
 ## What's NOT built yet
 
 - **Multi-org signup/onboarding flow.** Right now organizations only

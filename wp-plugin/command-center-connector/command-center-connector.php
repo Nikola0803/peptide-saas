@@ -22,6 +22,7 @@ require_once CC_CONNECTOR_PATH . 'includes/class-cc-api-client.php';
 require_once CC_CONNECTOR_PATH . 'includes/class-cc-webhook-setup.php';
 require_once CC_CONNECTOR_PATH . 'includes/class-cc-sync.php';
 require_once CC_CONNECTOR_PATH . 'includes/class-cc-admin.php';
+require_once CC_CONNECTOR_PATH . 'includes/class-cc-forms.php';
 
 /**
  * Bail early (with an admin notice) if WooCommerce isn't active — every

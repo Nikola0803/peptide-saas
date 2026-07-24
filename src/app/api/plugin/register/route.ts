@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
 
   const origin = req.nextUrl.origin;
 
-  await prisma.trackingConfig.upsert({
+  const trackingConfig = await prisma.trackingConfig.upsert({
     where: { brandId: brand.id },
     update: {},
     create: { brandId: brand.id },
@@ -65,5 +65,7 @@ export async function POST(req: NextRequest) {
     brandSlug: brand.slug,
     webhookSecret: brand.webhookSecret,
     webhookUrl: `${origin}/api/webhooks/woocommerce?store=${brand.id}`,
+    trackingPublicKey: trackingConfig.publicKey,
+    formsSubmitUrl: `${origin}/api/forms/submit`,
   });
 }

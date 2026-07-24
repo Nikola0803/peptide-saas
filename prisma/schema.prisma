@@ -40,6 +40,8 @@ model Organization {
   trackingEvents TrackingEvent[]
   shipstationConfig ShipStationConfig?
   invoices    Invoice[]
+  conversations   Conversation[]
+  whatsappConfig  WhatsAppConfig?
 }
 
 enum Plan {
@@ -116,6 +118,7 @@ model Brand {
   trackingConfig TrackingConfig?
   trackingEvents TrackingEvent[]
   invoices       Invoice[]
+  conversations  Conversation[]
 }
 
 enum BrandStatus {
@@ -537,6 +540,81 @@ model InvoiceLineItem {
   quantity       Int
   unitPriceCents Int
   totalCents     Int
+}
+
+// ---------------------------------------------------------------------------
+// Support / Communications — one inbox for both channels. Contact-form
+// submissions arrive as a single inbound message per Conversation; WhatsApp
+// threads are genuinely two-way (inbound + outbound replies).
+// ---------------------------------------------------------------------------
+
+model Conversation {
+  id             String       @id @default(cuid())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+  brand          Brand?       @relation(fields: [brandId], references: [id], onDelete: SetNull)
+  brandId        String?
+
+  channel       ConversationChannel
+  status        ConversationStatus  @default(OPEN)
+  contactName   String?
+  contactEmail  String?
+  contactPhone  String? // E.164, WhatsApp threads are keyed off this
+
+  subject       String? // contact-form submissions often have one
+  lastMessageAt DateTime @default(now())
+  createdAt     DateTime @default(now())
+
+  messages Message[]
+
+  @@index([organizationId, channel, lastMessageAt])
+  @@unique([organizationId, channel, contactPhone])
+}
+
+enum ConversationChannel {
+  WHATSAPP
+  CONTACT_FORM
+}
+
+enum ConversationStatus {
+  OPEN
+  CLOSED
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversationId String
+
+  direction  MessageDirection
+  body       String
+  externalId String? // WhatsApp's own message id, for dedup on webhook retries
+  readAt     DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([conversationId, createdAt])
+  @@unique([externalId])
+}
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+model WhatsAppConfig {
+  id             String       @id @default(cuid())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String       @unique
+
+  phoneNumberId      String // Meta's WhatsApp Business phone number id
+  accessToken        String
+  appSecret          String // verifies X-Hub-Signature-256 on incoming webhooks
+  verifyToken        String // Meta's webhook handshake challenge token
+  businessDisplayPhone String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 

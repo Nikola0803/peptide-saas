@@ -57,6 +57,8 @@ const badgeStyles: Record<string, string> = {
   paid: "bg-primary-100 text-primary-700",
   overdue: "bg-accent-200 text-accent-800",
   void: "bg-background-200 text-foreground-500",
+  open: "bg-primary-100 text-primary-700",
+  closed: "bg-background-200 text-foreground-500",
 };
 
 export function Badge({ status }: { status: string }) {

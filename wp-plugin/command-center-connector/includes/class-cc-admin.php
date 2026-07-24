@@ -32,6 +32,8 @@ class CC_Admin {
 				'brand_slug'         => '',
 				'webhook_secret'     => '',
 				'webhook_url'        => '',
+				'tracking_public_key' => '',
+				'forms_submit_url'    => '',
 				'last_synced_at'     => '',
 			)
 		);
@@ -65,6 +67,23 @@ class CC_Admin {
 						<?php endif; ?>
 					</p>
 				</div>
+
+				<h2>Contact forms</h2>
+				<p>
+					Submissions from <strong>Contact Form 7</strong> and <strong>WPForms</strong> forward to your Command
+					Center's Support inbox automatically — nothing to configure. Using a different form plugin? POST to
+					the URL below with a JSON body of <code>{ publicKey, name, email, phone, subject, message }</code>.
+				</p>
+				<table class="form-table">
+					<tr>
+						<th>Submit URL</th>
+						<td><code><?php echo esc_html( $settings['forms_submit_url'] ); ?></code></td>
+					</tr>
+					<tr>
+						<th>Public key</th>
+						<td><code><?php echo esc_html( $settings['tracking_public_key'] ); ?></code></td>
+					</tr>
+				</table>
 
 				<h2>Sync</h2>
 				<p>Pull every product and order into the Command Center now, in addition to the automatic order webhooks already configured.</p>
@@ -135,6 +154,8 @@ class CC_Admin {
 				'brand_slug'         => $result['brandSlug'],
 				'webhook_secret'     => $result['webhookSecret'],
 				'webhook_url'        => $result['webhookUrl'],
+				'tracking_public_key' => isset( $result['trackingPublicKey'] ) ? $result['trackingPublicKey'] : '',
+				'forms_submit_url'    => isset( $result['formsSubmitUrl'] ) ? $result['formsSubmitUrl'] : '',
 				'last_synced_at'     => '',
 			)
 		);
