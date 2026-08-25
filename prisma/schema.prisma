@@ -201,7 +201,14 @@ model StoreMapping {
   externalProductId String // WooCommerce product ID on that store
   storePriceCents   Int?
 
+  // For headless storefronts (see /api/store/checkout) that don't have a
+  // WooCommerce product id to send — evlv-site's static catalog references
+  // products by this slug, and checkout resolves price/stock from it.
+  slug   String?
+  active Boolean @default(true)
+
   @@unique([brandId, externalProductId])
+  @@unique([brandId, slug])
 }
 
 // ---------------------------------------------------------------------------
@@ -214,6 +221,12 @@ model Contact {
   organizationId String
   email          String
   createdAt      DateTime     @default(now())
+
+  // Set when this contact registered an account on a headless storefront
+  // (see /api/store/auth/*). Null for contacts that only ever exist because
+  // a WooCommerce order webhook mentioned their email — those can't log in.
+  passwordHash String?
+  name         String?
 
   brandLinks ContactBrandLink[]
   orders     Order[]
@@ -254,6 +267,12 @@ model Order {
   grossCents          Int
   netProfitCents      Int?
   placedAt            DateTime
+
+  // Storefront checkouts (see /api/store/checkout) that pay by bank
+  // transfer / crypto memo rather than a card capture — the reference the
+  // customer says they'll pay with, checked manually against the payment
+  // rail before the order is moved out of ON_HOLD.
+  paymentMemo String?
 
   items       OrderItem[]
   attribution AffiliateOrderAttribution?
