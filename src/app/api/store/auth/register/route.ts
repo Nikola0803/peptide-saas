@@ -8,6 +8,7 @@ const bodySchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
   name: z.string().optional(),
+  marketingOptIn: z.boolean().optional(),
 });
 
 // POST /api/store/auth/register
@@ -51,5 +52,12 @@ export async function POST(req: NextRequest) {
     email,
   });
 
-  return NextResponse.json({ token, customer: { email, name: contact.name } }, { status: 201 });
+  // Flat shape, not nested under `customer` — evlv-site's saveAuth() reads
+  // token/email/username/user_id directly off the top-level response and
+  // writes them straight to localStorage as-is (src/lib/auth.ts), so
+  // anything nested here is silently lost on their end.
+  return NextResponse.json(
+    { token, email, username: contact.name || email, user_id: contact.id },
+    { status: 201 }
+  );
 }

@@ -42,5 +42,6 @@ export async function POST(req: NextRequest) {
     email,
   });
 
-  return NextResponse.json({ token, customer: { email, name: contact.name } });
+  // Flat shape — see the matching comment in ../register/route.ts.
+  return NextResponse.json({ token, email, username: contact.name || email, user_id: contact.id });
 }

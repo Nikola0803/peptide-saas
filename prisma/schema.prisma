@@ -272,7 +272,11 @@ model Order {
   // transfer / crypto memo rather than a card capture — the reference the
   // customer says they'll pay with, checked manually against the payment
   // rail before the order is moved out of ON_HOLD.
-  paymentMemo String?
+  paymentMemo   String?
+  // Which rail the memo above is for — evlv-site's checkout offers
+  // cashapp / zelle / venmo as of this writing, but this is free text so a
+  // new gateway on the storefront side never needs a CRM migration.
+  paymentMethod String?
 
   items       OrderItem[]
   attribution AffiliateOrderAttribution?
