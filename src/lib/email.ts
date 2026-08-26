@@ -4,8 +4,8 @@ import { prisma } from "@/lib/prisma";
 // Every email this app sends goes through here. Provider is Resend, chosen
 // because it needed the least setup ceremony (an API key + a verified
 // sending domain) to get order confirmations out the door fast — swap
-// `sendRaw` if that ever needs to change, nothing else in this file talks
-// to Resend directly.
+// `sendEmail` if that ever needs to change, nothing else in this file
+// talks to Resend directly.
 //
 // EMAIL_FROM must be an address on a domain verified in the Resend
 // dashboard (e.g. "EVLV <orders@evlvpeptides.com>") — sending from an
@@ -17,19 +17,20 @@ export function emailConfigured(): boolean {
   return Boolean(process.env.RESEND_API_KEY && process.env.EMAIL_FROM);
 }
 
-async function sendRaw(to: string, subject: string, html: string): Promise<void> {
+// Returns whether the send actually succeeded — most callers (order/reply
+// emails) don't check this and just treat the whole thing as best-effort,
+// but the newsletter sender needs a real per-recipient success count.
+export async function sendEmail(to: string, subject: string, html: string): Promise<boolean> {
   if (!resend || !process.env.EMAIL_FROM) {
     console.warn(`[email] Not configured (RESEND_API_KEY/EMAIL_FROM missing) — skipped "${subject}" to ${to}`);
-    return;
+    return false;
   }
   const { error } = await resend.emails.send({ from: process.env.EMAIL_FROM, to, subject, html });
   if (error) {
-    // Never let a failed email break the order/reply flow that triggered
-    // it — every caller in this app treats sendTemplate/sendRaw as
-    // best-effort and wraps it, but guard here too in case a future
-    // caller doesn't.
     console.error(`[email] Send failed for "${subject}" to ${to}:`, error);
+    return false;
   }
+  return true;
 }
 
 // {{variableName}} substitution — deliberately not a templating engine
@@ -68,6 +69,18 @@ const LAYOUT = (body: string) => `
 // EmailTemplate row exists yet for that key/org, so real emails go out
 // correctly from day one, before anyone has touched the Email page.
 export const DEFAULT_TEMPLATES: EmailTemplateDefault[] = [
+  {
+    key: "welcome_customer",
+    name: "Welcome (new account)",
+    description: "Sent right after someone creates an account on evlv-site.",
+    subject: "Welcome to EVLV, {{customerName}}",
+    sampleVars: { customerName: "Jordan" },
+    html: LAYOUT(`
+      <h1 style="font-size: 20px;">Welcome to EVLV, {{customerName}}</h1>
+      <p>Your account is set up. You can track orders, view COAs, and manage your addresses any time from your account page.</p>
+      <p>Questions before your first order? Just reply to this email.</p>
+    `),
+  },
   {
     key: "order_confirmation_customer",
     name: "Order confirmation (customer)",
@@ -130,5 +143,5 @@ export async function getTemplate(organizationId: string, key: string): Promise<
 
 export async function sendTemplate(organizationId: string, key: string, to: string, vars: Record<string, string>): Promise<void> {
   const { subject, html } = await getTemplate(organizationId, key);
-  await sendRaw(to, renderTemplate(subject, vars), renderTemplate(html, vars));
+  await sendEmail(to, renderTemplate(subject, vars), renderTemplate(html, vars));
 }

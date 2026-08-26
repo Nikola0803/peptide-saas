@@ -55,6 +55,7 @@ model Organization {
   whatsappConfig  WhatsAppConfig?
   emailTemplates  EmailTemplate[]
   suppliers       Supplier[]
+  newsletters     Newsletter[]
 }
 
 enum Plan {
@@ -253,11 +254,18 @@ model Contact {
   passwordHash String?
   name         String?
 
+  // Set from the register form's marketingOptIn checkbox (see
+  // /api/store/auth/register). Newsletter sends only ever go to contacts
+  // where this is true -- there's no separate "unsubscribed" list, opting
+  // out just flips this back off.
+  marketingOptIn Boolean @default(false)
+
   brandLinks ContactBrandLink[]
   orders     Order[]
 
   @@unique([organizationId, email])
   @@index([organizationId, createdAt])
+  @@index([organizationId, marketingOptIn])
 }
 
 // Per-brand customer identity, so the same email on two WooCommerce stores
@@ -806,6 +814,25 @@ model EmailTemplate {
   updatedAt DateTime @updatedAt
 
   @@unique([organizationId, key])
+}
+
+// One row per newsletter blast actually sent — a record of what went out
+// and to how many people, not a queue (sends happen synchronously from the
+// Email page). In-house alternative to Mailchimp: same Resend account and
+// Contact list this app already has, no second subscription.
+model Newsletter {
+  id             String       @id @default(cuid())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+
+  subject         String
+  html            String @db.Text
+  recipientCount  Int
+  failedCount     Int @default(0)
+
+  createdAt DateTime @default(now())
+
+  @@index([organizationId, createdAt])
 }
 
 
