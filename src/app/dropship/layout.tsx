@@ -3,9 +3,11 @@ import { requireSupplier } from "@/lib/session";
 import { SignOutButton } from "@/components/sign-out-button";
 
 const DROPSHIP_NAV = [
-  { label: "Orders", href: "/dropship", icon: "ri-shopping-bag-3-line" },
+  { label: "Dashboard", href: "/dropship", icon: "ri-dashboard-2-line" },
+  { label: "Orders", href: "/dropship/orders", icon: "ri-shopping-bag-3-line" },
   { label: "Products", href: "/dropship/products", icon: "ri-flask-line" },
   { label: "Billing", href: "/dropship/billing", icon: "ri-bill-line" },
+  { label: "Account", href: "/dropship/account", icon: "ri-user-settings-line" },
 ];
 
 export default async function DropshipLayout({ children }: { children: React.ReactNode }) {

@@ -58,3 +58,12 @@ export async function inviteSupplierLogin(supplierId: string, formData: FormData
   revalidatePath("/suppliers");
   return { email, password };
 }
+
+export async function setInvoiceStatus(invoiceId: string, status: "SENT" | "PAID") {
+  const { organization } = await requireOrg();
+  await prisma.supplierInvoice.updateMany({
+    where: { id: invoiceId, supplier: { organizationId: organization.id } },
+    data: { status },
+  });
+  revalidatePath("/suppliers");
+}

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireOrg } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader, Card, Badge, EmptyState } from "@/components/ui";
@@ -13,6 +14,7 @@ export default async function SuppliersPage() {
     include: {
       products: { where: { active: true } },
       memberships: { include: { user: true } },
+      invoices: { where: { status: { not: "PAID" } } },
       _count: { select: { orderItems: true } },
     },
     orderBy: { name: "asc" },
@@ -34,21 +36,29 @@ export default async function SuppliersPage() {
             suppliers.map((s) => {
               const login = s.memberships[0]?.user;
               const costTotal = s.products.reduce((sum, p) => sum + p.costCents + p.shippingCents, 0);
+              const owed = s.invoices.reduce((sum, i) => sum + i.totalCents, 0);
               return (
                 <Card key={s.id} className="p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <div className="flex items-center gap-2">
-                        <h2 className="text-sm font-semibold text-foreground-950">{s.name}</h2>
+                        <Link href={`/suppliers/${s.id}`} className="text-sm font-semibold text-foreground-950 hover:underline">
+                          {s.name}
+                        </Link>
                         <Badge status={s.active ? "connected" : "pending"} />
                       </div>
                       <p className="text-xs text-foreground-500 mt-0.5">{s.contactEmail || "No contact email"}</p>
                     </div>
-                    <form action={setSupplierActive.bind(null, s.id, !s.active)}>
-                      <button className="text-xs border border-background-300 rounded-md px-2.5 py-1 text-foreground-700 hover:bg-background-100">
-                        {s.active ? "Deactivate" : "Activate"}
-                      </button>
-                    </form>
+                    <div className="flex items-center gap-1.5">
+                      <Link href={`/suppliers/${s.id}`} className="text-xs border border-background-300 rounded-md px-2.5 py-1 text-foreground-700 hover:bg-background-100">
+                        Invoices{owed > 0 ? ` (${money(owed)} owed)` : ""}
+                      </Link>
+                      <form action={setSupplierActive.bind(null, s.id, !s.active)}>
+                        <button className="text-xs border border-background-300 rounded-md px-2.5 py-1 text-foreground-700 hover:bg-background-100">
+                          {s.active ? "Deactivate" : "Activate"}
+                        </button>
+                      </form>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-3 gap-2 pt-3 mt-3 border-t border-background-200 text-center">
