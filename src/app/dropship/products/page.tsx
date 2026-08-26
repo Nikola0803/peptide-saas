@@ -70,7 +70,8 @@ export default async function DropshipProductsPage() {
           <Card className="p-4">
             <h2 className="text-sm font-semibold text-foreground-950 mb-3">Add / update a product</h2>
             <form action={setSupplierProduct} className="space-y-2">
-              <input name="sku" required placeholder="SKU (must match master catalog)" className="w-full text-sm border border-background-300 rounded px-2.5 py-1.5 bg-background-50 font-mono" />
+              <input name="sku" required placeholder="SKU" className="w-full text-sm border border-background-300 rounded px-2.5 py-1.5 bg-background-50 font-mono" />
+              <input name="name" placeholder="Product name (only needed for a new SKU)" className="w-full text-sm border border-background-300 rounded px-2.5 py-1.5 bg-background-50" />
               <input name="cost" required type="number" step="0.01" min="0.01" placeholder="Your cost, $" className="w-full text-sm border border-background-300 rounded px-2.5 py-1.5 bg-background-50" />
               <input name="shipping" type="number" step="0.01" min="0" placeholder="Shipping rate, $" className="w-full text-sm border border-background-300 rounded px-2.5 py-1.5 bg-background-50" />
               <input name="stock" type="number" step="1" min="0" placeholder="Stock on hand" className="w-full text-sm border border-background-300 rounded px-2.5 py-1.5 bg-background-50" />
@@ -83,7 +84,8 @@ export default async function DropshipProductsPage() {
           <Card className="p-4">
             <h2 className="text-sm font-semibold text-foreground-950 mb-1">Bulk import</h2>
             <p className="text-xs text-foreground-500 mb-3">
-              CSV with header row: <code className="font-mono">sku,cost,shipping,stock</code>
+              CSV with header row: <code className="font-mono">sku,wholesale,name,mg,shipping,stock</code> — only sku
+              and wholesale are required. Unknown SKUs get added to the master catalog automatically.
             </p>
             <ImportForm />
           </Card>

@@ -44,6 +44,51 @@ export async function updateProduct(productId: string, formData: FormData) {
   revalidatePath(`/products/${productId}`);
 }
 
+function slugify(value: string): string {
+  return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+}
+
+// The markup step: whatever a supplier charges (SupplierProduct.costCents,
+// set on their own side) has no bearing on what this sets — staff types
+// the retail price directly, however they want to mark it up. Creates the
+// StoreMapping if this product isn't on that brand's storefront yet
+// (common right after a supplier price-list import, which only touches
+// the master catalog + SupplierProduct, never pricing).
+export async function setStorePrice(productId: string, brandId: string, formData: FormData) {
+  const { organization } = await requireOrg();
+
+  const product = await prisma.product.findFirst({ where: { id: productId, organizationId: organization.id } });
+  if (!product) throw new Error("Product not found");
+  const brand = await prisma.brand.findFirst({ where: { id: brandId, organizationId: organization.id } });
+  if (!brand) throw new Error("Brand not found");
+
+  const price = Number(formData.get("price") ?? 0);
+  if (!(price > 0)) throw new Error("Price must be greater than zero");
+  const slugInput = String(formData.get("slug") ?? "").trim();
+  const slug = slugInput ? slugify(slugInput) : slugify(product.sku);
+
+  const existing = await prisma.storeMapping.findFirst({ where: { productId, brandId } });
+  if (existing) {
+    await prisma.storeMapping.update({
+      where: { id: existing.id },
+      data: { storePriceCents: Math.round(price * 100), slug, active: true },
+    });
+  } else {
+    await prisma.storeMapping.create({
+      data: {
+        productId,
+        brandId,
+        externalProductId: slug,
+        slug,
+        storePriceCents: Math.round(price * 100),
+        active: true,
+      },
+    });
+  }
+
+  revalidatePath(`/products/${productId}`);
+}
+
 export async function deleteProduct(productId: string) {
   const { organization } = await requireOrg();
   await prisma.product.delete({ where: { id: productId, organizationId: organization.id } });
