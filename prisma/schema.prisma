@@ -135,6 +135,13 @@ model Brand {
   lastSyncedAt   DateTime?
   createdAt      DateTime    @default(now())
 
+  // ── Shop/store profile, used to style marketing emails and shown on the storefront ──
+  logoUrl          String? // shown in the CRM UI and used as the header image in marketing emails
+  supportEmail     String? // public contact address; also the reply-to on marketing emails
+  senderName       String? // "From" display name on marketing emails, e.g. "EVLV Team"
+  emailAccentColor String? // hex, e.g. "#B8875A" — used for buttons/links in marketing email templates
+  businessAddress  String? // physical mailing address, required on marketing emails for CAN-SPAM compliance
+
   @@unique([organizationId, slug])
   products      StoreMapping[]
   contactLinks  ContactBrandLink[]

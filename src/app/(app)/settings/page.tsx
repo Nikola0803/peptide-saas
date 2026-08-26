@@ -2,15 +2,16 @@ import { requireOrg } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader, Card } from "@/components/ui";
 import { CopyableField } from "@/components/copyable-field";
-import { regenerateApiKey } from "./actions";
+import { regenerateApiKey, updateBrandProfile } from "./actions";
 import { SignOutButton } from "@/components/sign-out-button";
 
 export default async function SettingsPage() {
   const { organization, session } = await requireOrg();
 
-  const [memberCount, brandCount] = await Promise.all([
+  const [memberCount, brandCount, brands] = await Promise.all([
     prisma.membership.count({ where: { organizationId: organization.id } }),
     prisma.brand.count({ where: { organizationId: organization.id } }),
+    prisma.brand.findMany({ where: { organizationId: organization.id }, orderBy: { createdAt: "asc" } }),
   ]);
 
   return (
@@ -61,6 +62,69 @@ export default async function SettingsPage() {
             </button>
           </form>
         </Card>
+
+        {brands.map((brand) => (
+          <Card key={brand.id} className="p-4 lg:col-span-2">
+            <h2 className="text-sm font-semibold text-foreground-950 mb-1">{brand.name} shop profile</h2>
+            <p className="text-xs text-foreground-500 mb-3">
+              Used to style this brand&apos;s marketing/transactional emails and shown on its storefront.
+            </p>
+            <form action={updateBrandProfile} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <input type="hidden" name="brandId" value={brand.id} />
+              <div>
+                <label className="block text-xs font-medium text-foreground-600 mb-1">Logo URL</label>
+                <input
+                  name="logoUrl"
+                  defaultValue={brand.logoUrl ?? ""}
+                  placeholder="https://.../logo.png"
+                  className="w-full text-sm border border-background-300 rounded px-2.5 py-1.5 bg-background-50"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-foreground-600 mb-1">Support email</label>
+                <input
+                  name="supportEmail"
+                  type="email"
+                  defaultValue={brand.supportEmail ?? ""}
+                  placeholder="support@evlvpeptides.com"
+                  className="w-full text-sm border border-background-300 rounded px-2.5 py-1.5 bg-background-50"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-foreground-600 mb-1">Sender name</label>
+                <input
+                  name="senderName"
+                  defaultValue={brand.senderName ?? ""}
+                  placeholder="EVLV Team"
+                  className="w-full text-sm border border-background-300 rounded px-2.5 py-1.5 bg-background-50"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-foreground-600 mb-1">Email accent color</label>
+                <input
+                  name="emailAccentColor"
+                  defaultValue={brand.emailAccentColor ?? ""}
+                  placeholder="#B8875A"
+                  className="w-full text-sm border border-background-300 rounded px-2.5 py-1.5 bg-background-50"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-medium text-foreground-600 mb-1">Business address</label>
+                <input
+                  name="businessAddress"
+                  defaultValue={brand.businessAddress ?? ""}
+                  placeholder="Required on marketing emails for CAN-SPAM compliance"
+                  className="w-full text-sm border border-background-300 rounded px-2.5 py-1.5 bg-background-50"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <button className="text-sm border border-background-300 rounded-md px-3 py-1.5 text-foreground-800 hover:bg-background-100">
+                  Save shop profile
+                </button>
+              </div>
+            </form>
+          </Card>
+        ))}
       </div>
     </div>
   );

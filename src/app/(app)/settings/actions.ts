@@ -16,3 +16,30 @@ export async function regenerateApiKey() {
   revalidatePath("/settings");
   revalidatePath("/webhooks");
 }
+
+function str(fd: FormData, key: string): string | null {
+  const v = fd.get(key);
+  return typeof v === "string" && v.trim() ? v.trim() : null;
+}
+
+export async function updateBrandProfile(formData: FormData) {
+  const { organization } = await requireOrg();
+  const brandId = str(formData, "brandId");
+  if (!brandId) return;
+
+  const brand = await prisma.brand.findFirst({ where: { id: brandId, organizationId: organization.id } });
+  if (!brand) return;
+
+  await prisma.brand.update({
+    where: { id: brandId },
+    data: {
+      logoUrl: str(formData, "logoUrl"),
+      supportEmail: str(formData, "supportEmail"),
+      senderName: str(formData, "senderName"),
+      emailAccentColor: str(formData, "emailAccentColor"),
+      businessAddress: str(formData, "businessAddress"),
+    },
+  });
+
+  revalidatePath("/settings");
+}

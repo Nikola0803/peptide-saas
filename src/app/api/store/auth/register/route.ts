@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { resolveHeaderOverride } from "@/lib/store-context";
 import { hashPassword, signCustomerToken } from "@/lib/customer-auth";
 import { sendTemplate } from "@/lib/email";
+import { subscribeToMailchimp } from "@/lib/mailchimp";
 
 const bodySchema = z.object({
   email: z.string().email(),
@@ -50,6 +51,9 @@ export async function POST(req: NextRequest) {
   sendTemplate(store.organizationId, "welcome_customer", email, { customerName: contact.name || email }).catch((err) =>
     console.error("Welcome email failed", err)
   );
+  if (marketingOptIn) {
+    subscribeToMailchimp(email, { firstName: contact.name || undefined }).catch(() => {});
+  }
 
   const token = signCustomerToken({
     contactId: contact.id,
