@@ -352,6 +352,18 @@ model Order {
   ipAddress   String?
   userAgent   String?
 
+  // Stock reservation for pay-by-memo storefront orders (see
+  // src/lib/stock-release-job.ts). masterStock/SupplierProduct.stock is
+  // decremented at checkout like a real sale, but for an order that never
+  // gets paid that stock needs to come back — stockReleasedAt is set once
+  // it has (by the 24h auto-release job, or a manual "Cancel & release"),
+  // so release is idempotent and only ever runs once per order.
+  // paymentConfirmedAt is set by staff manually confirming payment
+  // (Orders page) — the one thing that actually moves status out of
+  // ON_HOLD today, since there was no way to do that at all before this.
+  stockReleasedAt   DateTime?
+  paymentConfirmedAt DateTime?
+
   notes   OrderNote[]
   refunds Refund[]
   invoices Invoice[]
@@ -492,8 +504,17 @@ model SupplierProduct {
 
   costCents     Int // what the supplier bills us for the item itself
   shippingCents Int @default(0) // what the supplier bills us to ship one unit
-  stock         Int @default(0)
+  stock         Int @default(0) // decremented at checkout, restored on stock release -- see Order.stockReleasedAt
   active        Boolean @default(true)
+
+  // Free-form restock tracking a supplier fills in themselves -- "more
+  // details for each product" without inventing a rigid multi-stage
+  // pipeline (incoming/ordered/in-transit/etc.) nobody actually specified
+  // the states of. A note plus a date covers "400 units arriving the 12th"
+  // just as well as a formal state machine would, for a lot less to get
+  // wrong.
+  restockNote String?
+  restockEta  DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

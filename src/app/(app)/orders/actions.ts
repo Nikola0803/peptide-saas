@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireOrg } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
+import { releaseOrderStock } from "@/lib/stock-release-job";
 
 async function assertOrderOwnership(orderId: string) {
   const { organization } = await requireOrg();
@@ -57,4 +58,57 @@ export async function updateRefundStatus(orderId: string, refundId: string, stat
     data: { status, resolvedAt: status === "PENDING" ? null : new Date() },
   });
   revalidatePath(`/orders/${orderId}`);
+}
+
+// The thing that was actually missing before any of this: a way to move
+// an order out of ON_HOLD at all. Confirming payment does NOT re-reserve
+// stock if it was already auto-released for sitting unpaid too long
+// (stockReleasedAt set) -- that stock may already be sold to someone
+// else by then; the note flags it so staff notice and can act (restock,
+// contact the customer, etc.) rather than silently overselling.
+export async function confirmPayment(orderId: string) {
+  const order = await assertOrderOwnership(orderId);
+
+  await prisma.order.update({
+    where: { id: orderId },
+    data: { status: "PROCESSING", paymentConfirmedAt: new Date() },
+  });
+
+  if (order.stockReleasedAt) {
+    await prisma.orderNote.create({
+      data: {
+        orderId,
+        body: "Payment confirmed after stock was already auto-released — check availability before shipping, it may need to be re-reserved manually.",
+      },
+    });
+  }
+
+  revalidatePath(`/orders/${orderId}`);
+  revalidatePath("/orders");
+}
+
+export async function markCompleted(orderId: string) {
+  await assertOrderOwnership(orderId);
+  await prisma.order.update({ where: { id: orderId }, data: { status: "COMPLETED" } });
+  revalidatePath(`/orders/${orderId}`);
+  revalidatePath("/orders");
+}
+
+// Manual version of what the 24h job does automatically -- for staff to
+// cancel a storefront order and free its reserved stock right away
+// instead of waiting out the window.
+export async function cancelAndReleaseStock(orderId: string) {
+  const order = await assertOrderOwnership(orderId);
+  if (order.status !== "ON_HOLD") throw new Error("Only an ON_HOLD order can be cancelled this way");
+
+  const released = await releaseOrderStock(orderId);
+  await prisma.order.update({ where: { id: orderId }, data: { status: "REFUNDED" } });
+  if (!released) {
+    await prisma.orderNote.create({ data: { orderId, body: "Order cancelled by staff (stock had already been released)." } });
+  } else {
+    await prisma.orderNote.create({ data: { orderId, body: "Order cancelled by staff — stock released back to available." } });
+  }
+
+  revalidatePath(`/orders/${orderId}`);
+  revalidatePath("/orders");
 }

@@ -4,7 +4,8 @@ import { requireOrg } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader, Card, Badge } from "@/components/ui";
 import { money, dateTime } from "@/lib/format";
-import { addOrderNote, setFraudFlag, addRefund, updateRefundStatus } from "../actions";
+import { addOrderNote, setFraudFlag, addRefund, updateRefundStatus, confirmPayment, markCompleted, cancelAndReleaseStock } from "../actions";
+import { RELEASE_WINDOW_HOURS } from "@/lib/stock-release-job";
 
 export default async function OrderDetailPage({ params }: { params: { id: string } }) {
   const { organization } = await requireOrg();
@@ -32,6 +33,27 @@ export default async function OrderDetailPage({ params }: { params: { id: string
         subtitle={`${order.brand.name} · ${dateTime(order.placedAt)}`}
         actions={
           <>
+            {order.status === "ON_HOLD" && (
+              <>
+                <form action={confirmPayment.bind(null, order.id)}>
+                  <button className="text-sm bg-primary-500 text-background-50 rounded-md px-3 py-1.5 font-medium hover:bg-primary-600">
+                    Confirm payment
+                  </button>
+                </form>
+                <form action={cancelAndReleaseStock.bind(null, order.id)}>
+                  <button className="text-sm border border-background-300 rounded-md px-3 py-1.5 text-accent-700 hover:bg-accent-50">
+                    Cancel & release stock
+                  </button>
+                </form>
+              </>
+            )}
+            {order.status === "PROCESSING" && (
+              <form action={markCompleted.bind(null, order.id)}>
+                <button className="text-sm bg-primary-500 text-background-50 rounded-md px-3 py-1.5 font-medium hover:bg-primary-600">
+                  Mark completed
+                </button>
+              </form>
+            )}
             <a
               href={`/api/orders/${order.id}/receipt`}
               target="_blank"
@@ -57,6 +79,21 @@ export default async function OrderDetailPage({ params }: { params: { id: string
             <span className="text-sm font-semibold text-accent-800">Flagged for risk review</span>
           </div>
           {order.riskReason && <p className="text-xs text-accent-800 mt-1">{order.riskReason}</p>}
+        </div>
+      )}
+
+      {order.status === "ON_HOLD" && !order.stockReleasedAt && order.externalOrderNumber.startsWith("STORE-") && (
+        <div className="mb-4 rounded-md bg-background-100 border border-background-200 px-4 py-3 text-xs text-foreground-600">
+          <i className="ri-lock-line mr-1" />
+          Stock is reserved for this order. If payment isn't confirmed within {RELEASE_WINDOW_HOURS}h of{" "}
+          {dateTime(order.placedAt)}, it releases back to available automatically.
+        </div>
+      )}
+      {order.stockReleasedAt && (
+        <div className="mb-4 rounded-md bg-accent-50 border border-accent-300 px-4 py-3 text-xs text-accent-800">
+          <i className="ri-lock-unlock-line mr-1" />
+          Stock was released back to available at {dateTime(order.stockReleasedAt)} — this order went unpaid past the{" "}
+          {RELEASE_WINDOW_HOURS}h window.
         </div>
       )}
 

@@ -139,10 +139,25 @@ export async function runCheckout(
         throw new CheckoutError(`Unknown or unpriced product: ${item.slug}`, "UNKNOWN_PRODUCT", { slug: item.slug });
       }
       const product = mapping.product;
-      if (product.masterStock < quantity) {
+
+      // Dropshipping — if a supplier currently lists this product as
+      // in-stock, this item is theirs to fulfill; sticks with the item
+      // permanently even if the SupplierProduct row changes later (see
+      // OrderItem.supplierId's doc comment in schema.prisma). Resolved
+      // before the stock check because a dropshipped product's real
+      // availability is HIS stock count, not Product.masterStock (which
+      // is 0 for anything EVLV never physically holds — see
+      // src/lib/supplier-import.ts) — checking masterStock here would
+      // make every dropshipped item permanently "out of stock".
+      const supplierProduct = await tx.supplierProduct.findFirst({
+        where: { productId: product.id, active: true, supplier: { active: true } },
+      });
+
+      const availableStock = supplierProduct ? supplierProduct.stock : product.masterStock;
+      if (availableStock < quantity) {
         throw new CheckoutError(`Insufficient stock for ${product.sku}`, "OUT_OF_STOCK", {
           slug: item.slug,
-          available: product.masterStock,
+          available: availableStock,
         });
       }
 
@@ -150,11 +165,21 @@ export async function runCheckout(
       grossCentsTotal += unitPriceCents * quantity;
       cogsCentsTotal += product.cogsCents * quantity;
 
-      await tx.product.update({ where: { id: product.id }, data: { masterStock: { decrement: quantity } } });
+      // "Stock locked until payment confirmed": whichever pool actually
+      // covers this item gets decremented now, at order time, not at
+      // shipment time — released back by src/lib/stock-release-job.ts if
+      // the order is never paid.
+      if (supplierProduct) {
+        await tx.supplierProduct.update({ where: { id: supplierProduct.id }, data: { stock: { decrement: quantity } } });
+      } else {
+        await tx.product.update({ where: { id: product.id }, data: { masterStock: { decrement: quantity } } });
+      }
 
       // FIFO batch allocation, same as the WooCommerce ingestion path — see
       // that file's comment for why this is what makes a recall list
-      // possible later.
+      // possible later. Dropshipped products typically have no lots
+      // recorded (EVLV never receives the physical batch), so this is a
+      // no-op for them.
       let lotId: string | undefined;
       const lot = await tx.productLot.findFirst({
         where: { productId: product.id, status: "ACTIVE", quantityRemaining: { gt: 0 } },
@@ -168,14 +193,6 @@ export async function runCheckout(
           data: { quantityRemaining: Math.max(remaining, 0), status: remaining <= 0 ? "DEPLETED" : "ACTIVE" },
         });
       }
-
-      // Dropshipping — if a supplier currently lists this product as
-      // in-stock, this item is theirs to fulfill; sticks with the item
-      // permanently even if the SupplierProduct row changes later (see
-      // OrderItem.supplierId's doc comment in schema.prisma).
-      const supplierProduct = await tx.supplierProduct.findFirst({
-        where: { productId: product.id, active: true, supplier: { active: true } },
-      });
 
       resolvedItems.push({
         productId: product.id,

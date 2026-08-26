@@ -1,7 +1,7 @@
 import { requireSupplier } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader, Card, Badge, EmptyState } from "@/components/ui";
-import { money } from "@/lib/format";
+import { money, shortDate } from "@/lib/format";
 import { setSupplierProduct, setSupplierProductActive } from "./actions";
 import { ImportForm } from "./import-form";
 
@@ -47,7 +47,14 @@ export default async function DropshipProductsPage() {
                       <td className="px-4 py-2.5 font-mono text-xs text-foreground-600">{sp.product.sku}</td>
                       <td className="px-4 py-2.5 text-right tabular-nums">{money(sp.costCents)}</td>
                       <td className="px-4 py-2.5 text-right tabular-nums">{money(sp.shippingCents)}</td>
-                      <td className="px-4 py-2.5 text-right tabular-nums">{sp.stock}</td>
+                      <td className="px-4 py-2.5 text-right tabular-nums">
+                        {sp.stock}
+                        {sp.stock === 0 && (sp.restockNote || sp.restockEta) && (
+                          <div className="text-[10px] text-foreground-500 font-normal">
+                            {sp.restockEta ? `Restocking ${shortDate(sp.restockEta)}` : sp.restockNote}
+                          </div>
+                        )}
+                      </td>
                       <td className="px-4 py-2.5">
                         <Badge status={sp.active ? "connected" : "pending"} />
                       </td>
@@ -75,6 +82,11 @@ export default async function DropshipProductsPage() {
               <input name="cost" required type="number" step="0.01" min="0.01" placeholder="Your cost, $" className="w-full text-sm border border-background-300 rounded px-2.5 py-1.5 bg-background-50" />
               <input name="shipping" type="number" step="0.01" min="0" placeholder="Shipping rate, $" className="w-full text-sm border border-background-300 rounded px-2.5 py-1.5 bg-background-50" />
               <input name="stock" type="number" step="1" min="0" placeholder="Stock on hand" className="w-full text-sm border border-background-300 rounded px-2.5 py-1.5 bg-background-50" />
+              <div>
+                <label className="block text-[11px] text-foreground-500 mb-1">If out of stock — restock note / ETA</label>
+                <input name="restockNote" placeholder="e.g. Reordered from manufacturer" className="w-full text-sm border border-background-300 rounded px-2.5 py-1.5 bg-background-50 mb-1.5" />
+                <input name="restockEta" type="date" className="w-full text-sm border border-background-300 rounded px-2.5 py-1.5 bg-background-50" />
+              </div>
               <button className="w-full text-sm bg-primary-500 text-background-50 rounded-md px-3 py-1.5 font-medium hover:bg-primary-600">
                 Save
               </button>
