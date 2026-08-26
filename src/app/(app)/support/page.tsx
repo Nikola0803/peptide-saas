@@ -5,6 +5,7 @@ import { PageHeader, Card, StatCard, Badge, EmptyState } from "@/components/ui";
 import { CopyableField } from "@/components/copyable-field";
 import { dateTime } from "@/lib/format";
 import { saveWhatsAppConfig, disconnectWhatsApp } from "./actions";
+import { getBaseUrl } from "@/lib/base-url";
 
 export default async function SupportPage({
   searchParams,
@@ -31,7 +32,7 @@ export default async function SupportPage({
     prisma.conversation.count({ where: { organizationId: organization.id, channel: "CONTACT_FORM" } }),
   ]);
 
-  const webhookUrl = `${process.env.NEXTAUTH_URL ?? ""}/api/whatsapp/webhook`;
+  const webhookUrl = `${getBaseUrl()}/api/whatsapp/webhook`;
 
   return (
     <div>

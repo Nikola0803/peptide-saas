@@ -51,12 +51,12 @@ export function UploadForm() {
       >
         <i className="ri-upload-cloud-2-line text-2xl text-foreground-400" />
         <p className="text-sm text-foreground-700 mt-2">{busy ? "Uploading…" : "Drag files here, or click to choose"}</p>
-        <p className="text-xs text-foreground-500 mt-1">Images or PDFs, up to 15MB each</p>
+        <p className="text-xs text-foreground-500 mt-1">Images, videos, or docs/PDFs, up to 15MB each</p>
         <input
           ref={inputRef}
           type="file"
           multiple
-          accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml,application/pdf"
+          accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml,application/pdf,video/mp4,video/webm,video/quicktime,text/plain,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
           className="hidden"
           onChange={(e) => handleFiles(e.target.files)}
         />

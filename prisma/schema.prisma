@@ -231,6 +231,12 @@ model CoaDocument {
   url       String
   label     String? // e.g. lot/batch number
   createdAt DateTime @default(now())
+
+  // Set when this COA was uploaded through the media library rather than
+  // pasted in as an external URL, so it also shows up in Media and gets
+  // cleaned up if that file is ever deleted there.
+  media   Media?  @relation(fields: [mediaId], references: [id])
+  mediaId String?
 }
 
 // Links a master Product to its listing on one specific brand's store.
@@ -275,6 +281,11 @@ model Contact {
   // where this is true -- there's no separate "unsubscribed" list, opting
   // out just flips this back off.
   marketingOptIn Boolean @default(false)
+
+  // Set after a successful push to Mailchimp (see lib/mailchimp.ts). Null
+  // means either never synced, or marketingOptIn is false and there's
+  // nothing to sync -- checked alongside marketingOptIn, not instead of it.
+  mailchimpSyncedAt DateTime?
 
   brandLinks ContactBrandLink[]
   orders     Order[]
@@ -619,6 +630,8 @@ model Media {
   sizeBytes  Int
 
   uploadedAt DateTime @default(now())
+
+  coaDocuments CoaDocument[]
 
   @@index([organizationId, uploadedAt])
 }

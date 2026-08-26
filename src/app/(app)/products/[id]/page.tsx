@@ -4,7 +4,7 @@ import { requireOrg } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader, Card, Badge } from "@/components/ui";
 import { money, shortDate } from "@/lib/format";
-import { updateProduct, deleteProduct, addCoaDocument, removeCoaDocument, setStorePrice } from "../actions";
+import { updateProduct, deleteProduct, addCoaDocument, addCoaDocumentFile, removeCoaDocument, setStorePrice } from "../actions";
 import { addLot, recallLot, unrecallLot, deleteLot } from "../lot-actions";
 
 export default async function ProductDetailPage({ params }: { params: { id: string } }) {
@@ -31,6 +31,7 @@ export default async function ProductDetailPage({ params }: { params: { id: stri
   const updateWithId = updateProduct.bind(null, product.id);
   const deleteWithId = deleteProduct.bind(null, product.id);
   const addCoaWithId = addCoaDocument.bind(null, product.id);
+  const addCoaFileWithId = addCoaDocumentFile.bind(null, product.id);
   const mappedBrandIds = new Set(product.storeMappings.map((m) => m.brandId));
   const unmappedBrands = brands.filter((b) => !mappedBrandIds.has(b.id));
 
@@ -199,22 +200,42 @@ export default async function ProductDetailPage({ params }: { params: { id: stri
                 </div>
               ))}
             </div>
-            <form action={addCoaWithId} className="flex items-center gap-2">
+            <form action={addCoaFileWithId} className="flex items-center gap-2 mb-2">
               <input
                 name="label"
                 placeholder="Label (e.g. Lot 004)"
                 className="w-32 text-xs border border-background-300 rounded px-2 py-1.5 bg-background-50"
               />
               <input
-                name="url"
-                placeholder="Document URL"
+                name="file"
+                type="file"
+                accept="application/pdf,image/*"
                 required
                 className="flex-1 text-xs border border-background-300 rounded px-2 py-1.5 bg-background-50"
               />
-              <button className="text-xs border border-background-300 rounded px-2.5 py-1.5 text-foreground-700 hover:bg-background-100 whitespace-nowrap">
-                Add
+              <button className="text-xs bg-primary-500 text-background-50 rounded px-2.5 py-1.5 font-medium hover:bg-primary-600 whitespace-nowrap">
+                Upload
               </button>
             </form>
+            <details className="text-xs text-foreground-500">
+              <summary className="cursor-pointer hover:text-foreground-700">Or paste an existing URL instead</summary>
+              <form action={addCoaWithId} className="flex items-center gap-2 mt-2">
+                <input
+                  name="label"
+                  placeholder="Label (e.g. Lot 004)"
+                  className="w-32 text-xs border border-background-300 rounded px-2 py-1.5 bg-background-50"
+                />
+                <input
+                  name="url"
+                  placeholder="Document URL"
+                  required
+                  className="flex-1 text-xs border border-background-300 rounded px-2 py-1.5 bg-background-50"
+                />
+                <button className="text-xs border border-background-300 rounded px-2.5 py-1.5 text-foreground-700 hover:bg-background-100 whitespace-nowrap">
+                  Add
+                </button>
+              </form>
+            </details>
           </Card>
         </div>
       </div>

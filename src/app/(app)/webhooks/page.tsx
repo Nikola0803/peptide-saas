@@ -4,6 +4,7 @@ import { PageHeader, Card, Badge } from "@/components/ui";
 import { CopyableField } from "@/components/copyable-field";
 import { createBrand, deleteBrand, verifyBrandOwnership } from "./actions";
 import { VerifyButton } from "@/components/verify-button";
+import { getBaseUrl } from "@/lib/base-url";
 
 export default async function WebhooksPage() {
   const { organization } = await requireOrg();
@@ -116,7 +117,7 @@ export default async function WebhooksPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                     <CopyableField
                       label="Delivery URL"
-                      value={`${process.env.NEXTAUTH_URL ?? ""}/api/webhooks/woocommerce?store=${b.id}`}
+                      value={`${getBaseUrl()}/api/webhooks/woocommerce?store=${b.id}`}
                       monospace
                     />
                     <CopyableField label="Webhook secret" value={b.webhookSecret} monospace />

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireOrg } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
+import { saveUploadedFile } from "@/lib/upload";
 
 function dollarsToCents(value: string): number {
   const n = Number(value);
@@ -97,7 +98,9 @@ export async function deleteProduct(productId: string) {
 }
 
 export async function addCoaDocument(productId: string, formData: FormData) {
-  await requireOrg();
+  const { organization } = await requireOrg();
+  const product = await prisma.product.findFirst({ where: { id: productId, organizationId: organization.id } });
+  if (!product) throw new Error("Not found");
 
   const url = String(formData.get("url") ?? "").trim();
   const label = String(formData.get("label") ?? "").trim();
@@ -110,8 +113,35 @@ export async function addCoaDocument(productId: string, formData: FormData) {
   revalidatePath(`/products/${productId}`);
 }
 
+// Uploads the COA PDF/image straight into the media library (same
+// storage path as /media) and links it, instead of requiring an
+// already-hosted URL to paste in.
+export async function addCoaDocumentFile(productId: string, formData: FormData) {
+  const { organization } = await requireOrg();
+  const product = await prisma.product.findFirst({ where: { id: productId, organizationId: organization.id } });
+  if (!product) throw new Error("Not found");
+
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) throw new Error("Choose a file first");
+  const label = String(formData.get("label") ?? "").trim();
+
+  const result = await saveUploadedFile(organization.id, file);
+  if (!result.ok) throw new Error(result.reason);
+
+  await prisma.coaDocument.create({
+    data: { productId, url: result.media.url, label: label || null, mediaId: result.media.id },
+  });
+
+  revalidatePath(`/products/${productId}`);
+  revalidatePath("/media");
+}
+
 export async function removeCoaDocument(productId: string, coaId: string) {
-  await requireOrg();
+  const { organization } = await requireOrg();
+  const product = await prisma.product.findFirst({ where: { id: productId, organizationId: organization.id } });
+  if (!product) throw new Error("Not found");
+  const coa = await prisma.coaDocument.findFirst({ where: { id: coaId, productId } });
+  if (!coa) throw new Error("Not found");
   await prisma.coaDocument.delete({ where: { id: coaId } });
   revalidatePath(`/products/${productId}`);
 }

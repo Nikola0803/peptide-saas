@@ -1,8 +1,11 @@
+import Link from "next/link";
 import { requireOrg } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader, EmptyState } from "@/components/ui";
 import { UploadForm } from "./upload-form";
 import { MediaCard } from "./media-card";
+import { categorizeMimeType, type MediaCategory } from "@/lib/upload";
+import { getBaseUrl } from "@/lib/base-url";
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -10,22 +13,49 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export default async function MediaPage() {
-  const { organization } = await requireOrg();
+const FILTERS: { value: MediaCategory | "all"; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "image", label: "Images" },
+  { value: "video", label: "Videos" },
+  { value: "document", label: "Docs / PDFs" },
+];
 
-  const media = await prisma.media.findMany({
+export default async function MediaPage({ searchParams }: { searchParams: Promise<{ type?: string }> }) {
+  const { organization } = await requireOrg();
+  const { type } = await searchParams;
+  const activeFilter: MediaCategory | "all" = FILTERS.some((f) => f.value === type) ? (type as MediaCategory | "all") : "all";
+
+  const allMedia = await prisma.media.findMany({
     where: { organizationId: organization.id },
     orderBy: { uploadedAt: "desc" },
   });
+  const media = activeFilter === "all" ? allMedia : allMedia.filter((m) => categorizeMimeType(m.mimeType) === activeFilter);
 
-  const baseUrl = process.env.NEXTAUTH_URL ?? "";
+  const baseUrl = getBaseUrl();
 
   return (
     <div>
-      <PageHeader title="Media" subtitle="Images and PDFs for product photos, COAs, logos, and email content — upload once, paste the URL anywhere" />
+      <PageHeader title="Media" subtitle="Images, videos, and documents for product photos, COAs, logos, and email content — upload once, paste the URL anywhere" />
 
       <div className="mb-6">
         <UploadForm />
+      </div>
+
+      <div className="flex items-center gap-1.5 mb-4">
+        {FILTERS.map((f) => {
+          const count = f.value === "all" ? allMedia.length : allMedia.filter((m) => categorizeMimeType(m.mimeType) === f.value).length;
+          return (
+            <Link
+              key={f.value}
+              href={f.value === "all" ? "/media" : `/media?type=${f.value}`}
+              className={`text-xs rounded-md px-3 py-1.5 font-medium transition ${
+                activeFilter === f.value ? "bg-primary-500 text-background-50" : "border border-background-300 text-foreground-700 hover:bg-background-100"
+              }`}
+            >
+              {f.label} ({count})
+            </Link>
+          );
+        })}
       </div>
 
       {media.length === 0 ? (
