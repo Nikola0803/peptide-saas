@@ -21,6 +21,7 @@ export function MediaCard({
   const [copied, setCopied] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const isImage = mimeType.startsWith("image/");
+  const isVideo = mimeType.startsWith("video/");
 
   return (
     <div className="rounded-lg border border-background-200 bg-background-50 overflow-hidden">
@@ -28,6 +29,8 @@ export function MediaCard({
         {isImage ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={url} alt={filename} className="w-full h-full object-cover" />
+        ) : isVideo ? (
+          <video src={url} className="w-full h-full object-cover" muted preload="metadata" />
         ) : (
           <i className="ri-file-text-line text-3xl text-foreground-400" />
         )}

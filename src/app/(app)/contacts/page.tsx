@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireOrg } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader, StatCard, EmptyState } from "@/components/ui";
@@ -26,20 +27,13 @@ export default async function ContactsPage() {
 
   return (
     <div>
-      <PageHeader
-        title="Contacts"
-        subtitle="Unified customer identities across all brands"
-        actions={
-          <button className="text-sm bg-primary-500 text-background-50 rounded-md px-3 py-1.5 font-medium hover:bg-primary-600">
-            Sync all brands
-          </button>
-        }
-      />
+      <PageHeader title="Contacts" subtitle="Unified customer identities across all brands" />
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <StatCard label="Total contacts" value={String(rows.length)} />
         <StatCard label="Combined LTV" value={money(combinedLtv)} />
         <StatCard label="Average LTV" value={money(averageLtv)} />
+        <StatCard label="Marketing opt-in" value={String(rows.filter((r) => r.contact.marketingOptIn).length)} hint="Synced to Mailchimp" />
       </div>
 
       {rows.length === 0 ? (
@@ -55,6 +49,7 @@ export default async function ContactsPage() {
               <tr className="text-left text-xs text-foreground-500 border-b border-background-200">
                 <th className="py-2.5 px-4 font-medium">Customer</th>
                 <th className="py-2.5 px-4 font-medium">Brands purchased from</th>
+                <th className="py-2.5 px-4 font-medium">Marketing</th>
                 <th className="py-2.5 px-4 font-medium text-right">Orders</th>
                 <th className="py-2.5 px-4 font-medium text-right">Lifetime value</th>
                 <th className="py-2.5 px-4 font-medium">Last order</th>
@@ -63,17 +58,24 @@ export default async function ContactsPage() {
             </thead>
             <tbody>
               {rows.map(({ contact, ltv, lastOrder, orderCount }) => (
-                <tr key={contact.id} className="border-b border-background-100 last:border-0">
+                <tr key={contact.id} className="border-b border-background-100 last:border-0 hover:bg-background-100">
                   <td className="py-3 px-4">
-                    <div className="flex items-center gap-2.5">
+                    <Link href={`/contacts/${contact.id}`} className="flex items-center gap-2.5">
                       <div className="w-7 h-7 rounded-full bg-secondary-100 text-secondary-900 flex items-center justify-center text-xs font-semibold shrink-0">
                         {initials(contact.email)}
                       </div>
-                      <span className="text-foreground-800">{contact.email}</span>
-                    </div>
+                      <span className="text-foreground-800 hover:underline">{contact.name || contact.email}</span>
+                    </Link>
                   </td>
                   <td className="py-3 px-4 text-foreground-600 text-xs">
                     {contact.brandLinks.map((l) => l.brand.name).join(", ") || "—"}
+                  </td>
+                  <td className="py-3 px-4 text-xs">
+                    {contact.marketingOptIn ? (
+                      <span className="text-secondary-700">Opted in</span>
+                    ) : (
+                      <span className="text-foreground-400">—</span>
+                    )}
                   </td>
                   <td className="py-3 px-4 text-right tabular-nums">{orderCount}</td>
                   <td className="py-3 px-4 text-right tabular-nums font-medium">{money(ltv)}</td>

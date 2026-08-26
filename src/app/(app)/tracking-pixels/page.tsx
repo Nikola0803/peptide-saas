@@ -4,6 +4,7 @@ import { PageHeader, Card, StatCard } from "@/components/ui";
 import { CopyableField } from "@/components/copyable-field";
 import { saveMetaConfig, saveTiktokConfig, saveGa4Config } from "./actions";
 import { dateTime } from "@/lib/format";
+import { getBaseUrl } from "@/lib/base-url";
 
 export default async function TrackingPixelsPage() {
   const { organization } = await requireOrg();
@@ -53,7 +54,7 @@ export default async function TrackingPixelsPage() {
             </p>
             <CopyableField
               label="Embed snippet"
-              value={`<script src="${process.env.NEXTAUTH_URL ?? ""}/pixel.js" data-key="${brand.trackingConfig?.publicKey}" async></script>`}
+              value={`<script src="${getBaseUrl()}/pixel.js" data-key="${brand.trackingConfig?.publicKey}" async></script>`}
               monospace
             />
             <p className="text-xs text-foreground-500 mt-2 mb-4">

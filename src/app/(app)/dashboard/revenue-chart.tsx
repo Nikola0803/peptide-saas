@@ -3,10 +3,13 @@ import { Card } from "@/components/ui";
 import { RevenueByBrandChart } from "@/components/revenue-by-brand-chart";
 
 export async function DashboardRevenueChart({ organizationId }: { organizationId: string }) {
+  // Only orders that are actually paid count as revenue -- ON_HOLD is
+  // reserved-but-unconfirmed, REFUNDED is money given back, neither
+  // belongs in a "revenue by brand" total.
   const brands = await prisma.brand.findMany({
     where: { organizationId },
     include: {
-      orders: { select: { grossCents: true, netProfitCents: true } },
+      orders: { where: { status: { in: ["COMPLETED", "PROCESSING"] } }, select: { grossCents: true, netProfitCents: true } },
     },
     orderBy: { name: "asc" },
   });

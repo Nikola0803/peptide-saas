@@ -49,6 +49,28 @@ export default async function DropshipDashboardPage() {
   const owed = unpaidInvoices.reduce((s, i) => s + i.totalCents, 0);
   const reservedUnits = reservedItems.reduce((s, i) => s + i.quantity, 0);
 
+  // What he's earned, broken down by brand -- deliberately his cost
+  // (what he invoices for), not the customer's retail price, since the
+  // gap between the two is EVLV's markup and not his to see. Only paid
+  // orders count, same as the main dashboard's Revenue by brand widget.
+  const [paidItems, hisProducts] = await Promise.all([
+    prisma.orderItem.findMany({
+      where: { supplierId: supplier.id, order: { status: { in: ["COMPLETED", "PROCESSING"] } } },
+      select: { quantity: true, productId: true, order: { select: { brand: { select: { name: true } } } } },
+    }),
+    prisma.supplierProduct.findMany({ where: { supplierId: supplier.id }, select: { productId: true, costCents: true } }),
+  ]);
+  const costByProduct = new Map(hisProducts.map((p) => [p.productId, p.costCents]));
+  const revenueByBrand = new Map<string, number>();
+  for (const item of paidItems) {
+    if (!item.productId) continue;
+    const cost = costByProduct.get(item.productId) ?? 0;
+    const name = item.order.brand.name;
+    revenueByBrand.set(name, (revenueByBrand.get(name) ?? 0) + item.quantity * cost);
+  }
+  const earningsByBrand = [...revenueByBrand.entries()].sort((a, b) => b[1] - a[1]);
+  const maxEarned = Math.max(1, ...earningsByBrand.map(([, cents]) => cents));
+
   return (
     <div>
       <PageHeader title="Dashboard" subtitle={`Welcome back, ${supplier.name}`} />
@@ -118,6 +140,24 @@ export default async function DropshipDashboardPage() {
           )}
         </Card>
       </div>
+
+      {earningsByBrand.length > 0 && (
+        <Card className="p-4 mt-4">
+          <h2 className="text-sm font-semibold text-foreground-950 mb-1">Your earnings by brand</h2>
+          <p className="text-xs text-foreground-500 mb-3">What you're owed for paid orders, by brand — your cost, not the customer's price.</p>
+          <div className="space-y-2">
+            {earningsByBrand.map(([name, cents]) => (
+              <div key={name} className="flex items-center gap-3">
+                <span className="text-xs text-foreground-700 w-28 truncate shrink-0">{name}</span>
+                <div className="flex-1 h-2 rounded-full bg-background-100 overflow-hidden">
+                  <div className="h-full rounded-full bg-primary-400" style={{ width: `${(cents / maxEarned) * 100}%` }} />
+                </div>
+                <span className="text-xs font-medium text-foreground-800 tabular-nums w-16 text-right">{money(cents)}</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       {reservedItems.length > 0 && (
         <Card className="p-4 mt-4">

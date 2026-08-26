@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getBaseUrl } from "@/lib/base-url";
 
 function slugifyDomain(siteUrl: string): { slug: string; domain: string } {
   const domain = siteUrl.replace(/^https?:\/\//, "").replace(/\/$/, "");
@@ -52,7 +53,7 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  const origin = req.nextUrl.origin;
+  const origin = getBaseUrl();
 
   const trackingConfig = await prisma.trackingConfig.upsert({
     where: { brandId: brand.id },
