@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { resolveHeaderOverride } from "@/lib/store-context";
 import { hashPassword, signCustomerToken } from "@/lib/customer-auth";
+import { sendTemplate } from "@/lib/email";
 
 const bodySchema = z.object({
   email: z.string().email(),
@@ -34,16 +35,21 @@ export async function POST(req: NextRequest) {
   }
 
   const passwordHash = await hashPassword(parsed.data.password);
+  const marketingOptIn = parsed.data.marketingOptIn ?? false;
   const contact = await prisma.contact.upsert({
     where: { organizationId_email: { organizationId: store.organizationId, email } },
-    update: { passwordHash, name: parsed.data.name },
-    create: { organizationId: store.organizationId, email, passwordHash, name: parsed.data.name },
+    update: { passwordHash, name: parsed.data.name, marketingOptIn },
+    create: { organizationId: store.organizationId, email, passwordHash, name: parsed.data.name, marketingOptIn },
   });
   await prisma.contactBrandLink.upsert({
     where: { contactId_brandId: { contactId: contact.id, brandId: store.brandId } },
     update: {},
     create: { contactId: contact.id, brandId: store.brandId },
   });
+
+  sendTemplate(store.organizationId, "welcome_customer", email, { customerName: contact.name || email }).catch((err) =>
+    console.error("Welcome email failed", err)
+  );
 
   const token = signCustomerToken({
     contactId: contact.id,

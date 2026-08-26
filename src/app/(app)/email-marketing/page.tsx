@@ -47,6 +47,18 @@ export default async function EmailPage() {
         </div>
 
         <div className="space-y-4">
+          <Link href="/email-marketing/newsletter">
+            <Card className="p-4 hover:border-primary-300 transition-colors">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-sm font-semibold text-foreground-950">Newsletter</h2>
+                  <p className="text-xs text-foreground-500 mt-0.5">Send to opted-in contacts, in-house (no Mailchimp needed)</p>
+                </div>
+                <i className="ri-arrow-right-s-line text-foreground-400" />
+              </div>
+            </Card>
+          </Link>
+
           <Card className="p-4">
             <h2 className="text-sm font-semibold text-foreground-950 mb-1">Notifications</h2>
             <p className="text-xs text-foreground-500 mb-3">Where the "new order" internal email goes.</p>
