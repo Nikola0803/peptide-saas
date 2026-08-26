@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { createId } from "@/lib/id";
+import { sendTemplate, escapeHtml } from "@/lib/email";
 
 // Flat-rate assumption for a card processor fee — matches the WooCommerce
 // webhook ingestion path in src/app/api/webhooks/woocommerce/route.ts. Not
@@ -95,7 +96,7 @@ export async function runCheckout(
     throw new CheckoutError("Cart is empty", "EMPTY_CART");
   }
 
-  return prisma.$transaction(async (tx) => {
+  const { result, contactEmail, contactName, resolvedItems, grossCentsTotal } = await prisma.$transaction(async (tx) => {
     const email = input.customerEmail.toLowerCase().trim();
 
     const contact = await tx.contact.upsert({
@@ -217,12 +218,66 @@ export async function runCheckout(
     }
 
     return {
-      id: order.id,
-      number: externalOrderNumber,
-      orderId: order.id,
-      externalOrderNumber,
-      grossCents: grossCentsTotal,
-      status: order.status,
+      result: {
+        id: order.id,
+        number: externalOrderNumber,
+        orderId: order.id,
+        externalOrderNumber,
+        grossCents: grossCentsTotal,
+        status: order.status,
+      },
+      contactEmail: contact.email,
+      contactName: contact.name ?? billingName,
+      resolvedItems,
+      grossCentsTotal,
     };
   });
+
+  // Best-effort — a failed email should never fail a checkout that already
+  // succeeded. Sent after the transaction commits, not inside it: this is a
+  // slow network call and has no business holding the DB transaction open.
+  sendOrderEmails(organizationId, {
+    orderNumber: result.number,
+    customerEmail: contactEmail,
+    customerName: contactName || contactEmail,
+    items: resolvedItems,
+    grossCents: grossCentsTotal,
+    paymentMethod: input.paymentMethod,
+    paymentMemo: input.paymentMemo,
+  }).catch((err) => console.error("Order confirmation email failed", err));
+
+  return result;
+}
+
+interface OrderEmailInput {
+  orderNumber: string;
+  customerEmail: string;
+  customerName: string;
+  items: { name: string; quantity: number; unitPriceCents: number }[];
+  grossCents: number;
+  paymentMethod?: string;
+  paymentMemo?: string;
+}
+
+async function sendOrderEmails(organizationId: string, input: OrderEmailInput): Promise<void> {
+  const itemsHtml = input.items
+    .map((i) => `<li>${escapeHtml(i.name)} x${i.quantity} — $${((i.unitPriceCents * i.quantity) / 100).toFixed(2)}</li>`)
+    .join("");
+  const totalFormatted = `$${(input.grossCents / 100).toFixed(2)}`;
+  const vars = {
+    customerName: input.customerName,
+    customerEmail: input.customerEmail,
+    orderNumber: input.orderNumber,
+    itemsHtml,
+    totalFormatted,
+    paymentMethod: input.paymentMethod ?? "",
+    paymentMemo: input.paymentMemo ?? "",
+  };
+
+  await sendTemplate(organizationId, "order_confirmation_customer", input.customerEmail, vars);
+
+  const organization = await prisma.organization.findUnique({ where: { id: organizationId } });
+  if (organization?.notifyEmail) {
+    await sendTemplate(organizationId, "order_confirmation_office", organization.notifyEmail, vars);
+  }
 }

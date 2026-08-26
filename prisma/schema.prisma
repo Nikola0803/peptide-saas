@@ -30,6 +30,17 @@ model Organization {
   plan      Plan     @default(TRIAL)
   createdAt DateTime @default(now())
 
+  // Where order-notification and other operational emails get sent (e.g.
+  // office@evlvpeptides.com) — see src/lib/email.ts. Null = that email just
+  // doesn't get sent, everything else still works.
+  notifyEmail String?
+
+  // Reserved for the Mailchimp newsletter integration on the Email page —
+  // not wired up to anything yet, just gives Settings a place to hold these
+  // once that gets built.
+  mailchimpApiKey     String?
+  mailchimpAudienceId String?
+
   memberships Membership[]
   brands      Brand[]
   products    Product[]
@@ -42,6 +53,7 @@ model Organization {
   invoices    Invoice[]
   conversations   Conversation[]
   whatsappConfig  WhatsAppConfig?
+  emailTemplates  EmailTemplate[]
 }
 
 enum Plan {
@@ -638,6 +650,33 @@ model WhatsAppConfig {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Email — transactional templates, editable from the Email page. Rendered
+// with a tiny {{variable}} substitution (see src/lib/email.ts) and sent via
+// whatever provider EMAIL_* env vars configure (Resend by default). A
+// built-in default exists in code for every `key` this app sends, so
+// nothing breaks before a template row exists — creating one here just
+// overrides that default's subject/copy.
+// ---------------------------------------------------------------------------
+
+model EmailTemplate {
+  id             String       @id @default(cuid())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+
+  // Matches an EMAIL_TEMPLATE_KEYS entry in src/lib/email.ts, e.g.
+  // "order_confirmation_customer", "order_confirmation_office".
+  key     String
+  name    String
+  subject String
+  html    String @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizationId, key])
 }
 
 

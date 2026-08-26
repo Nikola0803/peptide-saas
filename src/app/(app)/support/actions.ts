@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireOrg } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { sendWhatsAppMessage, verifyWhatsAppCredentials, getDisplayPhoneNumber } from "@/lib/whatsapp";
+import { sendTemplate } from "@/lib/email";
 
 export async function saveWhatsAppConfig(formData: FormData) {
   const { organization } = await requireOrg();
@@ -42,20 +43,36 @@ export async function sendReply(conversationId: string, formData: FormData) {
     where: { id: conversationId, organizationId: organization.id },
   });
   if (!conversation) throw new Error("Conversation not found");
-  if (conversation.channel !== "WHATSAPP" || !conversation.contactPhone) {
-    throw new Error("Replies are only supported for WhatsApp conversations");
-  }
 
   const body = String(formData.get("body") ?? "").trim();
   if (!body) throw new Error("Message can't be empty");
 
-  const config = await prisma.whatsAppConfig.findUnique({ where: { organizationId: organization.id } });
-  if (!config) throw new Error("WhatsApp isn't connected");
+  let externalId: string | undefined;
 
-  const { messageId } = await sendWhatsAppMessage(config.phoneNumberId, config.accessToken, conversation.contactPhone, body);
+  if (conversation.channel === "WHATSAPP") {
+    if (!conversation.contactPhone) throw new Error("This conversation has no phone number on file");
+    const config = await prisma.whatsAppConfig.findUnique({ where: { organizationId: organization.id } });
+    if (!config) throw new Error("WhatsApp isn't connected");
+    const sent = await sendWhatsAppMessage(config.phoneNumberId, config.accessToken, conversation.contactPhone, body);
+    externalId = sent.messageId || undefined;
+  } else if (conversation.channel === "CONTACT_FORM") {
+    if (!conversation.contactEmail) throw new Error("This conversation has no email address on file");
+    // Body is typed as plain text in the reply box — wrap each line as its
+    // own paragraph so it doesn't collapse into one line in the email.
+    const replyHtml = body
+      .split(/\n+/)
+      .map((line) => `<p>${line}</p>`)
+      .join("");
+    await sendTemplate(organization.id, "support_reply", conversation.contactEmail, {
+      subject: conversation.subject ?? "your message",
+      replyHtml,
+    });
+  } else {
+    throw new Error("Replies aren't supported for this conversation's channel");
+  }
 
   await prisma.message.create({
-    data: { conversationId, direction: "OUTBOUND", body, externalId: messageId || undefined },
+    data: { conversationId, direction: "OUTBOUND", body, externalId },
   });
   await prisma.conversation.update({ where: { id: conversationId }, data: { lastMessageAt: new Date() } });
 
