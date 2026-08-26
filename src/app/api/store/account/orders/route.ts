@@ -3,16 +3,26 @@ import { prisma } from "@/lib/prisma";
 import { resolveHeaderOverride } from "@/lib/store-context";
 import { bearerToken, verifyCustomerToken } from "@/lib/customer-auth";
 
-// GET /api/store/account/orders — requires the bearer token from
-// /api/store/auth/login or /register. Returns this brand's order history
-// for that customer only (never another brand's, even same email/org).
-export async function GET(req: NextRequest) {
+function centsToDollarString(cents: number): string {
+  return (cents / 100).toFixed(2);
+}
+
+// POST /api/store/account/orders { token } — evlv-site's crm-proxy.ts
+// always POSTs with the token in the JSON body (never an Authorization
+// header), and expects each order shaped like WooCommerce's REST API
+// (number, total as a decimal string, date_created, line_items[].total as
+// a decimal string) since src/lib/orders.ts's mapCrmOrders() was written
+// against that shape. Still accepts a Bearer header too, for any other
+// caller.
+export async function POST(req: NextRequest) {
   const store = await resolveHeaderOverride(req);
   if (!store) {
     return NextResponse.json({ error: "Unknown or unauthorized store" }, { status: 401 });
   }
 
-  const claims = verifyCustomerToken(bearerToken(req));
+  const body = await req.json().catch(() => ({}));
+  const token = bearerToken(req) ?? body?.token;
+  const claims = verifyCustomerToken(token);
   if (!claims || claims.organizationId !== store.organizationId || claims.brandId !== store.brandId) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
@@ -26,15 +36,15 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     orders: orders.map((o) => ({
       id: o.id,
-      orderNumber: o.externalOrderNumber,
+      number: o.externalOrderNumber,
       status: o.status,
-      grossCents: o.grossCents,
-      paymentMemo: o.paymentMemo,
-      placedAt: o.placedAt,
-      trackingNumber: o.trackingNumber,
-      carrierCode: o.carrierCode,
-      shippedAt: o.shippedAt,
-      items: o.items.map((i) => ({ sku: i.sku, name: i.name, quantity: i.quantity, unitPriceCents: i.unitPriceCents })),
+      total: centsToDollarString(o.grossCents),
+      date_created: o.placedAt.toISOString(),
+      line_items: o.items.map((i) => ({
+        name: i.name,
+        quantity: i.quantity,
+        total: centsToDollarString(i.unitPriceCents * i.quantity),
+      })),
     })),
   });
 }

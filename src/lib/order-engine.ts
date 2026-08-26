@@ -13,15 +13,36 @@ export interface CheckoutItemInput {
   quantity: number;
 }
 
+export interface CheckoutBillingInput {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
+  address1?: string;
+  address2?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  country?: string;
+}
+
 export interface CheckoutInput {
   items: CheckoutItemInput[];
   customerEmail: string;
   customerName?: string;
   couponCode?: string;
-  // Bank transfer / crypto reference the customer says they'll pay with —
-  // there's no real-time card capture on this path, so the order lands as
-  // ON_HOLD until staff reconciles the memo against the payment rail.
+  // Which rail (cashapp/zelle/venmo/...) plus the reference the customer
+  // says they'll pay with — there's no real-time card capture on this
+  // path, so the order lands as ON_HOLD until staff reconciles the memo
+  // against the payment rail.
+  paymentMethod?: string;
   paymentMemo?: string;
+  customerNote?: string;
+  // evlv-site's checkout sends the customer/shipping address as a flat
+  // "billing" object (firstName/lastName/zip, no address book concept) —
+  // this is the real shape, kept separate from the more general `shipTo`
+  // below for anything that already sends that instead.
+  billing?: CheckoutBillingInput;
   shipTo?: {
     name?: string;
     address1?: string;
@@ -44,6 +65,12 @@ export class CheckoutError extends Error {
 }
 
 export interface CheckoutResult {
+  // `id` / `number` are what evlv-site's checkout page actually reads off
+  // the response (`data.number || data.id`) to know the order landed for
+  // real instead of silently falling back to a local-only fake order —
+  // orderId/externalOrderNumber are kept as aliases for any other caller.
+  id: string;
+  number: string;
   orderId: string;
   externalOrderNumber: string;
   grossCents: number;
@@ -151,6 +178,8 @@ export async function runCheckout(
 
     const externalOrderNumber = `STORE-${createId()}`;
 
+    const billingName = [input.billing?.firstName, input.billing?.lastName].filter(Boolean).join(" ") || undefined;
+
     const order = await tx.order.create({
       data: {
         organizationId,
@@ -161,16 +190,18 @@ export async function runCheckout(
         couponCode: input.couponCode,
         grossCents: grossCentsTotal,
         netProfitCents,
+        paymentMethod: input.paymentMethod,
         paymentMemo: input.paymentMemo,
         placedAt: new Date(),
-        shipToName: input.shipTo?.name,
-        shipToAddress1: input.shipTo?.address1,
-        shipToAddress2: input.shipTo?.address2,
-        shipToCity: input.shipTo?.city,
-        shipToState: input.shipTo?.state,
-        shipToPostalCode: input.shipTo?.postalCode,
-        shipToCountry: input.shipTo?.country,
+        shipToName: input.shipTo?.name ?? billingName,
+        shipToAddress1: input.shipTo?.address1 ?? input.billing?.address1,
+        shipToAddress2: input.shipTo?.address2 ?? input.billing?.address2,
+        shipToCity: input.shipTo?.city ?? input.billing?.city,
+        shipToState: input.shipTo?.state ?? input.billing?.state,
+        shipToPostalCode: input.shipTo?.postalCode ?? input.billing?.zip,
+        shipToCountry: input.shipTo?.country ?? input.billing?.country,
         items: { createMany: { data: resolvedItems } },
+        notes: input.customerNote ? { create: { body: `Customer note: ${input.customerNote}` } } : undefined,
       },
     });
 
@@ -185,6 +216,13 @@ export async function runCheckout(
       }
     }
 
-    return { orderId: order.id, externalOrderNumber, grossCents: grossCentsTotal, status: order.status };
+    return {
+      id: order.id,
+      number: externalOrderNumber,
+      orderId: order.id,
+      externalOrderNumber,
+      grossCents: grossCentsTotal,
+      status: order.status,
+    };
   });
 }
