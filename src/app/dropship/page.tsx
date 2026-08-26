@@ -47,6 +47,7 @@ export default async function DropshipDashboardPage() {
     where: { supplierId: supplier.id, status: { not: "PAID" } },
   });
   const owed = unpaidInvoices.reduce((s, i) => s + i.totalCents, 0);
+  const reservedUnits = reservedItems.reduce((s, i) => s + i.quantity, 0);
 
   // What he's earned, broken down by brand -- deliberately his cost
   // (what he invoices for), not the customer's retail price, since the
@@ -69,7 +70,6 @@ export default async function DropshipDashboardPage() {
   }
   const earningsByBrand = [...revenueByBrand.entries()].sort((a, b) => b[1] - a[1]);
   const maxEarned = Math.max(1, ...earningsByBrand.map(([, cents]) => cents));
-  const reservedUnits = reservedItems.reduce((s, i) => s + i.quantity, 0);
 
   return (
     <div>
