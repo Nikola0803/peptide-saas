@@ -12,7 +12,7 @@ export default async function OrderDetailPage({ params }: { params: { id: string
   const order = await prisma.order.findFirst({
     where: { id: params.id, organizationId: organization.id },
     include: {
-      items: true,
+      items: { include: { supplier: true } },
       brand: true,
       contact: true,
       notes: { orderBy: { createdAt: "desc" } },
@@ -72,6 +72,7 @@ export default async function OrderDetailPage({ params }: { params: { id: string
                 <tr className="text-left text-xs text-foreground-500 border-b border-background-200">
                   <th className="py-1.5 font-medium">Item</th>
                   <th className="py-1.5 font-medium">SKU</th>
+                  <th className="py-1.5 font-medium">Fulfilled by</th>
                   <th className="py-1.5 font-medium text-right">Qty</th>
                   <th className="py-1.5 font-medium text-right">Total</th>
                 </tr>
@@ -81,6 +82,16 @@ export default async function OrderDetailPage({ params }: { params: { id: string
                   <tr key={item.id} className="border-b border-background-100 last:border-0">
                     <td className="py-2 text-foreground-800">{item.name}</td>
                     <td className="py-2 font-mono text-xs text-foreground-600">{item.sku}</td>
+                    <td className="py-2 text-xs">
+                      {item.supplier ? (
+                        <span className="inline-flex items-center gap-1">
+                          {item.supplier.name}
+                          <Badge status={item.fulfillmentStatus} />
+                        </span>
+                      ) : (
+                        <span className="text-foreground-400">In-house</span>
+                      )}
+                    </td>
                     <td className="py-2 text-right tabular-nums">{item.quantity}</td>
                     <td className="py-2 text-right tabular-nums">{money(item.unitPriceCents * item.quantity)}</td>
                   </tr>
@@ -88,10 +99,6 @@ export default async function OrderDetailPage({ params }: { params: { id: string
               </tbody>
             </table>
             <div className="flex justify-between pt-3 mt-2 border-t border-background-200 text-sm">
-              <span className="text-foreground-600">Customer</span>
-              <span className="text-foreground-800">{order.contact?.email ?? "—"}</span>
-            </div>
-            <div className="flex justify-between text-sm mt-1">
               <span className="text-foreground-600">Gross</span>
               <span className="font-medium text-foreground-950">{money(order.grossCents)}</span>
             </div>
@@ -180,6 +187,44 @@ export default async function OrderDetailPage({ params }: { params: { id: string
         </div>
 
         <div className="space-y-4">
+          <Card className="p-4">
+            <h2 className="text-sm font-semibold text-foreground-950 mb-3">Order details</h2>
+            <dl className="space-y-1.5 text-xs mb-3">
+              <div className="flex justify-between gap-3">
+                <dt className="text-foreground-500">Customer</dt>
+                <dd className="text-foreground-800 text-right">{order.contact?.email ?? "—"}</dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-foreground-500">IP address</dt>
+                <dd className="text-foreground-800 font-mono">{order.ipAddress ?? "—"}</dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-foreground-500 shrink-0">User agent</dt>
+                <dd className="text-foreground-800 text-right break-all">{order.userAgent ?? "—"}</dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-foreground-500">Payment method</dt>
+                <dd className="text-foreground-800">{order.paymentMethod ?? "—"}</dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-foreground-500 shrink-0">Payment memo</dt>
+                <dd className="text-foreground-800 font-mono text-right break-all">{order.paymentMemo ?? "—"}</dd>
+              </div>
+              <div className="pt-1.5 border-t border-background-200">
+                <dt className="text-foreground-500 mb-0.5">Ship to</dt>
+                <dd className="text-foreground-800">
+                  {order.shipToName || "—"}
+                  {order.shipToAddress1 && <><br />{order.shipToAddress1}</>}
+                  {order.shipToAddress2 && <><br />{order.shipToAddress2}</>}
+                  {(order.shipToCity || order.shipToState || order.shipToPostalCode) && (
+                    <><br />{[order.shipToCity, order.shipToState, order.shipToPostalCode].filter(Boolean).join(", ")}</>
+                  )}
+                  {order.shipToCountry && <><br />{order.shipToCountry}</>}
+                </dd>
+              </div>
+            </dl>
+          </Card>
+
           <Card className="p-4">
             <h2 className="text-sm font-semibold text-foreground-950 mb-3">Risk review</h2>
             {order.flaggedRisk ? (

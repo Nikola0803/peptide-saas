@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { signIn } from "next-auth/react";
+import { signIn, getSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
@@ -28,7 +28,13 @@ export default function LoginPage() {
       setError("That email and password don't match an account.");
       return;
     }
-    router.push("/dashboard");
+
+    // A supplier's login lands in its own restricted area, not the normal
+    // dashboard -- signIn(..., {redirect:false}) doesn't hand back the
+    // session directly, so fetch it once to read the role it just set.
+    const session = await getSession();
+    const role = (session?.user as any)?.role;
+    router.push(role === "DROPSHIP_AGENT" ? "/dropship" : "/dashboard");
     router.refresh();
   }
 

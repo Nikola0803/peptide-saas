@@ -54,6 +54,7 @@ model Organization {
   conversations   Conversation[]
   whatsappConfig  WhatsAppConfig?
   emailTemplates  EmailTemplate[]
+  suppliers       Supplier[]
 }
 
 enum Plan {
@@ -82,6 +83,13 @@ model Membership {
   organizationId String
   createdAt      DateTime     @default(now())
 
+  // Only set (and only meaningful) when role is DROPSHIP_AGENT -- which
+  // supplier this login represents. requireOrg()/session.ts route a
+  // DROPSHIP_AGENT to the restricted /dropship area instead of the normal
+  // dashboard, scoped to exactly this supplier's data.
+  supplier   Supplier? @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  supplierId String?
+
   @@unique([userId, organizationId])
 }
 
@@ -89,6 +97,10 @@ enum Role {
   OWNER
   ADMIN
   MEMBER
+  // A partner/supplier's own login -- see the Supplier model. Scoped to
+  // their own products and the order items fulfilled from them; never sees
+  // customer email, payment method/memo, or any other supplier's data.
+  DROPSHIP_AGENT
 }
 
 // ---------------------------------------------------------------------------
@@ -153,10 +165,11 @@ model Product {
   cogsCents    Int
   masterStock  Int    @default(0)
 
-  coas          CoaDocument[]
-  storeMappings StoreMapping[]
-  orderItems    OrderItem[]
-  lots          ProductLot[]
+  coas             CoaDocument[]
+  storeMappings    StoreMapping[]
+  orderItems       OrderItem[]
+  lots             ProductLot[]
+  supplierProducts SupplierProduct[]
 
   createdAt DateTime @default(now())
 
@@ -311,11 +324,17 @@ model Order {
   shipToPostalCode String?
   shipToCountry    String?
 
-  // Fraud/risk review — a manual toggle, not automated scoring, but cheap
-  // and often enough: flag on suspicion (mismatched billing/shipping,
-  // large first order, etc.), see it at a glance on the order.
+  // Fraud/risk review. flaggedRisk/riskReason started as a manual-only
+  // toggle; runCheckout in order-engine.ts now also sets these
+  // automatically on a simple velocity check (several ON_HOLD orders from
+  // the same IP in a short window) — still just a flag for a human to
+  // review, never an auto-block. ipAddress/userAgent are captured from the
+  // storefront checkout request only (WooCommerce webhooks don't carry
+  // this) so review has something to actually go on.
   flaggedRisk Boolean @default(false)
   riskReason  String?
+  ipAddress   String?
+  userAgent   String?
 
   notes   OrderNote[]
   refunds Refund[]
@@ -385,6 +404,19 @@ model OrderItem {
   quantity      Int
   unitPriceCents Int
 
+  // Dropshipping — set at checkout time (see runCheckout in
+  // order-engine.ts) to whichever Supplier currently has an active
+  // SupplierProduct row for this product, so the assignment sticks even if
+  // that SupplierProduct is later deactivated or reassigned. Null means
+  // fulfilled in-house, same as before this existed.
+  supplier          Supplier?               @relation(fields: [supplierId], references: [id])
+  supplierId        String?
+  fulfillmentStatus ItemFulfillmentStatus   @default(PENDING)
+  shippedAt         DateTime?
+  trackingNumber    String?
+  carrierCode       String?
+  invoiceLineItem   SupplierInvoiceLineItem?
+
   // Which batch fulfilled this line item — set automatically (FIFO, oldest
   // active lot first) if the product has any lots recorded. This is the
   // whole point of lot tracking: if a batch ever gets recalled, every
@@ -393,6 +425,103 @@ model OrderItem {
   lotId String?
 
   @@index([lotId])
+}
+
+enum ItemFulfillmentStatus {
+  PENDING
+  SHIPPED
+}
+
+// ---------------------------------------------------------------------------
+// Suppliers (dropshipping partners) — a Supplier gets its own login
+// (Membership.role = DROPSHIP_AGENT, Membership.supplierId set) into a
+// restricted /dropship area: only the products they've listed as in stock
+// (SupplierProduct) and only the OrderItems assigned to them, never
+// customer email/payment info or any other supplier's data. The supplier
+// manages their own price/shipping-rate/stock per product (bulk-importable
+// from a spreadsheet) — that's what "he's responsible for his own stock"
+// means operationally: staff isn't maintaining his numbers for him.
+// ---------------------------------------------------------------------------
+
+model Supplier {
+  id             String       @id @default(cuid())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+
+  name         String
+  contactEmail String?
+  active       Boolean @default(true)
+  createdAt    DateTime @default(now())
+
+  memberships Membership[]
+  products    SupplierProduct[]
+  orderItems  OrderItem[]
+  invoices    SupplierInvoice[]
+}
+
+// A supplier's own price/shipping-rate/stock for one master-catalog
+// product — separate from Product.cogsCents/masterStock (which is
+// in-house COGS/inventory) since a dropshipped product isn't in EVLV's own
+// warehouse at all. Only one supplier can be *active* for a given product
+// at a time (checkout assigns to whichever one is), enforced by the
+// partial-unique-ish pattern of just checking `active` in the app layer
+// rather than the DB, since a temporarily-deactivated-then-reactivated row
+// should keep its history instead of being deleted and recreated.
+model SupplierProduct {
+  id         String   @id @default(cuid())
+  supplier   Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  supplierId String
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId  String
+
+  costCents     Int // what the supplier bills us for the item itself
+  shippingCents Int @default(0) // what the supplier bills us to ship one unit
+  stock         Int @default(0)
+  active        Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([supplierId, productId])
+  @@index([productId, active])
+}
+
+// Auto-generated (see generateSupplierInvoice in the dropship actions)
+// summary of everything a supplier shipped in a period, at their own
+// declared cost+shipping rates — this is what "he sends us auto billing"
+// means: the CRM computes what we owe him from what he actually shipped,
+// he doesn't have to invoice us by hand.
+model SupplierInvoice {
+  id         String   @id @default(cuid())
+  supplier   Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  supplierId String
+
+  periodStart DateTime
+  periodEnd   DateTime
+  totalCents  Int
+  status      SupplierInvoiceStatus @default(DRAFT)
+
+  lineItems SupplierInvoiceLineItem[]
+  createdAt DateTime @default(now())
+
+  @@index([supplierId, createdAt])
+}
+
+enum SupplierInvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+}
+
+model SupplierInvoiceLineItem {
+  id          String          @id @default(cuid())
+  invoice     SupplierInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  invoiceId   String
+  orderItem   OrderItem       @relation(fields: [orderItemId], references: [id])
+  orderItemId String          @unique
+
+  costCents     Int
+  shippingCents Int
 }
 
 // ---------------------------------------------------------------------------

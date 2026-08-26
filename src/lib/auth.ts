@@ -40,6 +40,11 @@ export const authOptions: NextAuthOptions = {
           organizationId: primaryMembership?.organizationId ?? null,
           organizationName: primaryMembership?.organization.name ?? null,
           role: primaryMembership?.role ?? null,
+          // Only meaningful when role is DROPSHIP_AGENT -- see Supplier in
+          // schema.prisma and requireSupplier() in session.ts, which
+          // re-verifies this against the DB rather than trusting the JWT
+          // alone for anything access-control-sensitive.
+          supplierId: primaryMembership?.supplierId ?? null,
         };
       },
     }),
@@ -47,17 +52,21 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
+        token.id = user.id;
         token.organizationId = (user as any).organizationId;
         token.organizationName = (user as any).organizationName;
         token.role = (user as any).role;
+        token.supplierId = (user as any).supplierId;
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
+        (session.user as any).id = token.id;
         (session.user as any).organizationId = token.organizationId;
         (session.user as any).organizationName = token.organizationName;
         (session.user as any).role = token.role;
+        (session.user as any).supplierId = token.supplierId;
       }
       return session;
     },
