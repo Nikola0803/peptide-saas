@@ -56,6 +56,7 @@ model Organization {
   emailTemplates  EmailTemplate[]
   suppliers       Supplier[]
   newsletters     Newsletter[]
+  media           Media[]
 }
 
 enum Plan {
@@ -570,6 +571,29 @@ model AffiliateOrderAttribution {
 
 // ---------------------------------------------------------------------------
 // Webhook ingestion log (every inbound call from a store, verified or not)
+// ---------------------------------------------------------------------------
+// Media library — images/PDFs uploaded from the CRM itself (product
+// photos, COAs, logos) instead of staff having to host files elsewhere
+// and paste a URL, which is what every upload-shaped field did before
+// this existed. Files live on disk under public/uploads/<organizationId>/
+// (see src/app/(app)/media/actions.ts) — this row is just the catalog.
+// ---------------------------------------------------------------------------
+
+model Media {
+  id             String       @id @default(cuid())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+
+  url        String // public path, e.g. /uploads/<orgId>/<id>-<filename>
+  filename   String // original filename, for display
+  mimeType   String
+  sizeBytes  Int
+
+  uploadedAt DateTime @default(now())
+
+  @@index([organizationId, uploadedAt])
+}
+
 // ---------------------------------------------------------------------------
 
 model WebhookEvent {

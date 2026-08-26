@@ -1,18 +1,28 @@
 import { requireOrg } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
-import { PageHeader, Card } from "@/components/ui";
+import { PageHeader, Card, Badge } from "@/components/ui";
 import { CopyableField } from "@/components/copyable-field";
-import { regenerateApiKey, updateBrandProfile } from "./actions";
+import { regenerateApiKey, updateBrandProfile, removeMember } from "./actions";
 import { SignOutButton } from "@/components/sign-out-button";
+import { InviteMemberForm } from "./invite-member-form";
+import { RoleSelect } from "./role-select";
+
+const STAFF_ROLES = ["OWNER", "ADMIN", "MEMBER"] as const;
 
 export default async function SettingsPage() {
   const { organization, session } = await requireOrg();
 
-  const [memberCount, brandCount, brands] = await Promise.all([
-    prisma.membership.count({ where: { organizationId: organization.id } }),
+  const [members, brandCount, brands] = await Promise.all([
+    prisma.membership.findMany({
+      where: { organizationId: organization.id, role: { in: [...STAFF_ROLES] } },
+      include: { user: true },
+      orderBy: { createdAt: "asc" },
+    }),
     prisma.brand.count({ where: { organizationId: organization.id } }),
     prisma.brand.findMany({ where: { organizationId: organization.id }, orderBy: { createdAt: "asc" } }),
   ]);
+  const memberCount = members.length;
+  const currentUserId = (session.user as any)?.id as string | undefined;
 
   return (
     <div>
@@ -46,6 +56,39 @@ export default async function SettingsPage() {
           <div className="mt-4 pt-4 border-t border-background-200">
             <SignOutButton />
           </div>
+        </Card>
+
+        <Card className="p-4 lg:col-span-2">
+          <h2 className="text-sm font-semibold text-foreground-950 mb-1">Team members</h2>
+          <p className="text-xs text-foreground-500 mb-3">
+            Staff access to this dashboard. Dropshipping partner logins are managed separately from{" "}
+            <a href="/suppliers" className="text-primary-600 hover:underline">Suppliers</a>.
+          </p>
+
+          <div className="space-y-2 mb-3">
+            {members.map((m) => (
+              <div key={m.id} className="flex items-center justify-between gap-2 rounded-md border border-background-200 px-3 py-2">
+                <div className="min-w-0">
+                  <p className="text-sm text-foreground-900 truncate">{m.user.name || m.user.email}</p>
+                  <p className="text-xs text-foreground-500 truncate">{m.user.email}</p>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {m.userId === currentUserId ? (
+                    <Badge status={m.role} />
+                  ) : (
+                    <>
+                      <RoleSelect membershipId={m.id} currentRole={m.role} />
+                      <form action={removeMember.bind(null, m.id)}>
+                        <button className="text-xs text-accent-700 hover:underline">Remove</button>
+                      </form>
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <InviteMemberForm />
         </Card>
 
         <Card className="p-4">
