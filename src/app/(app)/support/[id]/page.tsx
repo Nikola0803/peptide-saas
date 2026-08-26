@@ -63,13 +63,13 @@ export default async function ConversationPage({ params }: { params: { id: strin
           ))}
         </div>
 
-        {isWhatsApp ? (
+        {isWhatsApp || conversation.contactEmail ? (
           <form action={sendReply.bind(null, conversation.id)} className="flex items-start gap-2 pt-3 border-t border-background-200">
             <textarea
               name="body"
               required
               rows={2}
-              placeholder="Type a reply…"
+              placeholder={isWhatsApp ? "Type a reply…" : `Reply by email to ${conversation.contactEmail}…`}
               className="flex-1 text-sm border border-background-300 rounded px-2.5 py-1.5 bg-background-50 resize-none"
             />
             <button className="text-sm bg-primary-500 text-background-50 rounded-md px-3 py-1.5 font-medium hover:bg-primary-600 self-stretch">
@@ -78,8 +78,7 @@ export default async function ConversationPage({ params }: { params: { id: strin
           </form>
         ) : (
           <p className="text-xs text-foreground-500 pt-3 border-t border-background-200">
-            Contact-form submissions aren't a two-way channel — reply directly by email
-            {conversation.contactEmail ? ` to ${conversation.contactEmail}` : ""}.
+            No email address on file for this conversation — nothing to reply to.
           </p>
         )}
       </Card>

@@ -34,8 +34,8 @@ const PRODUCTS = [
 async function main() {
   const org = await prisma.organization.upsert({
     where: { slug: "evlv" },
-    update: {},
-    create: { name: "EVLV", slug: "evlv", plan: "GROWTH" },
+    update: { notifyEmail: "office@evlvpeptides.com" },
+    create: { name: "EVLV", slug: "evlv", plan: "GROWTH", notifyEmail: "office@evlvpeptides.com" },
   });
 
   const brand = await prisma.brand.upsert({
@@ -114,11 +114,23 @@ async function main() {
     });
   }
 
+  // Contact-form submissions (see /api/forms/submit) are gated by this
+  // public key, not the org api key -- it's meant to be embeddable
+  // client-side, but evlv-site proxies it server-side anyway to keep
+  // CRM_API_URL itself out of the browser bundle. See evlv-site's
+  // src/app/api/contact/route.ts.
+  const trackingConfig = await prisma.trackingConfig.upsert({
+    where: { brandId: brand.id },
+    update: {},
+    create: { brandId: brand.id },
+  });
+
   console.log("EVLV seed complete.");
   console.log(`  Organization: ${org.name} (${org.id})`);
   console.log(`  Brand domain: ${brand.domain}`);
   console.log(`  CRM_ORG_API_KEY=${org.apiKey}`);
   console.log(`  CRM_STORE_DOMAIN=${brand.domain}`);
+  console.log(`  CRM_CONTACT_FORM_KEY=${trackingConfig.publicKey}`);
   console.log("  Staff login: operator@evlvpeptides.com / password123");
 }
 
