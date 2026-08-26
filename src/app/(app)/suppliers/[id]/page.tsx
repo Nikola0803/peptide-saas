@@ -49,6 +49,9 @@ export default async function SupplierDetailPage({ params }: { params: { id: str
             {lowStock.map((p) => (
               <li key={p.id}>
                 {p.product.chemicalName} ({p.product.sku}) — {p.stock} left
+                {p.stock === 0 && (p.restockEta || p.restockNote) && (
+                  <> — {p.restockEta ? `restocking ${shortDate(p.restockEta)}` : p.restockNote}</>
+                )}
               </li>
             ))}
           </ul>

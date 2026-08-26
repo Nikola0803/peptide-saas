@@ -15,6 +15,9 @@ export async function setSupplierProduct(formData: FormData) {
   const cost = Number(formData.get("cost") ?? 0);
   const shipping = Number(formData.get("shipping") ?? 0);
   const stock = Math.max(0, Math.floor(Number(formData.get("stock") ?? 0)));
+  const restockNote = String(formData.get("restockNote") ?? "").trim();
+  const restockEtaRaw = String(formData.get("restockEta") ?? "").trim();
+  const restockEta = restockEtaRaw ? new Date(restockEtaRaw) : null;
 
   if (!sku) throw new Error("SKU is required");
   if (!(cost > 0)) throw new Error("Cost must be greater than zero");
@@ -29,7 +32,7 @@ export async function setSupplierProduct(formData: FormData) {
 
   await prisma.supplierProduct.upsert({
     where: { supplierId_productId: { supplierId: supplier.id, productId: product.id } },
-    update: { costCents: Math.round(cost * 100), shippingCents: Math.round(shipping * 100), stock, active: true },
+    update: { costCents: Math.round(cost * 100), shippingCents: Math.round(shipping * 100), stock, active: true, restockNote: restockNote || null, restockEta },
     create: {
       supplierId: supplier.id,
       productId: product.id,
@@ -37,6 +40,8 @@ export async function setSupplierProduct(formData: FormData) {
       shippingCents: Math.round(shipping * 100),
       stock,
       active: true,
+      restockNote: restockNote || null,
+      restockEta,
     },
   });
 
