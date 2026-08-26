@@ -7,11 +7,14 @@ import { money } from "@/lib/format";
 export default async function AffiliatesPage() {
   const { organization } = await requireOrg();
 
-  const affiliates = await prisma.affiliate.findMany({
-    where: { organizationId: organization.id },
-    include: { attributions: { include: { order: true } } },
-    orderBy: { name: "asc" },
-  });
+  const [affiliates, storeBrand] = await Promise.all([
+    prisma.affiliate.findMany({
+      where: { organizationId: organization.id },
+      include: { attributions: { include: { order: true } } },
+      orderBy: { name: "asc" },
+    }),
+    prisma.brand.findFirst({ where: { organizationId: organization.id, verifiedAt: { not: null } } }),
+  ]);
 
   const rows = affiliates.map((a) => {
     const revenue = a.attributions.reduce((s, at) => s + at.order.grossCents, 0);
@@ -29,14 +32,9 @@ export default async function AffiliatesPage() {
         title="Affiliates"
         subtitle="Coupon-driven referral tracking"
         actions={
-          <>
-            <Link href="/affiliates/new" className="text-sm border border-background-300 rounded-md px-3 py-1.5 text-foreground-800 hover:bg-background-100">
-              New affiliate
-            </Link>
-            <button className="text-sm bg-primary-500 text-background-50 rounded-md px-3 py-1.5 font-medium hover:bg-primary-600">
-              Sync all brands
-            </button>
-          </>
+          <Link href="/affiliates/new" className="text-sm border border-background-300 rounded-md px-3 py-1.5 text-foreground-800 hover:bg-background-100">
+            New affiliate
+          </Link>
         }
       />
 
@@ -78,6 +76,11 @@ export default async function AffiliatesPage() {
                 <span className="text-foreground-500">Coupon</span>
                 <span className="font-mono text-foreground-800">{affiliate.couponCode}</span>
               </div>
+              {storeBrand && (
+                <div className="mb-3 rounded-md bg-background-100 px-2 py-1.5 text-[11px] font-mono text-foreground-600 truncate">
+                  https://{storeBrand.domain}/?ref={affiliate.couponCode}
+                </div>
+              )}
 
               <div className="grid grid-cols-3 gap-2 pt-3 border-t border-background-200 text-center">
                 <div>

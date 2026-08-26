@@ -174,6 +174,13 @@ model Product {
   cogsCents    Int
   masterStock  Int    @default(0)
 
+  // Variable-product support: SKUs sharing the same variantGroup (e.g.
+  // "BPC-157") render as one storefront product with a size/dose selector,
+  // each variantLabel (e.g. "10mg") linking to its own priced, stocked SKU.
+  variantGroup     String?
+  variantLabel     String?
+  retailPriceCents Int?
+
   coas             CoaDocument[]
   storeMappings    StoreMapping[]
   orderItems       OrderItem[]
@@ -184,6 +191,7 @@ model Product {
 
   @@unique([organizationId, sku])
   @@index([organizationId, masterStock])
+  @@index([organizationId, variantGroup])
 }
 
 model ProductLot {

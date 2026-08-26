@@ -8,11 +8,19 @@ import { ImportForm } from "./import-form";
 export default async function DropshipProductsPage() {
   const { supplier } = await requireSupplier();
 
-  const products = await prisma.supplierProduct.findMany({
-    where: { supplierId: supplier.id },
-    include: { product: true },
-    orderBy: { updatedAt: "desc" },
-  });
+  const [products, sold30d] = await Promise.all([
+    prisma.supplierProduct.findMany({
+      where: { supplierId: supplier.id },
+      include: { product: true },
+      orderBy: { updatedAt: "desc" },
+    }),
+    prisma.orderItem.groupBy({
+      by: ["productId"],
+      where: { supplierId: supplier.id, order: { placedAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } } },
+      _sum: { quantity: true },
+    }),
+  ]);
+  const soldByProduct = new Map(sold30d.map((r) => [r.productId, r._sum.quantity ?? 0]));
 
   return (
     <div>
@@ -24,7 +32,7 @@ export default async function DropshipProductsPage() {
             <EmptyState
               icon="ri-flask-line"
               title="No products yet"
-              body='Add a product by SKU, or bulk-import a CSV with columns: sku, cost, shipping, stock.'
+              body='Add a product by SKU, or bulk-import a CSV with columns: sku, wholesale, name, mg, retail, shipping, stock.'
             />
           ) : (
             <Card className="overflow-x-auto">
@@ -36,6 +44,7 @@ export default async function DropshipProductsPage() {
                     <th className="px-4 py-2.5 font-medium text-right">Cost</th>
                     <th className="px-4 py-2.5 font-medium text-right">Shipping</th>
                     <th className="px-4 py-2.5 font-medium text-right">Stock</th>
+                    <th className="px-4 py-2.5 font-medium text-right">Sold (30d)</th>
                     <th className="px-4 py-2.5 font-medium">Status</th>
                     <th className="px-4 py-2.5 font-medium"></th>
                   </tr>
@@ -55,6 +64,7 @@ export default async function DropshipProductsPage() {
                           </div>
                         )}
                       </td>
+                      <td className="px-4 py-2.5 text-right tabular-nums text-foreground-600">{soldByProduct.get(sp.productId) ?? 0}</td>
                       <td className="px-4 py-2.5">
                         <Badge status={sp.active ? "connected" : "pending"} />
                       </td>
@@ -96,8 +106,10 @@ export default async function DropshipProductsPage() {
           <Card className="p-4">
             <h2 className="text-sm font-semibold text-foreground-950 mb-1">Bulk import</h2>
             <p className="text-xs text-foreground-500 mb-3">
-              CSV with header row: <code className="font-mono">sku,wholesale,name,mg,shipping,stock</code> — only sku
-              and wholesale are required. Unknown SKUs get added to the master catalog automatically.
+              CSV with header row: <code className="font-mono">sku,wholesale,name,mg,retail,shipping,stock</code> —
+              only sku and wholesale are required. Unknown SKUs get added to the master catalog automatically. SKUs
+              sharing the same name become one storefront product with a size selector across their mg values.
+              Setting retail also publishes the product to the storefront.
             </p>
             <ImportForm />
           </Card>
