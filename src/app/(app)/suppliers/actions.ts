@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 import { requireOrg } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { createId } from "@/lib/id";
+import { importSupplierCsv, type ImportResult } from "@/lib/supplier-import";
 
 export async function createSupplier(formData: FormData) {
   const { organization } = await requireOrg();
@@ -57,6 +58,25 @@ export async function inviteSupplierLogin(supplierId: string, formData: FormData
 
   revalidatePath("/suppliers");
   return { email, password };
+}
+
+// Staff pre-filling a supplier's price list on their behalf -- same
+// importer a supplier uses themselves from /dropship/products, so once
+// they get invited a login their catalog is already there instead of
+// starting empty. If the CSV came from an Excel export, save it as CSV
+// first (File → Save As → CSV) -- xlsx isn't parsed server-side here.
+export async function importSupplierPriceList(supplierId: string, formData: FormData): Promise<ImportResult> {
+  const { organization } = await requireOrg();
+
+  const supplier = await prisma.supplier.findFirst({ where: { id: supplierId, organizationId: organization.id } });
+  if (!supplier) throw new Error("Supplier not found");
+
+  const file = formData.get("file") as File | null;
+  if (!file) throw new Error("Choose a CSV file first");
+
+  const result = await importSupplierCsv(organization.id, supplierId, await file.text());
+  revalidatePath(`/suppliers/${supplierId}`);
+  return result;
 }
 
 export async function setInvoiceStatus(invoiceId: string, status: "SENT" | "PAID") {

@@ -4,26 +4,35 @@ import { requireOrg } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader, Card, Badge } from "@/components/ui";
 import { money, shortDate } from "@/lib/format";
-import { updateProduct, deleteProduct, addCoaDocument, removeCoaDocument } from "../actions";
+import { updateProduct, deleteProduct, addCoaDocument, removeCoaDocument, setStorePrice } from "../actions";
 import { addLot, recallLot, unrecallLot, deleteLot } from "../lot-actions";
 
 export default async function ProductDetailPage({ params }: { params: { id: string } }) {
   const { organization } = await requireOrg();
 
-  const product = await prisma.product.findFirst({
-    where: { id: params.id, organizationId: organization.id },
-    include: {
-      storeMappings: { include: { brand: true } },
-      coas: true,
-      lots: { orderBy: { receivedAt: "desc" } },
-    },
-  });
+  const [product, brands, supplierProducts] = await Promise.all([
+    prisma.product.findFirst({
+      where: { id: params.id, organizationId: organization.id },
+      include: {
+        storeMappings: { include: { brand: true } },
+        coas: true,
+        lots: { orderBy: { receivedAt: "desc" } },
+      },
+    }),
+    prisma.brand.findMany({ where: { organizationId: organization.id }, orderBy: { name: "asc" } }),
+    prisma.supplierProduct.findMany({
+      where: { productId: params.id, active: true, supplier: { active: true } },
+      include: { supplier: true },
+    }),
+  ]);
 
   if (!product) notFound();
 
   const updateWithId = updateProduct.bind(null, product.id);
   const deleteWithId = deleteProduct.bind(null, product.id);
   const addCoaWithId = addCoaDocument.bind(null, product.id);
+  const mappedBrandIds = new Set(product.storeMappings.map((m) => m.brandId));
+  const unmappedBrands = brands.filter((b) => !mappedBrandIds.has(b.id));
 
   return (
     <div>
@@ -102,24 +111,77 @@ export default async function ProductDetailPage({ params }: { params: { id: stri
 
         <div className="space-y-4">
           <Card className="p-4">
-            <h2 className="text-sm font-semibold text-foreground-950 mb-3">Store mappings</h2>
-            {product.storeMappings.length === 0 ? (
-              <p className="text-xs text-foreground-500">
-                Not yet mapped to a brand's storefront — this happens automatically the first time a matching SKU
-                syncs in from a connected store.
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {product.storeMappings.map((m) => (
-                  <div key={m.id} className="flex items-center justify-between px-3 py-2 rounded-md border border-background-200 text-sm">
-                    <span className="text-foreground-800">{m.brand.name}</span>
-                    <span className="text-xs text-foreground-500">
-                      {m.storePriceCents != null ? money(m.storePriceCents) : "—"}
-                    </span>
-                  </div>
+            <h2 className="text-sm font-semibold text-foreground-950 mb-1">Store pricing</h2>
+            {supplierProducts.length > 0 && (
+              <p className="text-xs text-foreground-500 mb-3">
+                Wholesale cost:{" "}
+                {supplierProducts.map((sp) => (
+                  <span key={sp.id} className="font-medium text-foreground-700">
+                    {money(sp.costCents)} ({sp.supplier.name})
+                  </span>
                 ))}
-              </div>
+                {" "}— set your own retail price below, however you want to mark it up.
+              </p>
             )}
+            {product.storeMappings.length === 0 && unmappedBrands.length === 0 && (
+              <p className="text-xs text-foreground-500">No brands on this organization yet.</p>
+            )}
+            <div className="space-y-3">
+              {product.storeMappings.map((m) => (
+                <form key={m.id} action={setStorePrice.bind(null, product.id, m.brandId)} className="rounded-md border border-background-200 p-2.5">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-sm text-foreground-800">{m.brand.name}</span>
+                    <Badge status={m.active ? "connected" : "pending"} />
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      name="price"
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      required
+                      defaultValue={m.storePriceCents != null ? (m.storePriceCents / 100).toFixed(2) : ""}
+                      placeholder="Retail price"
+                      className="w-24 text-xs border border-background-300 rounded px-2 py-1 bg-background-50"
+                    />
+                    <input
+                      name="slug"
+                      defaultValue={m.slug ?? ""}
+                      placeholder="slug"
+                      className="flex-1 min-w-0 text-xs border border-background-300 rounded px-2 py-1 bg-background-50 font-mono"
+                    />
+                    <button className="text-xs bg-primary-500 text-background-50 rounded px-2.5 py-1 font-medium hover:bg-primary-600 shrink-0">
+                      Save
+                    </button>
+                  </div>
+                </form>
+              ))}
+
+              {unmappedBrands.map((b) => (
+                <form key={b.id} action={setStorePrice.bind(null, product.id, b.id)} className="rounded-md border border-dashed border-background-300 p-2.5">
+                  <p className="text-xs text-foreground-500 mb-1.5">Add to {b.name}'s storefront</p>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      name="price"
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      required
+                      placeholder="Retail price"
+                      className="w-24 text-xs border border-background-300 rounded px-2 py-1 bg-background-50"
+                    />
+                    <input
+                      name="slug"
+                      placeholder={`slug (default: ${product.sku.toLowerCase()})`}
+                      className="flex-1 min-w-0 text-xs border border-background-300 rounded px-2 py-1 bg-background-50 font-mono"
+                    />
+                    <button className="text-xs border border-background-300 rounded px-2.5 py-1 text-foreground-700 hover:bg-background-100 shrink-0">
+                      Add
+                    </button>
+                  </div>
+                </form>
+              ))}
+            </div>
           </Card>
 
           <Card className="p-4">

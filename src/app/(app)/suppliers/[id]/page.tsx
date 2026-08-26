@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { PageHeader, Card, Badge, StatCard, EmptyState } from "@/components/ui";
 import { money, shortDate, dateTime } from "@/lib/format";
 import { setInvoiceStatus } from "../actions";
+import { SupplierImportForm } from "./import-form";
 
 const LOW_STOCK_THRESHOLD = 10;
 
@@ -100,7 +101,19 @@ export default async function SupplierDetailPage({ params }: { params: { id: str
       </Card>
 
       <Card className="p-4 mt-4">
-        <h2 className="text-sm font-semibold text-foreground-950 mb-3">Products</h2>
+        <div className="flex items-start justify-between gap-4 mb-3">
+          <div>
+            <h2 className="text-sm font-semibold text-foreground-950">Products</h2>
+            <p className="text-xs text-foreground-500 mt-0.5">
+              Pre-fill his price list before he has a login — CSV with header row{" "}
+              <code className="font-mono">sku,wholesale,name,mg</code> (only sku + wholesale required; unknown SKUs
+              get added to the master catalog).
+            </p>
+          </div>
+          <div className="w-64 shrink-0">
+            <SupplierImportForm supplierId={supplier.id} />
+          </div>
+        </div>
         {supplier.products.length === 0 ? (
           <p className="text-xs text-foreground-500">No products listed yet.</p>
         ) : (
