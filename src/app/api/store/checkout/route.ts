@@ -16,6 +16,14 @@ const bodySchema = z.object({
   paymentMethod: z.string().optional(),
   paymentMemo: z.string().optional(),
   customerNote: z.string().optional(),
+  // The storefront's own server sits between the real customer and this
+  // API (see evlv-site's crm-proxy.ts), so req.headers here would just
+  // show the storefront's own server IP — it has to forward the real
+  // client's IP/UA itself. Falls back to the request's own header if a
+  // caller doesn't (e.g. hitting this endpoint directly, not through a
+  // proxying storefront).
+  ipAddress: z.string().optional(),
+  userAgent: z.string().optional(),
   // evlv-site's real checkout payload shape — see CheckoutBillingInput.
   billing: z
     .object({
@@ -76,6 +84,8 @@ export async function POST(req: NextRequest) {
       customerNote: parsed.data.customerNote,
       billing: parsed.data.billing,
       shipTo: parsed.data.shipTo,
+      ipAddress: parsed.data.ipAddress || req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || undefined,
+      userAgent: parsed.data.userAgent || req.headers.get("user-agent") || undefined,
     });
     return NextResponse.json(result, { status: 201 });
   } catch (err) {

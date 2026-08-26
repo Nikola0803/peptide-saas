@@ -98,6 +98,19 @@ export const DEFAULT_TEMPLATES: EmailTemplateDefault[] = [
     `),
   },
   {
+    key: "supplier_new_order",
+    name: "New order notification (supplier)",
+    description: "Sent to a dropship supplier when one of their products is ordered.",
+    subject: "New order to fulfill: {{orderNumber}}",
+    sampleVars: { supplierName: "Acme Fulfillment", orderNumber: "STORE-ABC123", itemsHtml: "<li>BPC-157 10MG x1</li>" },
+    html: LAYOUT(`
+      <h1 style="font-size: 20px;">New order to fulfill</h1>
+      <p>Hi {{supplierName}}, order <strong>{{orderNumber}}</strong> includes your product(s):</p>
+      <ul style="padding-left: 18px;">{{{itemsHtml}}}</ul>
+      <p>Log in to your dropship portal to see the shipping address and mark it shipped once it's out.</p>
+    `),
+  },
+  {
     key: "support_reply",
     name: "Support reply",
     description: "Wraps a staff reply sent from the Support inbox to a contact-form or WhatsApp lead.",

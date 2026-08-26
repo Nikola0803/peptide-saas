@@ -53,7 +53,14 @@ export interface CheckoutInput {
     postalCode?: string;
     country?: string;
   };
+  // From the checkout request itself (see /api/store/checkout), for basic
+  // fraud review — not sent by the storefront, captured server-side.
+  ipAddress?: string;
+  userAgent?: string;
 }
+
+const FRAUD_VELOCITY_WINDOW_HOURS = 24;
+const FRAUD_VELOCITY_THRESHOLD = 3; // this many ON_HOLD/PROCESSING orders from one IP in the window auto-flags
 
 export class CheckoutError extends Error {
   constructor(
@@ -119,6 +126,7 @@ export async function runCheckout(
       quantity: number;
       unitPriceCents: number;
       lotId?: string;
+      supplierId?: string;
     }[] = [];
 
     for (const item of input.items) {
@@ -161,7 +169,23 @@ export async function runCheckout(
         });
       }
 
-      resolvedItems.push({ productId: product.id, sku: product.sku, name: product.chemicalName, quantity, unitPriceCents, lotId });
+      // Dropshipping — if a supplier currently lists this product as
+      // in-stock, this item is theirs to fulfill; sticks with the item
+      // permanently even if the SupplierProduct row changes later (see
+      // OrderItem.supplierId's doc comment in schema.prisma).
+      const supplierProduct = await tx.supplierProduct.findFirst({
+        where: { productId: product.id, active: true, supplier: { active: true } },
+      });
+
+      resolvedItems.push({
+        productId: product.id,
+        sku: product.sku,
+        name: product.chemicalName,
+        quantity,
+        unitPriceCents,
+        lotId,
+        supplierId: supplierProduct?.supplierId,
+      });
     }
 
     let commissionCents = 0;
@@ -181,6 +205,29 @@ export async function runCheckout(
 
     const billingName = [input.billing?.firstName, input.billing?.lastName].filter(Boolean).join(" ") || undefined;
 
+    // Simple velocity check, not a scoring model — several ON_HOLD/
+    // PROCESSING orders from the same IP in a short window is exactly the
+    // "large first order, mismatched details" kind of thing the existing
+    // manual flaggedRisk field already exists for (see orders/actions.ts's
+    // setFraudFlag). Staff can always clear it; this never blocks checkout.
+    let flaggedRisk = false;
+    let riskReason: string | undefined;
+    if (input.ipAddress) {
+      const windowStart = new Date(Date.now() - FRAUD_VELOCITY_WINDOW_HOURS * 60 * 60 * 1000);
+      const recentCount = await tx.order.count({
+        where: {
+          organizationId,
+          ipAddress: input.ipAddress,
+          placedAt: { gte: windowStart },
+          status: { in: ["ON_HOLD", "PROCESSING"] },
+        },
+      });
+      if (recentCount + 1 >= FRAUD_VELOCITY_THRESHOLD) {
+        flaggedRisk = true;
+        riskReason = `${recentCount + 1} orders from IP ${input.ipAddress} within ${FRAUD_VELOCITY_WINDOW_HOURS}h`;
+      }
+    }
+
     const order = await tx.order.create({
       data: {
         organizationId,
@@ -194,6 +241,10 @@ export async function runCheckout(
         paymentMethod: input.paymentMethod,
         paymentMemo: input.paymentMemo,
         placedAt: new Date(),
+        ipAddress: input.ipAddress,
+        userAgent: input.userAgent,
+        flaggedRisk,
+        riskReason,
         shipToName: input.shipTo?.name ?? billingName,
         shipToAddress1: input.shipTo?.address1 ?? input.billing?.address1,
         shipToAddress2: input.shipTo?.address2 ?? input.billing?.address2,
@@ -246,7 +297,33 @@ export async function runCheckout(
     paymentMemo: input.paymentMemo,
   }).catch((err) => console.error("Order confirmation email failed", err));
 
+  notifySuppliers(organizationId, result.number, resolvedItems).catch((err) => console.error("Supplier notification email failed", err));
+
   return result;
+}
+
+async function notifySuppliers(
+  organizationId: string,
+  orderNumber: string,
+  items: { name: string; quantity: number; supplierId?: string }[]
+): Promise<void> {
+  const supplierIds = [...new Set(items.map((i) => i.supplierId).filter((id): id is string => Boolean(id)))];
+  if (supplierIds.length === 0) return;
+
+  const suppliers = await prisma.supplier.findMany({ where: { id: { in: supplierIds } } });
+
+  for (const supplier of suppliers) {
+    if (!supplier.contactEmail) continue;
+    const itemsHtml = items
+      .filter((i) => i.supplierId === supplier.id)
+      .map((i) => `<li>${escapeHtml(i.name)} x${i.quantity}</li>`)
+      .join("");
+    await sendTemplate(organizationId, "supplier_new_order", supplier.contactEmail, {
+      supplierName: supplier.name,
+      orderNumber,
+      itemsHtml,
+    });
+  }
 }
 
 interface OrderEmailInput {
