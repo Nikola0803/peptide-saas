@@ -146,6 +146,125 @@ export const DEFAULT_TEMPLATES: EmailTemplateDefault[] = [
     `),
   },
   {
+    key: "welcome_2",
+    name: "Welcome #2",
+    description: "Sent a few days after signup (see the Email page's Automations section for timing) -- why EVLV, testing/quality, product categories.",
+    subject: "Why researchers choose EVLV",
+    sampleVars: { customerName: "Jordan" },
+    html: LAYOUT(`
+      <h1 style="font-size: 20px;">A bit more about EVLV, {{customerName}}</h1>
+      <p>Every batch we sell is independently tested for identity and purity, with a published Certificate of Analysis (COA) you can check any time from your account.</p>
+      <p>We carry both single-compound peptides and pre-combined research blends -- browse the full catalog any time from the Shop page.</p>
+      <p>Questions about a specific compound or protocol? Just reply to this email.</p>
+    `),
+  },
+  {
+    key: "browse_abandonment",
+    name: "Browse abandonment",
+    description: "Sent after someone views a product without adding it to cart (see Automations for timing).",
+    subject: "Still researching {{productName}}?",
+    sampleVars: { customerName: "Jordan", productName: "BPC-157 10MG", productUrl: "https://evlvpeptides.com/shop/bpc-157-10mg" },
+    html: LAYOUT(`
+      <h1 style="font-size: 20px;">Still deciding on {{productName}}?</h1>
+      <p>Hi {{customerName}}, we noticed you checked out {{productName}} recently. It's independently tested and ready to ship whenever you are.</p>
+      <p><a href="{{productUrl}}" style="color: #b5804a;">Take another look</a></p>
+    `),
+  },
+  {
+    key: "cart_abandonment",
+    name: "Cart abandonment",
+    description: "Sent after items sit in a cart without checkout (see Automations for timing).",
+    subject: "You left something in your cart",
+    sampleVars: { customerName: "Jordan", itemsHtml: "<li>BPC-157 10MG</li>", checkoutUrl: "https://evlvpeptides.com/checkout" },
+    html: LAYOUT(`
+      <h1 style="font-size: 20px;">Your cart is waiting, {{customerName}}</h1>
+      <ul style="padding-left: 18px;">{{{itemsHtml}}}</ul>
+      <p><a href="{{checkoutUrl}}" style="color: #b5804a; font-weight: 600;">Complete your order</a></p>
+    `),
+  },
+  {
+    key: "checkout_abandonment",
+    name: "Checkout abandonment",
+    description: "Sent after checkout is started but not completed (see Automations for timing).",
+    subject: "Complete your EVLV order",
+    sampleVars: { customerName: "Jordan", checkoutUrl: "https://evlvpeptides.com/checkout" },
+    html: LAYOUT(`
+      <h1 style="font-size: 20px;">You're almost there, {{customerName}}</h1>
+      <p>Your order is still saved in your cart -- it only takes a minute to finish checking out.</p>
+      <p><a href="{{checkoutUrl}}" style="color: #b5804a; font-weight: 600;">Finish checkout</a></p>
+    `),
+  },
+  {
+    key: "payment_pending_reminder",
+    name: "Payment pending reminder",
+    description: "Sent while an order awaits payment confirmation (see Automations for timing).",
+    subject: "Reminder: complete payment for order {{orderNumber}}",
+    sampleVars: { customerName: "Jordan", orderNumber: "STORE-ABC123", paymentMethod: "zelle", paymentMemo: "EVLV-JORDAN" },
+    html: LAYOUT(`
+      <h1 style="font-size: 20px;">Your order is on hold pending payment</h1>
+      <p>Hi {{customerName}}, order <strong>{{orderNumber}}</strong> is reserved but we haven't confirmed your payment yet.</p>
+      <p>Payment method: {{paymentMethod}}<br/>Memo/reference: {{paymentMemo}}</p>
+      <p>If we don't receive payment soon, the reserved stock is released back and someone else may purchase it -- reply to this email if you've already paid and it hasn't been confirmed.</p>
+    `),
+  },
+  {
+    key: "payment_confirmed",
+    name: "Payment confirmed",
+    description: "Sent the moment staff confirms payment on an order.",
+    subject: "Your EVLV order {{orderNumber}} is confirmed",
+    sampleVars: { customerName: "Jordan", orderNumber: "STORE-ABC123" },
+    html: LAYOUT(`
+      <h1 style="font-size: 20px;">Payment confirmed!</h1>
+      <p>Hi {{customerName}}, we've confirmed payment on order <strong>{{orderNumber}}</strong>. It's now being prepared for shipment -- we'll email you tracking as soon as it ships.</p>
+    `),
+  },
+  {
+    key: "shipping_confirmation",
+    name: "Shipping confirmation",
+    description: "Sent when a tracking number becomes available for an order.",
+    subject: "Your EVLV order {{orderNumber}} has shipped",
+    sampleVars: { customerName: "Jordan", orderNumber: "STORE-ABC123", trackingNumber: "1Z999AA10123456784", carrierCode: "ups" },
+    html: LAYOUT(`
+      <h1 style="font-size: 20px;">Your order is on its way</h1>
+      <p>Hi {{customerName}}, order <strong>{{orderNumber}}</strong> has shipped via {{carrierCode}}.</p>
+      <p>Tracking number: <strong>{{trackingNumber}}</strong></p>
+    `),
+  },
+  {
+    key: "post_purchase",
+    name: "Post-purchase",
+    description: "Sent a few days after an order completes (see Automations for timing) -- COA/docs and account reminder.",
+    subject: "How's your EVLV order treating you?",
+    sampleVars: { customerName: "Jordan", orderNumber: "STORE-ABC123" },
+    html: LAYOUT(`
+      <h1 style="font-size: 20px;">Hope research is going well, {{customerName}}</h1>
+      <p>Just checking in on order <strong>{{orderNumber}}</strong>. A reminder that every batch's Certificate of Analysis is available any time from your account page.</p>
+      <p>Questions about storage, reconstitution, or anything else? Just reply to this email.</p>
+    `),
+  },
+  {
+    key: "win_back",
+    name: "Win-back",
+    description: "Sent to contacts who haven't ordered in a while (see Automations for timing).",
+    subject: "We miss you at EVLV",
+    sampleVars: { customerName: "Jordan" },
+    html: LAYOUT(`
+      <h1 style="font-size: 20px;">It's been a while, {{customerName}}</h1>
+      <p>We've added new products and every batch is still independently tested with a published COA. Come take a look at what's new.</p>
+    `),
+  },
+  {
+    key: "vip_thank_you",
+    name: "VIP thank you",
+    description: "Sent to contacts whose trailing-90-day spend crosses the VIP threshold (set on the Email page).",
+    subject: "Thank you for being an EVLV regular",
+    sampleVars: { customerName: "Jordan" },
+    html: LAYOUT(`
+      <h1 style="font-size: 20px;">You're one of our best, {{customerName}}</h1>
+      <p>We wanted to say thanks for being a repeat EVLV customer -- your continued trust means a lot. Reach out any time if there's ever anything we can do for you.</p>
+    `),
+  },
+  {
     key: "support_reply",
     name: "Support reply",
     description: "Wraps a staff reply sent from the Support inbox to a contact-form or WhatsApp lead.",

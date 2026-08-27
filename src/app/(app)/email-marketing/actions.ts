@@ -43,6 +43,25 @@ export async function sendTestEmail(key: string, formData: FormData) {
   await sendTemplate(organization.id, key, to, fallback.sampleVars);
 }
 
+export async function updateAutomation(automationId: string, formData: FormData) {
+  const { organization } = await requireOrg();
+  const automation = await prisma.emailAutomation.findFirst({ where: { id: automationId, organizationId: organization.id } });
+  if (!automation) throw new Error("Not found");
+
+  const enabled = formData.get("enabled") === "on";
+  const delayValue = Math.max(0, Math.floor(Number(formData.get("delayValue") ?? automation.delayValue)));
+  const delayUnit = String(formData.get("delayUnit") ?? automation.delayUnit) as "MINUTES" | "HOURS" | "DAYS";
+  const thresholdRaw = formData.get("thresholdDollars");
+  const thresholdCents = automation.key === "vip" && thresholdRaw ? Math.round(Number(thresholdRaw) * 100) : automation.thresholdCents;
+
+  await prisma.emailAutomation.update({
+    where: { id: automationId },
+    data: { enabled, delayValue, delayUnit, thresholdCents },
+  });
+
+  revalidatePath("/email-marketing");
+}
+
 export async function saveEmailSettings(formData: FormData) {
   const { organization } = await requireOrg();
 
