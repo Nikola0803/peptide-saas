@@ -145,3 +145,17 @@ export async function removeCoaDocument(productId: string, coaId: string) {
   await prisma.coaDocument.delete({ where: { id: coaId } });
   revalidatePath(`/products/${productId}`);
 }
+
+// "We decide which products show it" -- a supplier-uploaded COA starts
+// unpublished (see CoaDocument.published's doc comment); this is that
+// review step. Staff-uploaded ones can be unpublished here too if one
+// needs pulling without deleting it outright.
+export async function setCoaPublished(productId: string, coaId: string, published: boolean) {
+  const { organization } = await requireOrg();
+  const product = await prisma.product.findFirst({ where: { id: productId, organizationId: organization.id } });
+  if (!product) throw new Error("Not found");
+  const coa = await prisma.coaDocument.findFirst({ where: { id: coaId, productId } });
+  if (!coa) throw new Error("Not found");
+  await prisma.coaDocument.update({ where: { id: coaId }, data: { published } });
+  revalidatePath(`/products/${productId}`);
+}

@@ -18,7 +18,9 @@ export async function GET(req: NextRequest) {
 
   const mappings = await prisma.storeMapping.findMany({
     where: { brandId: store.brandId, active: true, slug: { not: null } },
-    include: { product: { include: { coas: { orderBy: { createdAt: "desc" }, take: 1 } } } },
+    include: {
+      product: { include: { coas: { where: { published: true }, orderBy: { createdAt: "desc" }, take: 1 } } },
+    },
   });
 
   const coas = mappings

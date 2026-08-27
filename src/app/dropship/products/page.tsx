@@ -2,7 +2,7 @@ import { requireSupplier } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader, Card, Badge, EmptyState } from "@/components/ui";
 import { money, shortDate } from "@/lib/format";
-import { setSupplierProduct, setSupplierProductActive } from "./actions";
+import { setSupplierProduct, setSupplierProductActive, addSupplierCoaDocument } from "./actions";
 import { ImportForm } from "./import-form";
 
 export default async function DropshipProductsPage() {
@@ -11,7 +11,7 @@ export default async function DropshipProductsPage() {
   const [products, sold30d] = await Promise.all([
     prisma.supplierProduct.findMany({
       where: { supplierId: supplier.id },
-      include: { product: true },
+      include: { product: { include: { coas: { orderBy: { createdAt: "desc" } } } } },
       orderBy: { updatedAt: "desc" },
     }),
     prisma.orderItem.groupBy({
@@ -46,12 +46,15 @@ export default async function DropshipProductsPage() {
                     <th className="px-4 py-2.5 font-medium text-right">Stock</th>
                     <th className="px-4 py-2.5 font-medium text-right">Sold (30d)</th>
                     <th className="px-4 py-2.5 font-medium">Status</th>
+                    <th className="px-4 py-2.5 font-medium">COA</th>
                     <th className="px-4 py-2.5 font-medium"></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {products.map((sp) => (
-                    <tr key={sp.id} className="border-b border-background-100 last:border-0">
+                  {products.map((sp) => {
+                    const addCoaWithId = addSupplierCoaDocument.bind(null, sp.productId);
+                    return (
+                    <tr key={sp.id} className="border-b border-background-100 last:border-0 align-top">
                       <td className="px-4 py-2.5 text-foreground-900">{sp.product.chemicalName}</td>
                       <td className="px-4 py-2.5 font-mono text-xs text-foreground-600">{sp.product.sku}</td>
                       <td className="px-4 py-2.5 text-right tabular-nums">{money(sp.costCents)}</td>
@@ -68,6 +71,32 @@ export default async function DropshipProductsPage() {
                       <td className="px-4 py-2.5">
                         <Badge status={sp.active ? "connected" : "pending"} />
                       </td>
+                      <td className="px-4 py-2.5 min-w-[160px]">
+                        {sp.product.coas.length === 0 ? (
+                          <p className="text-[11px] text-foreground-500 mb-1">None uploaded</p>
+                        ) : (
+                          <ul className="text-[11px] space-y-0.5 mb-1">
+                            {sp.product.coas.map((coa) => (
+                              <li key={coa.id} className="flex items-center gap-1">
+                                <a href={coa.url} target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:underline truncate max-w-[110px]">
+                                  {coa.label ?? "COA"}
+                                </a>
+                                {!coa.published && <span className="text-accent-700">(pending review)</span>}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                        <details>
+                          <summary className="text-[11px] text-primary-600 cursor-pointer hover:underline">Upload COA</summary>
+                          <form action={addCoaWithId} className="mt-1.5 space-y-1">
+                            <input name="label" placeholder="Label (e.g. Lot 004)" className="w-full text-[11px] border border-background-300 rounded px-1.5 py-1 bg-background-50" />
+                            <input name="file" type="file" accept="application/pdf,image/*" required className="w-full text-[11px]" />
+                            <button className="w-full text-[11px] border border-background-300 rounded px-1.5 py-1 text-foreground-700 hover:bg-background-100">
+                              Upload
+                            </button>
+                          </form>
+                        </details>
+                      </td>
                       <td className="px-4 py-2.5">
                         <form action={setSupplierProductActive.bind(null, sp.id, !sp.active)}>
                           <button className="text-xs border border-background-300 rounded-md px-2 py-1 text-foreground-700 hover:bg-background-100">
@@ -76,7 +105,8 @@ export default async function DropshipProductsPage() {
                         </form>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </Card>

@@ -136,6 +136,17 @@ export const DEFAULT_TEMPLATES: EmailTemplateDefault[] = [
     `),
   },
   {
+    key: "supplier_coa_uploaded",
+    name: "Supplier COA uploaded (office)",
+    description: "Sent to the office/ops inbox when a dropship supplier uploads a COA for one of his products, awaiting publish.",
+    subject: "COA uploaded for review: {{productName}}",
+    sampleVars: { supplierName: "Acme Fulfillment", productName: "BPC-157 10MG" },
+    html: LAYOUT(`
+      <h1 style="font-size: 20px;">New COA to review</h1>
+      <p><strong>{{supplierName}}</strong> uploaded a COA for <strong>{{productName}}</strong>. It won't show on the storefront until you publish it from the product page.</p>
+    `),
+  },
+  {
     key: "supplier_invoice_paid",
     name: "Supplier invoice paid",
     description: "Sent to a dropship supplier when staff marks one of their invoices as paid.",
