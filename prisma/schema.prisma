@@ -242,6 +242,17 @@ model CoaDocument {
   // cleaned up if that file is ever deleted there.
   media   Media?  @relation(fields: [mediaId], references: [id])
   mediaId String?
+
+  // Whether this COA is actually shown on the storefront (see
+  // /api/store/coas). Staff-uploaded COAs publish immediately, same as
+  // before this field existed. A COA a dropship supplier uploads himself
+  // (uploadedBySupplierId set) starts unpublished -- "we decide which
+  // products show it" -- until a staff member reviews and publishes it
+  // from the product page.
+  published Boolean @default(true)
+
+  uploadedBySupplier   Supplier? @relation(fields: [uploadedBySupplierId], references: [id], onDelete: SetNull)
+  uploadedBySupplierId String?
 }
 
 // Links a master Product to its listing on one specific brand's store.
@@ -516,10 +527,11 @@ model Supplier {
   active       Boolean @default(true)
   createdAt    DateTime @default(now())
 
-  memberships Membership[]
-  products    SupplierProduct[]
-  orderItems  OrderItem[]
-  invoices    SupplierInvoice[]
+  memberships   Membership[]
+  products      SupplierProduct[]
+  orderItems    OrderItem[]
+  invoices      SupplierInvoice[]
+  uploadedCoas  CoaDocument[]
 }
 
 // A supplier's own price/shipping-rate/stock for one master-catalog

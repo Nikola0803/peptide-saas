@@ -4,8 +4,42 @@ import { revalidatePath } from "next/cache";
 import { requireSupplier } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { importSupplierCsv, type ImportResult } from "@/lib/supplier-import";
+import { saveUploadedFile } from "@/lib/upload";
+import { sendTemplate } from "@/lib/email";
 
 export type { ImportResult };
+
+// Lets a supplier upload the real lab COA for one of his own products --
+// he's often the one who actually has the lab results. Starts unpublished
+// (see CoaDocument.published's doc comment): staff review and publish it
+// from the product page before it's customer-facing. Scoped to products he
+// actually lists so he can't attach a COA to something that isn't his.
+export async function addSupplierCoaDocument(productId: string, formData: FormData) {
+  const { supplier, organization } = await requireSupplier();
+
+  const owns = await prisma.supplierProduct.findFirst({ where: { supplierId: supplier.id, productId }, include: { product: true } });
+  if (!owns) throw new Error("Not found");
+
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) throw new Error("Choose a file first");
+  const label = String(formData.get("label") ?? "").trim();
+
+  const result = await saveUploadedFile(organization.id, file);
+  if (!result.ok) throw new Error(result.reason);
+
+  await prisma.coaDocument.create({
+    data: { productId, url: result.media.url, label: label || null, mediaId: result.media.id, published: false, uploadedBySupplierId: supplier.id },
+  });
+
+  if (organization.notifyEmail) {
+    sendTemplate(organization.id, "supplier_coa_uploaded", organization.notifyEmail, {
+      supplierName: supplier.name,
+      productName: owns.product.chemicalName,
+    }).catch((err) => console.error("Supplier COA notification email failed", err));
+  }
+
+  revalidatePath("/dropship/products");
+}
 
 export async function setSupplierProduct(formData: FormData) {
   const { supplier, organization } = await requireSupplier();

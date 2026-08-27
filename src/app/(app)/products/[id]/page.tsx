@@ -4,7 +4,7 @@ import { requireOrg } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader, Card, Badge } from "@/components/ui";
 import { money, shortDate } from "@/lib/format";
-import { updateProduct, deleteProduct, addCoaDocument, addCoaDocumentFile, removeCoaDocument, setStorePrice } from "../actions";
+import { updateProduct, deleteProduct, addCoaDocument, addCoaDocumentFile, removeCoaDocument, setCoaPublished, setStorePrice } from "../actions";
 import { addLot, recallLot, unrecallLot, deleteLot } from "../lot-actions";
 
 export default async function ProductDetailPage({ params }: { params: { id: string } }) {
@@ -15,7 +15,7 @@ export default async function ProductDetailPage({ params }: { params: { id: stri
       where: { id: params.id, organizationId: organization.id },
       include: {
         storeMappings: { include: { brand: true } },
-        coas: true,
+        coas: { include: { uploadedBySupplier: true }, orderBy: [{ published: "asc" }, { createdAt: "desc" }] },
         lots: { orderBy: { receivedAt: "desc" } },
       },
     }),
@@ -191,12 +191,27 @@ export default async function ProductDetailPage({ params }: { params: { id: stri
               {product.coas.length === 0 && <p className="text-xs text-foreground-500">None uploaded yet.</p>}
               {product.coas.map((coa) => (
                 <div key={coa.id} className="flex items-center justify-between px-3 py-2 rounded-md border border-background-200 text-sm">
-                  <a href={coa.url} target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:underline truncate">
-                    {coa.label ?? coa.url}
-                  </a>
-                  <form action={removeCoaDocument.bind(null, product.id, coa.id)}>
-                    <button className="text-xs text-foreground-500 hover:text-accent-700 ml-2">Remove</button>
-                  </form>
+                  <div className="min-w-0">
+                    <a href={coa.url} target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:underline truncate block">
+                      {coa.label ?? coa.url}
+                    </a>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      {coa.uploadedBySupplier && (
+                        <span className="text-[10px] text-foreground-500">Uploaded by {coa.uploadedBySupplier.name}</span>
+                      )}
+                      <Badge status={coa.published ? "connected" : "pending"} />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <form action={setCoaPublished.bind(null, product.id, coa.id, !coa.published)}>
+                      <button className="text-xs border border-background-300 rounded px-2 py-1 text-foreground-700 hover:bg-background-100">
+                        {coa.published ? "Unpublish" : "Publish"}
+                      </button>
+                    </form>
+                    <form action={removeCoaDocument.bind(null, product.id, coa.id)}>
+                      <button className="text-xs text-foreground-500 hover:text-accent-700">Remove</button>
+                    </form>
+                  </div>
                 </div>
               ))}
             </div>
