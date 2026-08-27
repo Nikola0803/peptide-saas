@@ -50,6 +50,7 @@ export default async function DropshipBillingPage() {
                 <th className="px-4 py-2.5 font-medium">Items</th>
                 <th className="px-4 py-2.5 font-medium text-right">Total</th>
                 <th className="px-4 py-2.5 font-medium">Status</th>
+                <th className="px-4 py-2.5 font-medium"></th>
               </tr>
             </thead>
             <tbody>
@@ -62,6 +63,16 @@ export default async function DropshipBillingPage() {
                   <td className="px-4 py-2.5 text-right tabular-nums font-medium">{money(inv.totalCents)}</td>
                   <td className="px-4 py-2.5">
                     <Badge status={inv.status} />
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <a
+                      href={`/api/dropship/invoices/${inv.id}/pdf`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs border border-background-300 rounded px-2 py-1 text-foreground-700 hover:bg-background-100"
+                    >
+                      PDF
+                    </a>
                   </td>
                 </tr>
               ))}

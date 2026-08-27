@@ -6,6 +6,8 @@ import { requireOrg } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { createId } from "@/lib/id";
 import { importSupplierCsv, type ImportResult } from "@/lib/supplier-import";
+import { sendTemplate } from "@/lib/email";
+import { money } from "@/lib/format";
 
 export async function createSupplier(formData: FormData) {
   const { organization } = await requireOrg();
@@ -81,9 +83,24 @@ export async function importSupplierPriceList(supplierId: string, formData: Form
 
 export async function setInvoiceStatus(invoiceId: string, status: "SENT" | "PAID") {
   const { organization } = await requireOrg();
-  await prisma.supplierInvoice.updateMany({
+
+  const invoice = await prisma.supplierInvoice.findFirst({
     where: { id: invoiceId, supplier: { organizationId: organization.id } },
-    data: { status },
+    include: { supplier: { include: { memberships: { include: { user: true }, take: 1 } } } },
   });
+  if (!invoice) throw new Error("Not found");
+
+  await prisma.supplierInvoice.update({ where: { id: invoiceId }, data: { status } });
+
+  if (status === "PAID") {
+    const to = invoice.supplier.contactEmail || invoice.supplier.memberships[0]?.user.email;
+    if (to) {
+      sendTemplate(organization.id, "supplier_invoice_paid", to, {
+        supplierName: invoice.supplier.name,
+        totalFormatted: money(invoice.totalCents),
+      }).catch((err) => console.error("Supplier invoice paid email failed", err));
+    }
+  }
+
   revalidatePath("/suppliers");
 }

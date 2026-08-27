@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { requireSupplier } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
+import { sendTemplate } from "@/lib/email";
+import { money } from "@/lib/format";
 
 // "He sends us auto billing" -- this is that: sums every shipped item this
 // supplier hasn't been invoiced for yet, at the cost+shipping rates he set
@@ -11,7 +13,7 @@ import { prisma } from "@/lib/prisma";
 // shipped after the change) since each SupplierInvoiceLineItem freezes the
 // cost/shipping at generation time.
 export async function generateSupplierInvoice() {
-  const { supplier } = await requireSupplier();
+  const { supplier, organization } = await requireSupplier();
 
   const unbilledItems = await prisma.orderItem.findMany({
     where: { supplierId: supplier.id, fulfillmentStatus: "SHIPPED", invoiceLineItem: null },
@@ -49,6 +51,17 @@ export async function generateSupplierInvoice() {
       lineItems: { createMany: { data: lineItemsData } },
     },
   });
+
+  // "No way of sending bills" -- this is what actually gets it in front of
+  // staff instead of just sitting in the supplier portal until someone
+  // happens to check.
+  if (organization.notifyEmail) {
+    sendTemplate(organization.id, "supplier_invoice_generated", organization.notifyEmail, {
+      supplierName: supplier.name,
+      totalFormatted: money(totalCents),
+      itemCount: String(unbilledItems.length),
+    }).catch((err) => console.error("Supplier invoice notification email failed", err));
+  }
 
   revalidatePath("/dropship/billing");
 }

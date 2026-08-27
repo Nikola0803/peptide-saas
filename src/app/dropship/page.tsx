@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireSupplier } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
-import { PageHeader, Card, StatCard, EmptyState } from "@/components/ui";
+import { PageHeader, Card, StatCard, EmptyState, Badge } from "@/components/ui";
 import { money, dateTime } from "@/lib/format";
 import { RELEASE_WINDOW_HOURS } from "@/lib/stock-release-job";
 
@@ -49,6 +49,28 @@ export default async function DropshipDashboardPage() {
   const owed = unpaidInvoices.reduce((s, i) => s + i.totalCents, 0);
   const reservedUnits = reservedItems.reduce((s, i) => s + i.quantity, 0);
 
+  // Every sale that touches one of his products, newest first -- this is
+  // the "why don't sales from the CRM show up for him" fix. Order-level
+  // fields only (status, brand, placedAt) -- never customer email, payment
+  // method, or memo, same privacy boundary as the rest of /dropship.
+  const [recentSales, orders30dCount, units30dAgg] = await Promise.all([
+    prisma.orderItem.findMany({
+      where: { supplierId: supplier.id },
+      orderBy: { order: { placedAt: "desc" } },
+      take: 10,
+      include: { order: { select: { externalOrderNumber: true, status: true, placedAt: true, brand: { select: { name: true } } } } },
+    }),
+    prisma.orderItem.findMany({
+      where: { supplierId: supplier.id, order: { placedAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } } },
+      distinct: ["orderId"],
+      select: { orderId: true },
+    }),
+    prisma.orderItem.aggregate({
+      where: { supplierId: supplier.id, order: { placedAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } } },
+      _sum: { quantity: true },
+    }),
+  ]);
+
   // What he's earned, broken down by brand -- deliberately his cost
   // (what he invoices for), not the customer's retail price, since the
   // gap between the two is EVLV's markup and not his to see. Only paid
@@ -75,9 +97,10 @@ export default async function DropshipDashboardPage() {
     <div>
       <PageHeader title="Dashboard" subtitle={`Welcome back, ${supplier.name}`} />
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
         <StatCard label="Awaiting shipment" value={String(pendingCount)} hint={pendingCount > 0 ? "Needs action" : "All caught up"} />
         <StatCard label="Shipped this week" value={String(shippedThisWeek)} />
+        <StatCard label="Orders (30d)" value={String(orders30dCount.length)} hint={`${units30dAgg._sum.quantity ?? 0} units`} />
         <StatCard label="Outstanding balance" value={money(owed)} hint={unbilledCount > 0 ? `${unbilledCount} unbilled item${unbilledCount === 1 ? "" : "s"}` : undefined} />
       </div>
 
@@ -90,6 +113,47 @@ export default async function DropshipDashboardPage() {
           hint={reservedUnits > 0 ? `${reservedItems.length} item${reservedItems.length === 1 ? "" : "s"} — auto-releases if unpaid` : "Nothing reserved"}
         />
       </div>
+
+      <Card className="p-4 mb-6">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-semibold text-foreground-950">Recent sales</h2>
+          <Link href="/dropship/orders" className="text-xs text-primary-600 hover:underline">
+            View all orders
+          </Link>
+        </div>
+        {recentSales.length === 0 ? (
+          <EmptyState icon="ri-shopping-bag-3-line" title="No sales yet" body="Orders that include your products will show up here as soon as they're placed." />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs text-foreground-500 border-b border-background-200">
+                  <th className="py-2 font-medium">Order</th>
+                  <th className="py-2 font-medium">Product</th>
+                  <th className="py-2 font-medium">Brand</th>
+                  <th className="py-2 font-medium">Status</th>
+                  <th className="py-2 font-medium text-right">Placed</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentSales.map((item) => (
+                  <tr key={item.id} className="border-b border-background-100 last:border-0">
+                    <td className="py-2.5 font-mono text-xs text-foreground-700">{item.order.externalOrderNumber}</td>
+                    <td className="py-2.5 text-foreground-800">
+                      {item.name} × {item.quantity}
+                    </td>
+                    <td className="py-2.5 text-foreground-700">{item.order.brand.name}</td>
+                    <td className="py-2.5">
+                      <Badge status={item.fulfillmentStatus.toLowerCase()} />
+                    </td>
+                    <td className="py-2.5 text-right text-xs text-foreground-500">{dateTime(item.order.placedAt)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card className="p-4">
