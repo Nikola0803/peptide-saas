@@ -3,13 +3,33 @@ import { requireOrg } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader, Card, Badge } from "@/components/ui";
 import { DEFAULT_TEMPLATES, emailConfigured } from "@/lib/email";
-import { saveEmailSettings } from "./actions";
+import { DEFAULT_AUTOMATIONS, getAutomations } from "@/lib/email-automations";
+import { saveEmailSettings, updateAutomation } from "./actions";
+
+const NOT_YET_BUILT = [
+  {
+    name: "Referral earned",
+    description: '"$10 EVLV credit has been added" -- needs a customer-facing referral/store-credit system, which doesn\'t exist yet (the Affiliate program is a separate B2B/influencer system).',
+  },
+  {
+    name: "Credit reminder",
+    description: '"You have $10 waiting" -- same missing store-credit system as Referral earned.',
+  },
+  {
+    name: "Re-engagement",
+    description: "People who stopped opening/clicking -- needs Resend delivery webhooks (open/click tracking), not wired up yet.",
+  },
+];
 
 export default async function EmailPage() {
   const { organization } = await requireOrg();
 
-  const rows = await prisma.emailTemplate.findMany({ where: { organizationId: organization.id } });
+  const [rows, automations] = await Promise.all([
+    prisma.emailTemplate.findMany({ where: { organizationId: organization.id } }),
+    getAutomations(organization.id),
+  ]);
   const customized = new Set(rows.map((r) => r.key));
+  const automationDefaults = new Map(DEFAULT_AUTOMATIONS.map((d) => [d.key, d]));
 
   return (
     <div>
@@ -25,6 +45,73 @@ export default async function EmailPage() {
           </p>
         </Card>
       )}
+
+      <Card className="p-4 mb-6">
+        <h2 className="text-sm font-semibold text-foreground-950 mb-1">Automations</h2>
+        <p className="text-xs text-foreground-500 mb-4">
+          Lifecycle emails that fire on their own -- turn one on and set how long to wait. Welcome and Order
+          confirmation aren&apos;t listed here since they fire immediately at signup/checkout, not on a delay.
+        </p>
+        <div className="divide-y divide-background-100">
+          {automations.map((a) => {
+            const def = automationDefaults.get(a.key);
+            return (
+              <form key={a.id} action={updateAutomation.bind(null, a.id)} className="py-3 flex flex-wrap items-center gap-3">
+                <label className="flex items-center gap-2 w-56 shrink-0">
+                  <input type="checkbox" name="enabled" defaultChecked={a.enabled} />
+                  <span className="text-sm text-foreground-800">{a.name}</span>
+                </label>
+                <span className="text-xs text-foreground-500 flex-1 min-w-[200px]">{def?.description}</span>
+                <div className="flex items-center gap-1.5 text-xs">
+                  <span className="text-foreground-500">wait</span>
+                  <input
+                    name="delayValue"
+                    type="number"
+                    min="0"
+                    defaultValue={a.delayValue}
+                    className="w-14 text-sm border border-background-300 rounded px-1.5 py-1 bg-background-50"
+                  />
+                  <select name="delayUnit" defaultValue={a.delayUnit} className="text-sm border border-background-300 rounded px-1.5 py-1 bg-background-50">
+                    <option value="MINUTES">minutes</option>
+                    <option value="HOURS">hours</option>
+                    <option value="DAYS">days</option>
+                  </select>
+                </div>
+                {a.key === "vip" && (
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <span className="text-foreground-500">trailing 90d spend ≥ $</span>
+                    <input
+                      name="thresholdDollars"
+                      type="number"
+                      min="0"
+                      step="1"
+                      defaultValue={a.thresholdCents ? a.thresholdCents / 100 : 500}
+                      className="w-20 text-sm border border-background-300 rounded px-1.5 py-1 bg-background-50"
+                    />
+                  </div>
+                )}
+                <Link href={`/email-marketing/${a.templateKey}`} className="text-xs text-primary-600 hover:underline">
+                  Edit content
+                </Link>
+                <button className="text-xs bg-primary-500 text-background-50 rounded-md px-2.5 py-1.5 font-medium hover:bg-primary-600">
+                  Save
+                </button>
+              </form>
+            );
+          })}
+        </div>
+
+        <div className="mt-4 pt-4 border-t border-background-100">
+          <p className="text-xs font-medium text-foreground-600 mb-2">Not available yet</p>
+          <ul className="text-xs text-foreground-500 space-y-1.5">
+            {NOT_YET_BUILT.map((f) => (
+              <li key={f.name}>
+                <span className="font-medium text-foreground-700">{f.name}</span> — {f.description}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 space-y-3">

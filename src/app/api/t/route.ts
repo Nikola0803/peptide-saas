@@ -55,6 +55,20 @@ export async function POST(req: NextRequest) {
   // back onto the event row instead of surfacing to the caller.
   relayEvent(config, trackingEvent.id, body).catch(() => {});
 
+  // Links this visitorId to a known Contact (see automation-job.ts's
+  // browse/cart/checkout-abandonment flows, which have no other way to
+  // know who an anonymous visitor is). Only updates an EXISTING contact --
+  // never creates one from anonymous tracking data, that's what
+  // /api/store/auth/register is for.
+  if (body.email) {
+    prisma.contact
+      .updateMany({
+        where: { organizationId: config.brand.organizationId, email: String(body.email).toLowerCase().trim() },
+        data: { lastVisitorId: body.visitorId, lastVisitorSeenAt: new Date() },
+      })
+      .catch(() => {});
+  }
+
   return NextResponse.json({ ok: true }, { headers: CORS_HEADERS });
 }
 

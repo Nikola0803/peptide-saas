@@ -7,5 +7,8 @@ export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
     const { startStockReleaseJob } = await import("@/lib/stock-release-job");
     startStockReleaseJob();
+
+    const { startAutomationJob } = await import("@/lib/automation-job");
+    startAutomationJob();
   }
 }

@@ -58,6 +58,7 @@ model Organization {
   conversations   Conversation[]
   whatsappConfig  WhatsAppConfig?
   emailTemplates  EmailTemplate[]
+  emailAutomations EmailAutomation[]
   suppliers       Supplier[]
   newsletters     Newsletter[]
   media           Media[]
@@ -291,12 +292,23 @@ model Contact {
   // nothing to sync -- checked alongside marketingOptIn, not instead of it.
   mailchimpSyncedAt DateTime?
 
-  brandLinks ContactBrandLink[]
-  orders     Order[]
+  // Links this contact to their anonymous browsing activity in
+  // TrackingEvent (see /api/t's "identify" handling) -- set whenever the
+  // storefront learns this contact's email while a visitorId cookie is
+  // present (checkout, login). Powers browse/cart/checkout-abandonment
+  // emails, which otherwise have no way to know who an anonymous visitor
+  // is. Last-seen wins if the same person browses from multiple devices.
+  lastVisitorId     String?
+  lastVisitorSeenAt DateTime?
+
+  brandLinks     ContactBrandLink[]
+  orders         Order[]
+  automationSends EmailAutomationSend[]
 
   @@unique([organizationId, email])
   @@index([organizationId, createdAt])
   @@index([organizationId, marketingOptIn])
+  @@index([organizationId, lastVisitorId])
 }
 
 // Per-brand customer identity, so the same email on two WooCommerce stores
@@ -971,6 +983,59 @@ model EmailTemplate {
   updatedAt DateTime @updatedAt
 
   @@unique([organizationId, key])
+}
+
+// One row per lifecycle-email flow (see DEFAULT_AUTOMATIONS in
+// src/lib/email-automations.ts) -- the operator toggles it on/off and
+// tunes its delay from the Email page; the actual trigger condition for
+// each key is still flow-specific code in src/lib/automation-job.ts (a
+// full drag-and-drop rule builder is out of scope, but timing is real and
+// editable). Rows are upserted lazily from DEFAULT_AUTOMATIONS the first
+// time the Email page loads for an org, same pattern as EmailTemplate.
+model EmailAutomation {
+  id             String       @id @default(cuid())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+
+  key         String // matches a DEFAULT_AUTOMATIONS entry, e.g. "welcome_2", "cart_abandonment"
+  name        String
+  enabled     Boolean   @default(false)
+  delayValue  Int       @default(0)
+  delayUnit   DelayUnit @default(HOURS)
+  templateKey String // which EmailTemplate/DEFAULT_TEMPLATES key this flow sends
+
+  // Only meaningful for the "vip" flow: trailing-90-day spend a contact
+  // must cross to get the VIP email. Null for every delay-based flow.
+  thresholdCents Int?
+
+  sends EmailAutomationSend[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizationId, key])
+}
+
+enum DelayUnit {
+  MINUTES
+  HOURS
+  DAYS
+}
+
+// Dedup log: automation-job.ts checks this before sending so the same
+// contact never gets the same flow twice for the same cycle (dedupKey is
+// usually the contactId, sometimes contactId+orderId for order-scoped
+// flows like shipping/post-purchase).
+model EmailAutomationSend {
+  id            String          @id @default(cuid())
+  automation    EmailAutomation @relation(fields: [automationId], references: [id], onDelete: Cascade)
+  automationId  String
+  contact       Contact?        @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  contactId     String?
+  dedupKey      String
+  sentAt        DateTime        @default(now())
+
+  @@unique([automationId, dedupKey])
 }
 
 // One row per newsletter blast actually sent — a record of what went out

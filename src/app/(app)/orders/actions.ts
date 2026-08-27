@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireOrg } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { releaseOrderStock } from "@/lib/stock-release-job";
+import { sendPaymentConfirmedEmail } from "@/lib/automation-job";
 
 async function assertOrderOwnership(orderId: string) {
   const { organization } = await requireOrg();
@@ -73,6 +74,8 @@ export async function confirmPayment(orderId: string) {
     where: { id: orderId },
     data: { status: "PROCESSING", paymentConfirmedAt: new Date() },
   });
+
+  sendPaymentConfirmedEmail(order.organizationId, orderId).catch((err) => console.error("Payment confirmed email failed", err));
 
   if (order.stockReleasedAt) {
     await prisma.orderNote.create({
