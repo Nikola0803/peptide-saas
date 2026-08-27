@@ -124,6 +124,29 @@ export const DEFAULT_TEMPLATES: EmailTemplateDefault[] = [
     `),
   },
   {
+    key: "supplier_invoice_generated",
+    name: "Supplier invoice generated (office)",
+    description: "Sent to the office/ops inbox when a dropship supplier generates an invoice from their portal.",
+    subject: "New invoice from {{supplierName}}: {{totalFormatted}}",
+    sampleVars: { supplierName: "Acme Fulfillment", totalFormatted: "$420.00", itemCount: "12" },
+    html: LAYOUT(`
+      <h1 style="font-size: 20px;">New supplier invoice</h1>
+      <p><strong>{{supplierName}}</strong> generated an invoice for {{itemCount}} shipped item(s), totaling <strong>{{totalFormatted}}</strong>.</p>
+      <p>Review and mark it sent/paid from the Suppliers page.</p>
+    `),
+  },
+  {
+    key: "supplier_invoice_paid",
+    name: "Supplier invoice paid",
+    description: "Sent to a dropship supplier when staff marks one of their invoices as paid.",
+    subject: "Payment sent: your EVLV invoice",
+    sampleVars: { supplierName: "Acme Fulfillment", totalFormatted: "$420.00" },
+    html: LAYOUT(`
+      <h1 style="font-size: 20px;">Payment sent</h1>
+      <p>Hi {{supplierName}}, we've marked your invoice for <strong>{{totalFormatted}}</strong> as paid. Thanks for keeping orders moving!</p>
+    `),
+  },
+  {
     key: "affiliate_approved",
     name: "Affiliate application approved",
     description: "Sent when a self-serve affiliate application is approved from the Affiliates page.",
