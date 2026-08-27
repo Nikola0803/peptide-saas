@@ -86,7 +86,7 @@ export default async function SuppliersPage() {
                         "No login invited yet"
                       )}
                     </p>
-                    <InviteForm supplierId={s.id} />
+                    <InviteForm supplierId={s.id} existingEmail={login?.email} />
                   </div>
                 </Card>
               );
