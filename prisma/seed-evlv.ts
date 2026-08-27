@@ -125,6 +125,28 @@ async function main() {
     create: { brandId: brand.id },
   });
 
+  // A real, working affiliate account to test the whole self-serve portal
+  // flow with immediately (apply/login already exists here, pre-approved).
+  // Change this password after first real login.
+  const affiliatePassword = "Evlv2026-Aff!qX8mK";
+  const affiliatePasswordHash = await bcrypt.hash(affiliatePassword, 10);
+  const affiliate = await prisma.affiliate.upsert({
+    where: { email: "nikolazivkovic0803@gmail.com" },
+    update: { status: "APPROVED" },
+    create: {
+      organizationId: org.id,
+      name: "Nikola",
+      slug: "NIKOLA",
+      couponCode: "NIKOLA",
+      ratePercent: 20,
+      status: "APPROVED",
+      email: "nikolazivkovic0803@gmail.com",
+      passwordHash: affiliatePasswordHash,
+      username: "nikola",
+      firstName: "Nikola",
+    },
+  });
+
   console.log("EVLV seed complete.");
   console.log(`  Organization: ${org.name} (${org.id})`);
   console.log(`  Brand domain: ${brand.domain}`);
@@ -132,6 +154,7 @@ async function main() {
   console.log(`  CRM_STORE_DOMAIN=${brand.domain}`);
   console.log(`  CRM_CONTACT_FORM_KEY=${trackingConfig.publicKey}`);
   console.log("  Staff login: operator@evlvpeptides.com / password123");
+  console.log(`  Affiliate portal login (https://evlvpeptides.com/affiliates/login): ${affiliate.email} / ${affiliatePassword}`);
 }
 
 main()

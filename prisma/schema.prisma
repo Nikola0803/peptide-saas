@@ -41,6 +41,10 @@ model Organization {
   mailchimpApiKey     String?
   mailchimpAudienceId String?
 
+  // Minimum available commission balance an affiliate must clear before
+  // /api/store/affiliate/payout-request will let them request a payout.
+  affiliateMinPayoutCents Int @default(5000)
+
   memberships Membership[]
   brands      Brand[]
   products    Product[]
@@ -594,10 +598,90 @@ model Affiliate {
   ratePercent Float
   couponCode  String
 
-  attributions AffiliateOrderAttribution[]
-  createdAt    DateTime                     @default(now())
+  // Self-serve portal fields (see /affiliates on evlv-site) -- all
+  // nullable/defaulted because admin-created affiliates (the original
+  // way this model was used) never fill these in.
+  email        String?  @unique
+  passwordHash String?
+  username     String?
+  firstName    String?
+  lastName     String?
+  phone        String?
+  socialLink   String?
+  address      String?
+  city         String?
+  province     String?
+  postalCode   String?
+  country      String?
+  referredBy   String?
+
+  status AffiliateStatus @default(PENDING)
+
+  // Payout method — one of these three groups is populated depending on
+  // payoutMethod: payoutDestination for Venmo/Zelle/CashApp, the bank*
+  // fields for BANK_ACH.
+  payoutMethod      PayoutMethod?
+  payoutDestination String?
+  bankAccountHolder String?
+  bankRoutingNumber String?
+  bankAccountNumber String?
+  bankAccountType   BankAccountType?
+
+  clicks         AffiliateClick[]
+  payoutRequests AffiliatePayoutRequest[]
+  attributions   AffiliateOrderAttribution[]
+  createdAt      DateTime                     @default(now())
 
   @@unique([organizationId, slug])
+}
+
+enum AffiliateStatus {
+  PENDING // applied, awaiting manual review
+  APPROVED
+  REJECTED
+}
+
+enum PayoutMethod {
+  VENMO
+  ZELLE
+  CASHAPP
+  BANK_ACH
+}
+
+enum BankAccountType {
+  CHECKING
+  SAVINGS
+}
+
+// Deliberately minimal -- just a timestamp row, enough to compute
+// clicks_30d/clicks_total by counting. No IP/UA tracking needed here.
+model AffiliateClick {
+  id          String    @id @default(cuid())
+  affiliate   Affiliate @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+  affiliateId String
+  createdAt   DateTime  @default(now())
+
+  @@index([affiliateId, createdAt])
+}
+
+model AffiliatePayoutRequest {
+  id          String   @id @default(cuid())
+  affiliate   Affiliate @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+  affiliateId String
+
+  amountCents Int
+  status      PayoutRequestStatus @default(REQUESTED)
+  requestedAt DateTime            @default(now())
+  paidAt      DateTime?
+  adminNote   String?
+
+  @@index([affiliateId, status])
+}
+
+enum PayoutRequestStatus {
+  REQUESTED
+  PAID
+  REJECTED
 }
 
 model AffiliateOrderAttribution {

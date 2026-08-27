@@ -124,6 +124,28 @@ export const DEFAULT_TEMPLATES: EmailTemplateDefault[] = [
     `),
   },
   {
+    key: "affiliate_approved",
+    name: "Affiliate application approved",
+    description: "Sent when a self-serve affiliate application is approved from the Affiliates page.",
+    subject: "You're approved as an EVLV affiliate!",
+    sampleVars: { affiliateName: "Jordan" },
+    html: LAYOUT(`
+      <h1 style="font-size: 20px;">Welcome to the EVLV affiliate program, {{affiliateName}}!</h1>
+      <p>Your application has been approved. Log in to your affiliate dashboard to grab your referral link, track clicks and commission, and set up how you'd like to get paid.</p>
+    `),
+  },
+  {
+    key: "affiliate_payout_paid",
+    name: "Affiliate payout sent",
+    description: "Sent when staff marks an affiliate payout request as paid.",
+    subject: "Your EVLV affiliate payout is on its way",
+    sampleVars: { affiliateName: "Jordan", amountFormatted: "$120.00" },
+    html: LAYOUT(`
+      <h1 style="font-size: 20px;">Payout sent</h1>
+      <p>Hi {{affiliateName}}, we've sent your payout of <strong>{{amountFormatted}}</strong> via the payout method on file. It should arrive shortly depending on your provider.</p>
+    `),
+  },
+  {
     key: "support_reply",
     name: "Support reply",
     description: "Wraps a staff reply sent from the Support inbox to a contact-form or WhatsApp lead.",
