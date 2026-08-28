@@ -2,22 +2,23 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { resolveHeaderOverride } from "@/lib/store-context";
-import { bearerToken, verifyAffiliateToken } from "@/lib/affiliate-auth";
+import { resolveContactFromToken } from "@/lib/store-customer";
+import { payoutMethodFromWire, bankAccountTypeFromWire, payoutMethodToWire, bankAccountTypeToWire } from "@/lib/affiliate-wire";
 
 const bodySchema = z
   .object({
     token: z.string().optional(),
-    payoutMethod: z.enum(["VENMO", "ZELLE", "CASHAPP", "BANK_ACH"]),
+    payoutMethod: z.enum(["venmo", "zelle", "cashapp", "bank_ach"]),
     payoutDestination: z.string().optional(),
     bankAccountHolder: z.string().optional(),
     bankRoutingNumber: z.string().optional(),
     bankAccountNumber: z.string().optional(),
-    bankAccountType: z.enum(["CHECKING", "SAVINGS"]).optional(),
+    bankAccountType: z.enum(["checking", "savings"]).optional(),
   })
-  .refine((v) => (v.payoutMethod === "BANK_ACH" ? Boolean(v.bankAccountHolder && v.bankRoutingNumber && v.bankAccountNumber && v.bankAccountType) : true), {
+  .refine((v) => (v.payoutMethod === "bank_ach" ? Boolean(v.bankAccountHolder && v.bankRoutingNumber && v.bankAccountNumber && v.bankAccountType) : true), {
     message: "Bank account details are required for ACH payouts",
   })
-  .refine((v) => (v.payoutMethod !== "BANK_ACH" ? Boolean(v.payoutDestination) : true), {
+  .refine((v) => (v.payoutMethod !== "bank_ach" ? Boolean(v.payoutDestination) : true), {
     message: "A payout destination is required for this method",
   });
 
@@ -29,9 +30,14 @@ export async function POST(req: NextRequest) {
   }
 
   const raw = await req.json().catch(() => ({}));
-  const claims = verifyAffiliateToken(bearerToken(req) ?? raw?.token);
-  if (!claims || claims.organizationId !== store.organizationId) {
-    return NextResponse.json({ error: "Invalid or expired session" }, { status: 401 });
+  const contact = await resolveContactFromToken(req, store, raw);
+  if (!contact) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
+  const affiliate = await prisma.affiliate.findUnique({ where: { contactId: contact.id } });
+  if (!affiliate || affiliate.status !== "APPROVED") {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
   const parsed = bodySchema.safeParse(raw);
@@ -39,24 +45,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid request" }, { status: 400 });
   }
 
-  const affiliate = await prisma.affiliate.update({
-    where: { id: claims.affiliateId },
+  const isAch = parsed.data.payoutMethod === "bank_ach";
+  const updated = await prisma.affiliate.update({
+    where: { id: affiliate.id },
     data: {
-      payoutMethod: parsed.data.payoutMethod,
-      payoutDestination: parsed.data.payoutMethod === "BANK_ACH" ? null : parsed.data.payoutDestination || null,
-      bankAccountHolder: parsed.data.payoutMethod === "BANK_ACH" ? parsed.data.bankAccountHolder || null : null,
-      bankRoutingNumber: parsed.data.payoutMethod === "BANK_ACH" ? parsed.data.bankRoutingNumber || null : null,
-      bankAccountNumber: parsed.data.payoutMethod === "BANK_ACH" ? parsed.data.bankAccountNumber || null : null,
-      bankAccountType: parsed.data.payoutMethod === "BANK_ACH" ? parsed.data.bankAccountType || null : null,
+      payoutMethod: payoutMethodFromWire(parsed.data.payoutMethod),
+      payoutDestination: isAch ? null : parsed.data.payoutDestination || null,
+      bankAccountHolder: isAch ? parsed.data.bankAccountHolder || null : null,
+      bankRoutingNumber: isAch ? parsed.data.bankRoutingNumber || null : null,
+      bankAccountNumber: isAch ? parsed.data.bankAccountNumber || null : null,
+      bankAccountType: isAch ? bankAccountTypeFromWire(parsed.data.bankAccountType) : null,
     },
   });
 
   return NextResponse.json({
-    payoutMethod: affiliate.payoutMethod,
-    payoutDestination: affiliate.payoutDestination,
-    bankAccountHolder: affiliate.bankAccountHolder,
-    bankRoutingNumber: affiliate.bankRoutingNumber,
-    bankAccountNumber: affiliate.bankAccountNumber,
-    bankAccountType: affiliate.bankAccountType,
+    payoutMethod: payoutMethodToWire(updated.payoutMethod),
+    payoutDestination: updated.payoutDestination,
+    bankAccountHolder: updated.bankAccountHolder,
+    bankRoutingNumber: updated.bankRoutingNumber,
+    bankAccountNumber: updated.bankAccountNumber,
+    bankAccountType: bankAccountTypeToWire(updated.bankAccountType),
   });
 }

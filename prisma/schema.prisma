@@ -50,6 +50,7 @@ model Organization {
   products    Product[]
   contacts    Contact[]
   affiliates  Affiliate[]
+  wholesaleInquiries WholesaleInquiry[]
   orders      Order[]
   webhookLogs WebhookEvent[]
   trackingEvents TrackingEvent[]
@@ -312,9 +313,11 @@ model Contact {
   lastVisitorId     String?
   lastVisitorSeenAt DateTime?
 
-  brandLinks     ContactBrandLink[]
-  orders         Order[]
-  automationSends EmailAutomationSend[]
+  brandLinks       ContactBrandLink[]
+  orders           Order[]
+  automationSends  EmailAutomationSend[]
+  affiliate        Affiliate?
+  wholesalePartner WholesalePartner?
 
   @@unique([organizationId, email])
   @@index([organizationId, createdAt])
@@ -617,6 +620,14 @@ model Affiliate {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   organizationId String
 
+  // Self-serve applicants are a role on their existing storefront Contact
+  // account (evlv-site's affiliate portal was redesigned to authenticate
+  // with the customer's own session token, not a separate affiliate
+  // login -- see /api/store/affiliate/*). Null for admin-created
+  // affiliates that don't correspond to any shopper account.
+  contact   Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  contactId String?  @unique
+
   name        String
   slug        String
   ratePercent Float
@@ -715,6 +726,78 @@ model AffiliateOrderAttribution {
   order         Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
   orderId       String    @unique
   commissionCents Int
+}
+
+// ---------------------------------------------------------------------------
+// Wholesale/dropship B2B partners
+// ---------------------------------------------------------------------------
+
+// Raw lead from the /wholesale inquiry form -- doesn't require an existing
+// Contact (a prospect may never have shopped on EVLV). Staff reviews and,
+// once approved, manually links it to a Contact (creating one if needed)
+// by creating a WholesalePartner -- see linkWholesaleInquiry in
+// src/app/(app)/wholesale/actions.ts.
+model WholesaleInquiry {
+  id             String       @id @default(cuid())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+
+  companyName   String
+  contactName   String
+  email         String
+  phone         String?
+  website       String?
+  monthlyVolume String?
+  message       String?
+
+  status    WholesaleInquiryStatus @default(NEW)
+  createdAt DateTime               @default(now())
+}
+
+enum WholesaleInquiryStatus {
+  NEW
+  LINKED // turned into a WholesalePartner
+  REJECTED
+}
+
+// A role on an existing Contact account (same pattern as Affiliate),
+// created by staff once a WholesaleInquiry is approved and linked.
+model WholesalePartner {
+  id         String  @id @default(cuid())
+  contact    Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  contactId  String  @unique
+
+  status            WholesaleStatus @default(PENDING)
+  businessName      String?
+  notificationEmail String?
+
+  invoices  WholesaleInvoice[]
+  createdAt DateTime           @default(now())
+}
+
+enum WholesaleStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model WholesaleInvoice {
+  id        String           @id @default(cuid())
+  partner   WholesalePartner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  partnerId String
+
+  label         String // e.g. "August 2026 wholesale order" or an order/batch reference
+  amountCents   Int
+  status        WholesaleInvoiceStatus @default(UNPAID)
+  issuedDate    DateTime               @default(now())
+  paidDate      DateTime?
+  paymentMethod String? // "zelle" | "cashapp" | "venmo" | "bank_ach" -- same manual payment methods checkout uses
+  paymentMemo   String? // what to put in the memo/note when paying, so it's identifiable
+}
+
+enum WholesaleInvoiceStatus {
+  UNPAID
+  PAID
 }
 
 // ---------------------------------------------------------------------------

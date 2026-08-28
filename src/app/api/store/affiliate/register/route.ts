@@ -2,14 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { resolveHeaderOverride } from "@/lib/store-context";
-import { hashPassword, generateAffiliateCode } from "@/lib/affiliate-auth";
+import { resolveContactFromToken } from "@/lib/store-customer";
+import { generateAffiliateCode } from "@/lib/affiliate-auth";
 
 const bodySchema = z.object({
-  username: z.string().optional(),
-  firstName: z.string().min(1),
-  lastName: z.string().optional(),
-  email: z.string().email(),
-  password: z.string().min(8),
+  token: z.string().optional(),
   referredBy: z.string().optional(),
   socialLink: z.string().optional(),
   phone: z.string().optional(),
@@ -21,48 +18,49 @@ const bodySchema = z.object({
 });
 
 // POST /api/store/affiliate/register
-// Creates an Affiliate row with status: PENDING -- does NOT log the
-// applicant in (see AffiliateForm.tsx, which only checks res.ok and
-// shows a static "application received, reviewed within a couple of
-// business days" message). A staff member approves/rejects from the CRM.
+// Applies for affiliate status on the shopper's EXISTING account (resolved
+// from `token`, the same bearer token /api/store/auth/login issues) --
+// affiliates are a role on the Contact record, not a separate login. See
+// AFFILIATE-PORTAL.md. Creates an Affiliate row with status: PENDING; a
+// staff member approves/rejects from the CRM.
 export async function POST(req: NextRequest) {
   const store = await resolveHeaderOverride(req);
   if (!store) {
     return NextResponse.json({ error: "Unknown or unauthorized store" }, { status: 401 });
   }
 
-  const parsed = bodySchema.safeParse(await req.json().catch(() => null));
+  const raw = await req.json().catch(() => ({}));
+  const contact = await resolveContactFromToken(req, store, raw);
+  if (!contact) {
+    return NextResponse.json({ error: "Sign in to your account first, then apply." }, { status: 401 });
+  }
+
+  const parsed = bodySchema.safeParse(raw);
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid request", detail: parsed.error.flatten() }, { status: 400 });
   }
-  const email = parsed.data.email.toLowerCase().trim();
 
-  const existing = await prisma.affiliate.findUnique({ where: { email } });
+  const existing = await prisma.affiliate.findUnique({ where: { contactId: contact.id } });
   if (existing) {
-    return NextResponse.json({ error: "An affiliate account with this email already exists" }, { status: 409 });
+    return NextResponse.json({ error: "You've already applied to the affiliate program" }, { status: 409 });
   }
 
+  const firstName = (contact.name ?? contact.email).split(" ")[0];
   const code = await generateAffiliateCode(
-    parsed.data.firstName,
+    firstName,
     async (candidate) => Boolean(await prisma.affiliate.findFirst({ where: { organizationId: store.organizationId, slug: candidate } }))
   );
-
-  const passwordHash = await hashPassword(parsed.data.password);
-  const name = [parsed.data.firstName, parsed.data.lastName].filter(Boolean).join(" ");
 
   await prisma.affiliate.create({
     data: {
       organizationId: store.organizationId,
-      name,
+      contactId: contact.id,
+      name: contact.name || contact.email,
+      email: contact.email,
       slug: code,
       couponCode: code,
       ratePercent: 15,
       status: "PENDING",
-      email,
-      passwordHash,
-      username: parsed.data.username || null,
-      firstName: parsed.data.firstName,
-      lastName: parsed.data.lastName || null,
       phone: parsed.data.phone || null,
       socialLink: parsed.data.socialLink || null,
       address: parsed.data.address || null,
