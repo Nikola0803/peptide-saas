@@ -137,9 +137,12 @@ export default async function DropshipProductsPage() {
             <h2 className="text-sm font-semibold text-foreground-950 mb-1">Bulk import</h2>
             <p className="text-xs text-foreground-500 mb-3">
               CSV with header row: <code className="font-mono">sku,wholesale,name,mg,retail,shipping,stock</code> —
-              only sku and wholesale are required. Unknown SKUs get added to the master catalog automatically. SKUs
-              sharing the same name become one storefront product with a size selector across their mg values.
-              Setting retail also publishes the product to the storefront.
+              only sku is required. Wholesale cost is only required to add a brand-new SKU; for a SKU you've already
+              imported, leave any column blank/out to update just the others (e.g. a stock-only re-import won't touch
+              your price, and a price-only re-import won't wipe your stock back to 0). Unknown SKUs with a cost get
+              added to the master catalog automatically. SKUs sharing the same name become one storefront product
+              with a size selector across their mg values. Setting retail also publishes the product to the
+              storefront.
             </p>
             <ImportForm />
           </Card>
