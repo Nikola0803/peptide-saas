@@ -100,6 +100,9 @@ export async function importSupplierProducts(formData: FormData): Promise<Import
 
   const file = formData.get("file") as File | null;
   if (!file) throw new Error("Choose a CSV file first");
+  if (!file.name.toLowerCase().endsWith(".csv")) {
+    throw new Error(`"${file.name}" isn't a CSV file — export it as CSV first (Excel/Sheets: File → Save As / Download → CSV)`);
+  }
 
   const result = await importSupplierCsv(organization.id, supplier.id, await file.text());
   revalidatePath("/dropship/products");

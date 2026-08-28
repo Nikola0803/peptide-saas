@@ -19,8 +19,13 @@ export function ImportForm() {
         setResult(null);
         const form = e.currentTarget;
         const formData = new FormData(form);
-        if (!(formData.get("file") as File)?.size) {
+        const file = formData.get("file") as File | null;
+        if (!file?.size) {
           setError("Choose a file first");
+          return;
+        }
+        if (!file.name.toLowerCase().endsWith(".csv")) {
+          setError(`"${file.name}" isn't a CSV file. In Excel/Sheets, use File → Save As / Download → CSV, then upload that file.`);
           return;
         }
         setLoading(true);
