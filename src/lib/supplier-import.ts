@@ -12,7 +12,10 @@ export interface ImportResult {
 // behalf from /suppliers/[id] before that supplier even has a login.
 // CSV header row required, column order doesn't matter, case-insensitive:
 //   sku        (required)
-//   wholesale | cost   (required — dollars, not cents; what we owe the supplier)
+//   wholesale | cost   (required only to CREATE a brand-new SKU — an
+//                        already-known SKU can be re-imported with this
+//                        column blank/omitted to update just its stock
+//                        without touching its price)
 //   name | product     (optional — the base product name, e.g. "BPC-157".
 //                        SKUs sharing the same name become one storefront
 //                        product with a size/dose selector across their
@@ -21,8 +24,12 @@ export interface ImportResult {
 //                        appended to `name` for the product's chemicalName)
 //   retail | price     (optional — dollars; the starting storefront price.
 //                        Staff can still override per-product afterwards.)
-//   shipping           (optional — dollars, defaults to 0)
-//   stock              (optional — defaults to 0)
+//   shipping           (optional — dollars; blank/omitted leaves the
+//                        existing rate alone on a re-import)
+//   stock              (optional — units; blank/omitted leaves the
+//                        existing stock alone, so a plain price-list
+//                        re-import never wipes out stock someone set
+//                        separately)
 //
 // Unlike a self-service edit of an existing product, importing is allowed
 // to create brand-new Product rows -- a dropship partner's price list is
@@ -49,10 +56,8 @@ export async function importSupplierCsv(organizationId: string, supplierId: stri
   const shippingIdx = col("shipping");
   const stockIdx = col("stock");
 
-  if (skuIdx === -1 || costIdx === -1) {
-    throw new Error(
-      'CSV must have "sku" and "wholesale" (or "cost") columns — optional: "name"/"product", "mg", "retail"/"price", "shipping", "stock"'
-    );
+  if (skuIdx === -1) {
+    throw new Error('CSV must have a "sku" column — optional: "wholesale"/"cost", "name"/"product", "mg", "retail"/"price", "shipping", "stock"');
   }
 
   const result: ImportResult = { updated: 0, created: 0, skipped: [] };
@@ -62,16 +67,23 @@ export async function importSupplierCsv(organizationId: string, supplierId: stri
   for (const line of lines.slice(1)) {
     const cols = line.split(",").map((c) => c.trim());
     const sku = cols[skuIdx];
-    const cost = Number(cols[costIdx]);
+    if (!sku) continue;
+
+    const costRaw = costIdx >= 0 ? cols[costIdx] : "";
+    const hasCost = costRaw !== "" && Number(costRaw) > 0;
+    const cost = hasCost ? Number(costRaw) : null;
     const name = nameIdx >= 0 ? cols[nameIdx] : "";
     const mg = mgIdx >= 0 ? cols[mgIdx] : "";
     const retail = retailIdx >= 0 ? Number(cols[retailIdx] || 0) : 0;
-    const shipping = shippingIdx >= 0 ? Number(cols[shippingIdx] || 0) : 0;
-    const stock = stockIdx >= 0 ? Math.max(0, Math.floor(Number(cols[stockIdx] || 0))) : 0;
+    const shippingRaw = shippingIdx >= 0 ? cols[shippingIdx] : "";
+    const shipping = shippingRaw !== "" ? Number(shippingRaw) : null;
+    const stockRaw = stockIdx >= 0 ? cols[stockIdx] : "";
+    const stock = stockRaw !== "" ? Math.max(0, Math.floor(Number(stockRaw))) : null;
 
-    if (!sku) continue;
-    if (!(cost > 0)) {
-      result.skipped.push({ sku, reason: "missing/invalid wholesale cost" });
+    let product = await prisma.product.findFirst({ where: { organizationId, sku } });
+
+    if (!product && !hasCost) {
+      result.skipped.push({ sku, reason: "new SKU needs a wholesale cost to create it" });
       continue;
     }
 
@@ -79,7 +91,6 @@ export async function importSupplierCsv(organizationId: string, supplierId: stri
     const variantGroup = name || null;
     const variantLabel = mg || null;
 
-    let product = await prisma.product.findFirst({ where: { organizationId, sku } });
     if (!product) {
       const chemicalName = [name, mg].filter(Boolean).join(" ").trim() || sku;
       product = await prisma.product.create({
@@ -87,7 +98,7 @@ export async function importSupplierCsv(organizationId: string, supplierId: stri
           organizationId,
           sku,
           chemicalName,
-          cogsCents: Math.round(cost * 100),
+          cogsCents: Math.round(cost! * 100),
           masterStock: 0,
           variantGroup,
           variantLabel,
@@ -108,13 +119,18 @@ export async function importSupplierCsv(organizationId: string, supplierId: stri
 
     await prisma.supplierProduct.upsert({
       where: { supplierId_productId: { supplierId, productId: product.id } },
-      update: { costCents: Math.round(cost * 100), shippingCents: Math.round(shipping * 100), stock, active: true },
+      update: {
+        ...(hasCost ? { costCents: Math.round(cost! * 100) } : {}),
+        ...(shipping != null ? { shippingCents: Math.round(shipping * 100) } : {}),
+        ...(stock != null ? { stock } : {}),
+        active: true,
+      },
       create: {
         supplierId,
         productId: product.id,
-        costCents: Math.round(cost * 100),
-        shippingCents: Math.round(shipping * 100),
-        stock,
+        costCents: hasCost ? Math.round(cost! * 100) : 0,
+        shippingCents: shipping != null ? Math.round(shipping * 100) : 0,
+        stock: stock ?? 0,
         active: true,
       },
     });

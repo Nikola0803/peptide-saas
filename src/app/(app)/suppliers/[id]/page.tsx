@@ -109,9 +109,10 @@ export default async function SupplierDetailPage({ params }: { params: { id: str
             <h2 className="text-sm font-semibold text-foreground-950">Products</h2>
             <p className="text-xs text-foreground-500 mt-0.5">
               Pre-fill his price list before he has a login — CSV with header row{" "}
-              <code className="font-mono">sku,wholesale,name,mg,retail</code> (only sku + wholesale required; unknown
-              SKUs get added to the master catalog; retail also publishes the product to the storefront; SKUs sharing
-              the same name become one product with a size selector).
+              <code className="font-mono">sku,wholesale,name,mg,retail,shipping,stock</code> (only sku required;
+              wholesale only required for a brand-new SKU — re-import with other columns blank to update just stock
+              or just price without overwriting the rest; retail also publishes the product to the storefront; SKUs
+              sharing the same name become one product with a size selector).
             </p>
           </div>
           <div className="w-64 shrink-0">
