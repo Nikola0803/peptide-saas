@@ -3,6 +3,14 @@ import { createId } from "@/lib/id";
 import { sendTemplate, escapeHtml } from "@/lib/email";
 import { pushNotifyNewOrder } from "@/lib/push-notify";
 
+// "YYYY-MM-DD" in UTC -- the calendar day used to decide whether a
+// StoreMapping's Deal of the Day is currently active and to bucket
+// GiveawayEntry rows, so a deal/giveaway always flips over at the same
+// instant everywhere regardless of server or visitor timezone.
+export function utcDateString(d: Date = new Date()): string {
+  return d.toISOString().slice(0, 10);
+}
+
 // Flat-rate assumption for a card processor fee — matches the WooCommerce
 // webhook ingestion path in src/app/api/webhooks/woocommerce/route.ts. Not
 // actually charged here (storefront checkout is pay-by-memo, see below),
@@ -162,7 +170,11 @@ export async function runCheckout(
         });
       }
 
-      const unitPriceCents = mapping.storePriceCents;
+      // Deal of the Day: if this mapping has a deal scheduled for today,
+      // that IS the real price -- not just a display discount (see the
+      // dealPriceCents/dealDate doc comment in schema.prisma).
+      const dealActive = mapping.dealDate === utcDateString() && mapping.dealPriceCents != null;
+      const unitPriceCents = dealActive ? (mapping.dealPriceCents as number) : mapping.storePriceCents;
       grossCentsTotal += unitPriceCents * quantity;
       cogsCentsTotal += product.cogsCents * quantity;
 
@@ -317,7 +329,24 @@ export async function runCheckout(
 
   notifySuppliers(organizationId, result.number, resolvedItems).catch((err) => console.error("Supplier notification email failed", err));
 
+  enterGiveawayIfQualifying(brandId, contactEmail, grossCentsTotal, result.orderId).catch((err) =>
+    console.error("Giveaway entry failed", err)
+  );
+
   return result;
+}
+
+// Best-effort, same pattern as the email/push notifications above -- a
+// giveaway isn't always running (see GiveawayConfig.enabled), and a failure
+// here should never fail a checkout that already succeeded.
+async function enterGiveawayIfQualifying(brandId: string, email: string, grossCentsTotal: number, orderId: string): Promise<void> {
+  const config = await prisma.giveawayConfig.findUnique({ where: { brandId } });
+  if (!config || !config.enabled) return;
+  if (grossCentsTotal < config.minOrderCents) return;
+
+  await prisma.giveawayEntry.create({
+    data: { brandId, email, method: "PURCHASE", orderId, entryDate: utcDateString() },
+  });
 }
 
 async function notifySuppliers(

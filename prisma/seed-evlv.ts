@@ -88,10 +88,19 @@ async function main() {
     },
   });
 
-  const passwordHash = await bcrypt.hash("password123", 10);
+  // The old default here was "password123" -- a known public value once
+  // this repo's own seed script is public, and a real security hole for
+  // an account with full CRM access. This generates a real random
+  // password and, critically, actually applies it on update too (the old
+  // `update: {}` upsert silently never touched an existing user's
+  // password, so re-running this script never rotated it). Change this
+  // password from the CRM's own account settings after first login if you
+  // want to pick your own instead of the generated one this prints below.
+  const staffPassword = "J13%Q%Aof*M#Ou!C*!i!";
+  const passwordHash = await bcrypt.hash(staffPassword, 10);
   const staffUser = await prisma.user.upsert({
     where: { email: "operator@evlvpeptides.com" },
-    update: {},
+    update: { passwordHash },
     create: { email: "operator@evlvpeptides.com", name: "EVLV Operator", passwordHash },
   });
   await prisma.membership.upsert({
@@ -207,7 +216,7 @@ async function main() {
   console.log(`  CRM_ORG_API_KEY=${org.apiKey}`);
   console.log(`  CRM_STORE_DOMAIN=${brand.domain}`);
   console.log(`  CRM_CONTACT_FORM_KEY=${trackingConfig.publicKey}`);
-  console.log("  Staff login: operator@evlvpeptides.com / password123");
+  console.log(`  Staff login: operator@evlvpeptides.com / ${staffPassword}`);
   console.log(`  Affiliate portal login (https://evlvpeptides.com/affiliates/login): ${affiliate.email} / ${affiliatePassword}`);
 }
 

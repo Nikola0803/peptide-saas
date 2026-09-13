@@ -158,6 +158,8 @@ model Brand {
   trackingEvents TrackingEvent[]
   invoices       Invoice[]
   conversations  Conversation[]
+  giveawayConfig GiveawayConfig?
+  giveawayEntries GiveawayEntry[]
 }
 
 enum BrandStatus {
@@ -285,8 +287,62 @@ model StoreMapping {
   slug   String?
   active Boolean @default(true)
 
+  // Deal of the Day: when dealDate is today (UTC, "YYYY-MM-DD") this
+  // mapping's real charged price becomes dealPriceCents instead of
+  // storePriceCents -- checked in both the storefront feed (/api/store/
+  // products) and checkout's own price resolution in order-engine.ts, so
+  // the discount shown is always the discount actually charged, never
+  // just cosmetic copy. Staff sets this from the product page's Deal of
+  // the Day card. Null dealDate/dealPriceCents = no deal scheduled.
+  dealPriceCents Int?
+  dealDate       String?
+
   @@unique([brandId, externalProductId])
   @@unique([brandId, slug])
+}
+
+// One row per brand -- today's giveaway is just "whatever GiveawayConfig
+// says right now" (enabled/prize/threshold), no per-day model needed since
+// staff update it directly when they want to run or change a giveaway.
+// GiveawayEntry rows are what's actually scoped per day (entryDate).
+model GiveawayConfig {
+  id      String @id @default(cuid())
+  brand   Brand  @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  brandId String @unique
+
+  enabled       Boolean @default(false)
+  prizeLabel    String  @default("")
+  // Orders at or above this subtotal auto-enter (see order-engine.ts).
+  minOrderCents Int     @default(5000)
+  // Shown on the storefront's giveaway card/page -- plain text, staff's own
+  // words, not templated. Should always describe a genuine no-purchase-
+  // necessary alternate entry method (see /api/store/giveaway/enter) to
+  // keep this a legitimate sweepstakes rather than an unlawful lottery.
+  rulesText     String? @db.Text
+
+  updatedAt DateTime @updatedAt
+}
+
+model GiveawayEntry {
+  id      String @id @default(cuid())
+  brand   Brand  @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  brandId String
+
+  email     String
+  method    GiveawayEntryMethod
+  orderId   String?
+  // "YYYY-MM-DD" (UTC) -- the calendar day this entry counts toward, so
+  // "today's entrants" is a plain query instead of a createdAt range scan.
+  entryDate String
+
+  createdAt DateTime @default(now())
+
+  @@index([brandId, entryDate])
+}
+
+enum GiveawayEntryMethod {
+  PURCHASE
+  FREE
 }
 
 // ---------------------------------------------------------------------------

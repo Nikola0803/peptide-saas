@@ -26,6 +26,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: "Suppliers", href: "/suppliers", icon: "ri-truck-line" },
       { label: "Wholesale", href: "/wholesale", icon: "ri-store-2-line" },
       { label: "Email", href: "/email-marketing", icon: "ri-mail-send-line" },
+      { label: "Promotions", href: "/promotions", icon: "ri-price-tag-3-line" },
     ],
   },
   {

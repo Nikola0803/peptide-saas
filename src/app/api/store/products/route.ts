@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { resolveHeaderOverride } from "@/lib/store-context";
 import { slugify } from "@/lib/slugify";
+import { utcDateString } from "@/lib/order-engine";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -49,10 +50,18 @@ export async function GET(req: NextRequest) {
     categoryLabel?: string;
     storageInstructions?: string;
     reconstitutionInstructions?: string;
+    // Deal of the Day -- set only when this exact variant has a deal
+    // scheduled for today (see StoreMapping.dealDate in schema.prisma).
+    // priceCents above is ALREADY the deal price when this is true; the
+    // real (pre-deal) price is kept here only so the storefront can show
+    // a crossed-out "was" price, matching what checkout actually charges.
+    isDeal?: boolean;
+    regularPriceCents?: number;
   };
   type Group = { groupSlug: string; name: string; variants: Variant[] };
 
   const groups = new Map<string, Group>();
+  const today = utcDateString();
 
   for (const m of mappings) {
     const product = m.product;
@@ -62,11 +71,14 @@ export async function GET(req: NextRequest) {
     const groupSlug = slugify(groupName);
     const existing = groups.get(groupSlug) ?? { groupSlug, name: groupName, variants: [] };
 
+    const isDeal = m.dealDate === today && m.dealPriceCents != null;
+    const regularPriceCents = m.storePriceCents as number;
+
     existing.variants.push({
       slug: m.slug as string,
       sku: product.sku,
       label: product.variantLabel || product.chemicalName,
-      priceCents: m.storePriceCents as number,
+      priceCents: isDeal ? (m.dealPriceCents as number) : regularPriceCents,
       inStock: stock > 0,
       coaUrl: product.coas[0]?.url,
       imageUrl: product.imageUrl ?? undefined,
@@ -76,6 +88,8 @@ export async function GET(req: NextRequest) {
       categoryLabel: product.categoryLabel ?? undefined,
       storageInstructions: product.storageInstructions ?? undefined,
       reconstitutionInstructions: product.reconstitutionInstructions ?? undefined,
+      isDeal: isDeal || undefined,
+      regularPriceCents: isDeal ? regularPriceCents : undefined,
     });
 
     groups.set(groupSlug, existing);
