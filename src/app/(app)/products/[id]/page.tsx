@@ -4,7 +4,7 @@ import { requireOrg } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader, Card, Badge } from "@/components/ui";
 import { money, shortDate } from "@/lib/format";
-import { updateProduct, deleteProduct, addCoaDocument, addCoaDocumentFile, removeCoaDocument, setCoaPublished, setStorePrice } from "../actions";
+import { updateProduct, deleteProduct, addCoaDocument, addCoaDocumentFile, removeCoaDocument, setCoaPublished, setStorePrice, updateProductContent, uploadProductImage } from "../actions";
 import { addLot, recallLot, unrecallLot, deleteLot } from "../lot-actions";
 
 export default async function ProductDetailPage({ params }: { params: { id: string } }) {
@@ -32,6 +32,8 @@ export default async function ProductDetailPage({ params }: { params: { id: stri
   const deleteWithId = deleteProduct.bind(null, product.id);
   const addCoaWithId = addCoaDocument.bind(null, product.id);
   const addCoaFileWithId = addCoaDocumentFile.bind(null, product.id);
+  const updateContentWithId = updateProductContent.bind(null, product.id);
+  const uploadImageWithId = uploadProductImage.bind(null, product.id);
   const mappedBrandIds = new Set(product.storeMappings.map((m) => m.brandId));
   const unmappedBrands = brands.filter((b) => !mappedBrandIds.has(b.id));
 
@@ -107,6 +109,95 @@ export default async function ProductDetailPage({ params }: { params: { id: stri
             <button className="text-xs border border-background-300 rounded-md px-3 py-1.5 text-accent-700 hover:bg-accent-50">
               Delete product
             </button>
+          </form>
+        </Card>
+
+        <Card className="p-4 lg:col-span-2">
+          <h2 className="text-sm font-semibold text-foreground-950 mb-1">Storefront content</h2>
+          <p className="text-xs text-foreground-500 mb-3">
+            What shows on evlv-site's shop grid and product page for this SKU. Anything left blank falls back to the
+            storefront's own static copy for a matching slug, so it's safe to fill these in gradually.
+          </p>
+          <div className="flex items-start gap-4 mb-4">
+            {product.imageUrl ? (
+              <img src={product.imageUrl} alt="" className="w-24 h-24 object-cover rounded-md border border-background-300 bg-background-50" />
+            ) : (
+              <div className="w-24 h-24 rounded-md border border-dashed border-background-300 flex items-center justify-center text-[10px] text-foreground-400">
+                No photo
+              </div>
+            )}
+            <form action={uploadImageWithId} className="flex-1 space-y-2">
+              <label className="block text-xs font-medium text-foreground-600">Product photo</label>
+              <input type="file" name="file" accept="image/*" required className="text-xs" />
+              <button className="text-xs border border-background-300 rounded-md px-2.5 py-1 text-foreground-700 hover:bg-background-100">
+                Upload photo
+              </button>
+            </form>
+          </div>
+          <form action={updateContentWithId} className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-foreground-600 mb-1">Purity</label>
+                <input
+                  name="purity"
+                  defaultValue={product.purity ?? ""}
+                  placeholder="e.g. 99%+"
+                  className="w-full text-sm border border-background-300 rounded px-2.5 py-1.5 bg-background-50"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-foreground-600 mb-1">Category label</label>
+                <input
+                  name="categoryLabel"
+                  defaultValue={product.categoryLabel ?? ""}
+                  placeholder="e.g. Peptide Research"
+                  className="w-full text-sm border border-background-300 rounded px-2.5 py-1.5 bg-background-50"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-foreground-600 mb-1">Short description</label>
+              <input
+                name="shortDescription"
+                defaultValue={product.shortDescription ?? ""}
+                placeholder="One line, shown on product cards"
+                className="w-full text-sm border border-background-300 rounded px-2.5 py-1.5 bg-background-50"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-foreground-600 mb-1">Full description</label>
+              <textarea
+                name="description"
+                defaultValue={product.description ?? ""}
+                rows={3}
+                className="w-full text-sm border border-background-300 rounded px-2.5 py-1.5 bg-background-50"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-foreground-600 mb-1">Storage instructions</label>
+                <textarea
+                  name="storageInstructions"
+                  defaultValue={product.storageInstructions ?? ""}
+                  rows={2}
+                  className="w-full text-sm border border-background-300 rounded px-2.5 py-1.5 bg-background-50"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-foreground-600 mb-1">Reconstitution instructions</label>
+                <textarea
+                  name="reconstitutionInstructions"
+                  defaultValue={product.reconstitutionInstructions ?? ""}
+                  rows={2}
+                  className="w-full text-sm border border-background-300 rounded px-2.5 py-1.5 bg-background-50"
+                />
+              </div>
+            </div>
+            <div className="pt-1">
+              <button className="text-sm bg-primary-500 text-background-50 rounded-md px-3 py-1.5 font-medium hover:bg-primary-600">
+                Save storefront content
+              </button>
+            </div>
           </form>
         </Card>
 

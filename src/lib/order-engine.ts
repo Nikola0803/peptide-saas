@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { createId } from "@/lib/id";
 import { sendTemplate, escapeHtml } from "@/lib/email";
+import { pushNotifyNewOrder } from "@/lib/push-notify";
 
 // Flat-rate assumption for a card processor fee — matches the WooCommerce
 // webhook ingestion path in src/app/api/webhooks/woocommerce/route.ts. Not
@@ -374,4 +375,11 @@ async function sendOrderEmails(organizationId: string, input: OrderEmailInput): 
   if (organization?.notifyEmail) {
     await sendTemplate(organizationId, "order_confirmation_office", organization.notifyEmail, vars);
   }
+
+  await pushNotifyNewOrder({
+    orderNumber: input.orderNumber,
+    customerName: input.customerName || input.customerEmail,
+    totalFormatted,
+    itemCount: input.items.reduce((sum, i) => sum + i.quantity, 0),
+  });
 }

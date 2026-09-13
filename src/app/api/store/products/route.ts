@@ -42,6 +42,13 @@ export async function GET(req: NextRequest) {
     priceCents: number;
     inStock: boolean;
     coaUrl?: string;
+    imageUrl?: string;
+    shortDescription?: string;
+    description?: string;
+    purity?: string;
+    categoryLabel?: string;
+    storageInstructions?: string;
+    reconstitutionInstructions?: string;
   };
   type Group = { groupSlug: string; name: string; variants: Variant[] };
 
@@ -62,6 +69,13 @@ export async function GET(req: NextRequest) {
       priceCents: m.storePriceCents as number,
       inStock: stock > 0,
       coaUrl: product.coas[0]?.url,
+      imageUrl: product.imageUrl ?? undefined,
+      shortDescription: product.shortDescription ?? undefined,
+      description: product.description ?? undefined,
+      purity: product.purity ?? undefined,
+      categoryLabel: product.categoryLabel ?? undefined,
+      storageInstructions: product.storageInstructions ?? undefined,
+      reconstitutionInstructions: product.reconstitutionInstructions ?? undefined,
     });
 
     groups.set(groupSlug, existing);

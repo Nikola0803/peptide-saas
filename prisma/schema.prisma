@@ -187,6 +187,19 @@ model Product {
   variantLabel     String?
   retailPriceCents Int?
 
+  // Storefront content -- makes this Product a real source of truth for
+  // evlv-site's shop grid + PDP instead of just price/stock. All optional:
+  // a product missing any of these still shows on the storefront, it just
+  // falls back to whatever evlv-site's static catalog has for a matching
+  // slug (see mergeProducts() on the storefront side).
+  imageUrl                    String?
+  shortDescription            String?
+  description                 String? @db.Text
+  purity                      String?
+  categoryLabel               String?
+  storageInstructions         String? @db.Text
+  reconstitutionInstructions  String? @db.Text
+
   coas             CoaDocument[]
   storeMappings    StoreMapping[]
   orderItems       OrderItem[]

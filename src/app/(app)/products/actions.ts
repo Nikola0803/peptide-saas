@@ -90,6 +90,52 @@ export async function setStorePrice(productId: string, brandId: string, formData
   revalidatePath(`/products/${productId}`);
 }
 
+// Storefront content -- the fields that make this Product a real source
+// of truth for evlv-site's shop grid + PDP (see Product.imageUrl etc. in
+// schema.prisma), separate from updateProduct's financial/inventory fields
+// so this form can be its own card without touching SKU/COGS/stock.
+export async function updateProductContent(productId: string, formData: FormData) {
+  const { organization } = await requireOrg();
+
+  const str = (key: string) => {
+    const v = String(formData.get(key) ?? "").trim();
+    return v ? v : null;
+  };
+
+  await prisma.product.update({
+    where: { id: productId, organizationId: organization.id },
+    data: {
+      shortDescription: str("shortDescription"),
+      description: str("description"),
+      purity: str("purity"),
+      categoryLabel: str("categoryLabel"),
+      storageInstructions: str("storageInstructions"),
+      reconstitutionInstructions: str("reconstitutionInstructions"),
+    },
+  });
+
+  revalidatePath(`/products/${productId}`);
+}
+
+// Separate from updateProductContent so a plain content edit (no new file
+// chosen) never re-runs the upload branch -- mirrors addCoaDocumentFile's
+// pattern of one action per file input.
+export async function uploadProductImage(productId: string, formData: FormData) {
+  const { organization } = await requireOrg();
+  const product = await prisma.product.findFirst({ where: { id: productId, organizationId: organization.id } });
+  if (!product) throw new Error("Not found");
+
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) throw new Error("Choose a file first");
+
+  const result = await saveUploadedFile(organization.id, file);
+  if (!result.ok) throw new Error(result.reason);
+
+  await prisma.product.update({ where: { id: productId }, data: { imageUrl: result.media.url } });
+
+  revalidatePath(`/products/${productId}`);
+}
+
 export async function deleteProduct(productId: string) {
   const { organization } = await requireOrg();
   await prisma.product.delete({ where: { id: productId, organizationId: organization.id } });
