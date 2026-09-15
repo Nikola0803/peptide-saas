@@ -19,7 +19,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   const buffer = await readProofFile(request.proofStoragePath).catch(() => null);
   if (!buffer) return NextResponse.json({ error: "File missing" }, { status: 404 });
 
-  return new NextResponse(buffer, {
+  return new NextResponse(new Uint8Array(buffer), {
     headers: {
       "Content-Type": request.proofMimeType || "application/octet-stream",
       "Content-Disposition": `inline; filename="${request.proofFilename.replace(/"/g, "")}"`,
