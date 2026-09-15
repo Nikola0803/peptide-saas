@@ -71,7 +71,12 @@ function expandUnits(items: CouponCartItem[]): Unit[] {
 export async function resolveCoupons(
   organizationId: string,
   codes: string[],
-  subtotalCents: number
+  subtotalCents: number,
+  // The customer's Contact id, when known -- required to redeem a coupon
+  // that's personally assigned to one customer (Coupon.assignedContactId).
+  // Omit for a fully anonymous request; any assigned-to-someone coupon
+  // then behaves as if it doesn't exist, same as a typo'd code.
+  contactId?: string
 ): Promise<{ coupons: Coupon[]; errors: { code: string; reason: string }[] }> {
   const errors: { code: string; reason: string }[] = [];
   const kept: Coupon[] = [];
@@ -85,6 +90,12 @@ export async function resolveCoupons(
     });
 
     if (!coupon) {
+      errors.push({ code, reason: "Coupon not found" });
+      continue;
+    }
+    if (coupon.assignedContactId && coupon.assignedContactId !== contactId) {
+      // Deliberately the same message as a nonexistent code -- never
+      // reveal that a code exists but belongs to someone else.
       errors.push({ code, reason: "Coupon not found" });
       continue;
     }
@@ -257,4 +268,28 @@ export function evaluateCoupons(
   }
 
   return { discountCents, appliedCoupons, errors: [], flooredByMargin };
+}
+
+/**
+ * Codes for any coupon personally assigned to this contact (lifetime
+ * deals, "add an automated discount for one customer" from their Contact
+ * detail page) that are currently usable -- active, in-window, under any
+ * redemption cap. Meant to be merged into whatever code(s) the customer
+ * typed (if any) so a personal deal applies automatically the moment
+ * they're recognized (logged in, or checking out with their account
+ * email), with zero action required from them.
+ */
+export async function getAutoApplyCodes(organizationId: string, contactId?: string | null): Promise<string[]> {
+  if (!contactId) return [];
+  const now = new Date();
+  const coupons = await prisma.coupon.findMany({
+    where: {
+      organizationId,
+      assignedContactId: contactId,
+      active: true,
+      OR: [{ startsAt: null }, { startsAt: { lte: now } }],
+      AND: [{ OR: [{ expiresAt: null }, { expiresAt: { gte: now } }] }],
+    },
+  });
+  return coupons.filter((c) => c.maxRedemptions == null || c.redemptionCount < c.maxRedemptions).map((c) => c.code);
 }

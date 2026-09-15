@@ -397,6 +397,7 @@ model Contact {
   automationSends  EmailAutomationSend[]
   affiliate        Affiliate?
   wholesalePartner WholesalePartner?
+  personalCoupons  Coupon[]
 
   @@unique([organizationId, email])
   @@index([organizationId, createdAt])
@@ -620,6 +621,15 @@ model Coupon {
   bogoRewardProduct    Product? @relation("CouponBogoReward", fields: [bogoRewardProductId], references: [id])
   bogoRewardProductId  String?
 
+  // Set for a coupon created specifically for one customer -- an
+  // "automated lifetime deal" assigned from that Contact's detail page.
+  // resolveCoupons() in coupon-engine.ts rejects this coupon's code for
+  // anyone else (returns "not found", never leaks whose deal it is),
+  // and getAutoApplyCodes() auto-includes it at checkout for this
+  // contact without them ever having to type the code.
+  assignedContact   Contact? @relation(fields: [assignedContactId], references: [id], onDelete: Cascade)
+  assignedContactId String?
+
   // Guardrails
   minOrderCents  Int?
   maxRedemptions Int?
@@ -634,6 +644,7 @@ model Coupon {
 
   @@unique([organizationId, code])
   @@index([organizationId, active])
+  @@index([assignedContactId])
 }
 
 model OrderItem {

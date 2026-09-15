@@ -78,7 +78,8 @@ export default async function OrdersPage({
                 <th className="py-2.5 px-4 font-medium">Customer</th>
                 <th className="py-2.5 px-4 font-medium">Brand</th>
                 <th className="py-2.5 px-4 font-medium">Status</th>
-                <th className="py-2.5 px-4 font-medium">Coupon</th>
+                <th className="py-2.5 px-4 font-medium">Affiliate ref</th>
+                <th className="py-2.5 px-4 font-medium">Discount</th>
                 <th className="py-2.5 px-4 font-medium text-right">Gross</th>
                 <th className="py-2.5 px-4 font-medium text-right">Net profit</th>
                 <th className="py-2.5 px-4 font-medium text-right">Placed</th>
@@ -103,6 +104,16 @@ export default async function OrdersPage({
                     <Badge status={o.status} />
                   </td>
                   <td className="py-3 px-4 font-mono text-xs text-foreground-600">{o.couponCode ?? "—"}</td>
+                  <td className="py-3 px-4 text-xs">
+                    {o.appliedCouponCodes ? (
+                      <span className="inline-flex items-center gap-1 font-mono text-secondary-700 bg-secondary-100 rounded px-1.5 py-0.5">
+                        {o.appliedCouponCodes}
+                        <span className="text-foreground-500">-{money(o.discountCents)}</span>
+                      </span>
+                    ) : (
+                      <span className="text-foreground-400">—</span>
+                    )}
+                  </td>
                   <td className="py-3 px-4 text-right tabular-nums">{money(o.grossCents)}</td>
                   <td className="py-3 px-4 text-right tabular-nums text-foreground-700">
                     {o.netProfitCents != null ? money(o.netProfitCents) : "—"}

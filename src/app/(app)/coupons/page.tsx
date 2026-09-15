@@ -36,15 +36,22 @@ function describeCoupon(c: {
 export default async function CouponsPage() {
   const { organization } = await requireOrg();
 
-  const [coupons, org] = await Promise.all([
+  const [coupons, org, discountByCoupon] = await Promise.all([
     prisma.coupon.findMany({
       where: { organizationId: organization.id },
-      include: { bogoTriggerProduct: true, bogoRewardProduct: true },
+      include: { bogoTriggerProduct: true, bogoRewardProduct: true, assignedContact: true },
       orderBy: { createdAt: "desc" },
     }),
     prisma.organization.findUnique({ where: { id: organization.id }, select: { minMarginPercent: true } }),
+    prisma.order.groupBy({
+      by: ["couponId"],
+      where: { organizationId: organization.id, couponId: { not: null } },
+      _sum: { discountCents: true },
+    }),
   ]);
 
+  const discountGivenByCouponId = new Map(discountByCoupon.map((r) => [r.couponId as string, r._sum.discountCents ?? 0]));
+  const totalDiscountGiven = discountByCoupon.reduce((s, r) => s + (r._sum.discountCents ?? 0), 0);
   const activeCount = coupons.filter((c) => c.active).length;
   const totalRedemptions = coupons.reduce((s, c) => s + c.redemptionCount, 0);
 
@@ -60,9 +67,10 @@ export default async function CouponsPage() {
         }
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <StatCard label="Active coupons" value={String(activeCount)} hint={`${coupons.length} total`} />
         <StatCard label="Total redemptions" value={String(totalRedemptions)} hint="Across all coupons, all time" />
+        <StatCard label="Total discount given" value={money(totalDiscountGiven)} hint="Sum across every order that used a coupon" />
         <StatCard label="Minimum margin floor" value={`${org?.minMarginPercent ?? 30}%`} hint="Over cost -- no coupon can ever go below this" />
       </div>
 
@@ -108,6 +116,15 @@ export default async function CouponsPage() {
                 <Badge status={c.active ? "active" : "closed"} />
               </div>
 
+              {c.assignedContact && (
+                <Link
+                  href={`/contacts/${c.assignedContact.id}`}
+                  className="mb-2 inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded bg-primary-100 text-primary-700 hover:bg-primary-200"
+                >
+                  <i className="ri-user-star-line" /> Personal deal -- {c.assignedContact.email}
+                </Link>
+              )}
+
               <p className="text-sm text-foreground-800 mb-3">{describeCoupon(c)}</p>
 
               <div className="flex flex-wrap gap-1.5 mb-3">
@@ -129,6 +146,11 @@ export default async function CouponsPage() {
                 {c.expiresAt && (
                   <span className="text-[10px] px-2 py-0.5 rounded bg-background-200 text-foreground-600">
                     Expires {new Date(c.expiresAt).toLocaleDateString()}
+                  </span>
+                )}
+                {(discountGivenByCouponId.get(c.id) ?? 0) > 0 && (
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-primary-100 text-primary-700">
+                    {money(discountGivenByCouponId.get(c.id) ?? 0)} given
                   </span>
                 )}
               </div>

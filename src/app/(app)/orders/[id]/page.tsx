@@ -135,9 +135,25 @@ export default async function OrderDetailPage({ params }: { params: { id: string
                 ))}
               </tbody>
             </table>
-            <div className="flex justify-between pt-3 mt-2 border-t border-background-200 text-sm">
-              <span className="text-foreground-600">Gross</span>
-              <span className="font-medium text-foreground-950">{money(order.grossCents)}</span>
+            <div className="pt-3 mt-2 border-t border-background-200 text-sm space-y-1">
+              {order.discountCents > 0 && (
+                <>
+                  <div className="flex justify-between text-foreground-600">
+                    <span>Subtotal</span>
+                    <span>{money(order.grossCents + order.discountCents)}</span>
+                  </div>
+                  <div className="flex justify-between text-primary-700">
+                    <span>
+                      Discount{order.appliedCouponCodes ? ` (${order.appliedCouponCodes})` : ""}
+                    </span>
+                    <span>-{money(order.discountCents)}</span>
+                  </div>
+                </>
+              )}
+              <div className="flex justify-between">
+                <span className="text-foreground-600">Gross</span>
+                <span className="font-medium text-foreground-950">{money(order.grossCents)}</span>
+              </div>
             </div>
             {order.netProfitCents != null && (
               <div className="flex justify-between text-sm mt-1">

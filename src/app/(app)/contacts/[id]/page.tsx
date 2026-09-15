@@ -4,7 +4,7 @@ import { requireOrg } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader, Card, StatCard, Badge } from "@/components/ui";
 import { money, shortDate, dateTime, initials } from "@/lib/format";
-import { updateContact } from "../actions";
+import { updateContact, assignPersonalCoupon, revokePersonalCoupon } from "../actions";
 
 export default async function ContactDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { organization } = await requireOrg();
@@ -15,12 +15,15 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
     include: {
       brandLinks: { include: { brand: true } },
       orders: { orderBy: { placedAt: "desc" }, include: { brand: true } },
+      personalCoupons: { orderBy: { createdAt: "desc" } },
     },
   });
   if (!contact) notFound();
 
   const ltv = contact.orders.reduce((s, o) => s + o.grossCents, 0);
+  const ordersWithCoupon = contact.orders.filter((o) => o.appliedCouponCodes).length;
   const updateWithId = updateContact.bind(null, contact.id);
+  const assignCouponWithId = assignPersonalCoupon.bind(null, contact.id);
 
   return (
     <div>
@@ -31,7 +34,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <StatCard label="Lifetime value" value={money(ltv)} />
-        <StatCard label="Orders" value={String(contact.orders.length)} />
+        <StatCard label="Orders" value={String(contact.orders.length)} hint={ordersWithCoupon > 0 ? `${ordersWithCoupon} used a coupon` : undefined} />
         <StatCard label="Joined" value={shortDate(contact.createdAt)} />
       </div>
 
@@ -44,12 +47,17 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
             ) : (
               <ul className="text-sm divide-y divide-background-100">
                 {contact.orders.map((o) => (
-                  <li key={o.id} className="py-2.5 flex items-center justify-between">
+                  <li key={o.id} className="py-2.5 flex items-center justify-between gap-2">
                     <Link href={`/orders/${o.id}`} className="text-primary-600 hover:underline">
                       {o.externalOrderNumber}
                     </Link>
                     <span className="text-xs text-foreground-500">{o.brand.name}</span>
                     <Badge status={o.status.toLowerCase()} />
+                    {o.appliedCouponCodes && (
+                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary-100 text-secondary-700">
+                        {o.appliedCouponCodes}
+                      </span>
+                    )}
                     <span className="tabular-nums font-medium">{money(o.grossCents)}</span>
                     <span className="text-xs text-foreground-500">{shortDate(o.placedAt)}</span>
                   </li>
@@ -97,6 +105,71 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                 ))}
               </ul>
             )}
+          </Card>
+
+          <Card className="p-4">
+            <h2 className="text-sm font-semibold text-foreground-950 mb-1">Lifetime deal</h2>
+            <p className="text-xs text-foreground-500 mb-3">
+              An automated discount just for this customer -- no code to type, applied the moment they check out or
+              log in.
+            </p>
+
+            {contact.personalCoupons.filter((c) => c.active).length > 0 ? (
+              <ul className="space-y-2 mb-3">
+                {contact.personalCoupons.filter((c) => c.active).map((c) => (
+                  <li key={c.id} className="flex items-center justify-between gap-2 rounded-md border border-background-200 px-2.5 py-2">
+                    <div className="min-w-0">
+                      <div className="text-xs font-mono text-foreground-800">{c.code}</div>
+                      <div className="text-[11px] text-foreground-500 truncate">
+                        {c.type === "FIXED" ? `${money(c.fixedAmountCents ?? 0)} off` : `${c.percentOff ?? 0}% off`}
+                        {" -- "}
+                        {c.redemptionCount} redeemed
+                      </div>
+                    </div>
+                    <form action={revokePersonalCoupon.bind(null, c.id)}>
+                      <button className="text-[11px] border border-background-300 rounded px-2 py-1 text-foreground-700 hover:bg-background-100 whitespace-nowrap">
+                        Revoke
+                      </button>
+                    </form>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-xs text-foreground-500 mb-3">No active lifetime deal.</p>
+            )}
+
+            <form action={assignCouponWithId} className="space-y-2 border-t border-background-200 pt-3">
+              <div className="flex gap-2">
+                <select name="type" defaultValue="PERCENT" className="text-xs border border-background-300 rounded px-2 py-1.5 bg-background-50">
+                  <option value="PERCENT">% off</option>
+                  <option value="FIXED">$ off</option>
+                </select>
+                <input
+                  name="percentOff"
+                  type="number"
+                  min="1"
+                  max="100"
+                  placeholder="Percent"
+                  className="flex-1 text-xs border border-background-300 rounded px-2 py-1.5 bg-background-50"
+                />
+                <input
+                  name="fixedAmountDollars"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="Dollars"
+                  className="flex-1 text-xs border border-background-300 rounded px-2 py-1.5 bg-background-50"
+                />
+              </div>
+              <input
+                name="label"
+                placeholder="Note (optional) -- e.g. VIP loyalty reward"
+                className="w-full text-xs border border-background-300 rounded px-2 py-1.5 bg-background-50"
+              />
+              <button className="w-full text-xs bg-primary-500 text-background-50 rounded-md px-3 py-1.5 font-medium hover:bg-primary-600">
+                Add lifetime deal
+              </button>
+            </form>
           </Card>
         </div>
       </div>

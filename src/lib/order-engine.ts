@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { createId } from "@/lib/id";
 import { sendTemplate, escapeHtml } from "@/lib/email";
 import { pushNotifyNewOrder } from "@/lib/push-notify";
-import { resolveCoupons, evaluateCoupons, type CouponCartItem } from "@/lib/coupon-engine";
+import { resolveCoupons, evaluateCoupons, getAutoApplyCodes, type CouponCartItem } from "@/lib/coupon-engine";
 
 // "YYYY-MM-DD" in UTC -- the calendar day used to decide whether a
 // StoreMapping's Deal of the Day is currently active and to bucket
@@ -245,10 +245,15 @@ export async function runCheckout(
     let discountCents = 0;
     let couponId: string | undefined;
     let appliedCouponCodes: string | undefined;
-    const requestedCodes = input.discountCodes?.filter(Boolean) ?? [];
+    // Auto-apply codes (a personal/lifetime deal assigned to this exact
+    // contact -- see Coupon.assignedContactId) go first, so a non-stackable
+    // personal deal wins over a generic code the customer happens to also
+    // type in, and is applied even if they never enter anything at all.
+    const autoApplyCodes = await getAutoApplyCodes(organizationId, contact.id);
+    const requestedCodes = [...autoApplyCodes, ...(input.discountCodes?.filter(Boolean) ?? [])];
     if (requestedCodes.length > 0) {
       const org = await tx.organization.findUnique({ where: { id: organizationId } });
-      const { coupons } = await resolveCoupons(organizationId, requestedCodes, grossCentsTotal);
+      const { coupons } = await resolveCoupons(organizationId, requestedCodes, grossCentsTotal, contact.id);
       if (coupons.length > 0) {
         const evaluation = evaluateCoupons(coupons, couponCartItems, org?.minMarginPercent ?? 30);
         discountCents = evaluation.discountCents;
