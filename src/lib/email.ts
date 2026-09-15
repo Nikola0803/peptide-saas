@@ -169,6 +169,41 @@ export const DEFAULT_TEMPLATES: EmailTemplateDefault[] = [
     `),
   },
   {
+    key: "affiliate_rejected",
+    name: "Affiliate application rejected",
+    description: "Sent when a self-serve affiliate application is rejected from the Affiliates page.",
+    subject: "Update on your EVLV affiliate application",
+    sampleVars: { affiliateName: "Jordan" },
+    html: LAYOUT(`
+      <h1 style="font-size: 20px;">Your affiliate application</h1>
+      <p>Hi {{affiliateName}}, thanks for your interest in the EVLV affiliate program. We're not able to approve your application at this time.</p>
+      <p>If you think this was a mistake or your situation has changed, feel free to reply to this email.</p>
+    `),
+  },
+  {
+    key: "wholesale_approved",
+    name: "Wholesale inquiry approved",
+    description: "Sent when a wholesale inquiry is linked & approved from the Wholesale page.",
+    subject: "You're approved as an EVLV wholesale partner",
+    sampleVars: { contactName: "Jordan", companyName: "Acme Labs" },
+    html: LAYOUT(`
+      <h1 style="font-size: 20px;">Welcome as an EVLV wholesale partner, {{contactName}}!</h1>
+      <p>{{companyName}}'s wholesale inquiry has been approved. We'll be in touch with next steps, or reply to this email with any questions in the meantime.</p>
+    `),
+  },
+  {
+    key: "wholesale_rejected",
+    name: "Wholesale inquiry rejected",
+    description: "Sent when a wholesale inquiry is rejected from the Wholesale page.",
+    subject: "Update on your EVLV wholesale inquiry",
+    sampleVars: { contactName: "Jordan", companyName: "Acme Labs" },
+    html: LAYOUT(`
+      <h1 style="font-size: 20px;">Your wholesale inquiry</h1>
+      <p>Hi {{contactName}}, thanks for {{companyName}}'s interest in an EVLV wholesale partnership. We're not able to move forward at this time.</p>
+      <p>If your situation changes, feel free to reach back out any time.</p>
+    `),
+  },
+  {
     key: "affiliate_payout_paid",
     name: "Affiliate payout sent",
     description: "Sent when staff marks an affiliate payout request as paid.",
@@ -296,6 +331,41 @@ export const DEFAULT_TEMPLATES: EmailTemplateDefault[] = [
     html: LAYOUT(`
       <h1 style="font-size: 20px;">You're one of our best, {{customerName}}</h1>
       <p>We wanted to say thanks for being a repeat EVLV customer -- your continued trust means a lot. Reach out any time if there's ever anything we can do for you.</p>
+    `),
+  },
+  {
+    key: "heroes_discount_received",
+    name: "Heroes Discount application received",
+    description: "Sent right after someone submits the Heroes Discount form on evlv-site, before review.",
+    subject: "We've got your Heroes Discount application",
+    sampleVars: { name: "Jordan" },
+    html: LAYOUT(`
+      <h1 style="font-size: 20px;">Thanks, {{name}}</h1>
+      <p>We've received your Heroes Discount application along with your proof of service. We review every application by hand -- we'll follow up by email within a couple of business days.</p>
+    `),
+  },
+  {
+    key: "heroes_discount_approved",
+    name: "Heroes Discount approved",
+    description: "Sent when a Heroes Discount application is approved from the Heroes Discount page, with the personal coupon code.",
+    subject: "You're approved for the EVLV Heroes Discount",
+    sampleVars: { name: "Jordan", couponCode: "HEROES-AB12CD34" },
+    html: LAYOUT(`
+      <h1 style="font-size: 20px;">Thank you for your service, {{name}}</h1>
+      <p>Your Heroes Discount application has been approved. Your personal 20% off code is:</p>
+      <p style="font-size: 18px; font-weight: 700; letter-spacing: 0.05em;">{{couponCode}}</p>
+      <p>It's single-use and tied to your account -- it'll apply automatically at checkout when you're signed in.</p>
+    `),
+  },
+  {
+    key: "heroes_discount_rejected",
+    name: "Heroes Discount rejected",
+    description: "Sent when a Heroes Discount application is rejected from the Heroes Discount page.",
+    subject: "Update on your Heroes Discount application",
+    sampleVars: { name: "Jordan" },
+    html: LAYOUT(`
+      <h1 style="font-size: 20px;">Your Heroes Discount application</h1>
+      <p>Hi {{name}}, we weren't able to verify your proof of service for the Heroes Discount. If you think this was a mistake, reply to this email and we're happy to take another look.</p>
     `),
   },
   {

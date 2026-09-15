@@ -58,6 +58,7 @@ model Organization {
   contacts    Contact[]
   affiliates  Affiliate[]
   wholesaleInquiries WholesaleInquiry[]
+  heroesDiscountRequests HeroesDiscountRequest[]
   orders      Order[]
   webhookLogs WebhookEvent[]
   trackingEvents TrackingEvent[]
@@ -638,6 +639,7 @@ model Coupon {
   expiresAt      DateTime?
 
   orders Order[]
+  heroesDiscountRequest HeroesDiscountRequest?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1213,6 +1215,44 @@ model Message {
 enum MessageDirection {
   INBOUND
   OUTBOUND
+}
+
+// Heroes Discount (military/first-responder) applications, submitted from
+// evlv-site's /heroes-discount form. Manually reviewed like the affiliate
+// program: reviewer opens the proof-of-service file before approving.
+// Approving creates a personal, single-use 20%-off Coupon (assignedContactId
+// + maxRedemptions: 1, same mechanism as any other per-customer deal) and
+// emails the code -- no separate discount system needed.
+model HeroesDiscountRequest {
+  id             String       @id @default(cuid())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+
+  name   String
+  email  String
+  status String // "Active Duty" / "Veteran" / "Reservist / National Guard" / "First Responder (Police/Fire/EMS)"
+  branch String // free text, e.g. "U.S. Army", "Chicago PD"
+
+  // Proof-of-service file lives outside public/ (see src/lib/heroes-discount-upload.ts)
+  // -- never served except through the authenticated admin proof route.
+  proofFilename    String
+  proofMimeType    String
+  proofStoragePath String
+
+  reviewStatus HeroesDiscountReviewStatus @default(PENDING)
+  coupon       Coupon?                    @relation(fields: [couponId], references: [id])
+  couponId     String?                    @unique
+
+  createdAt DateTime @default(now())
+  reviewedAt DateTime?
+
+  @@index([organizationId, reviewStatus])
+}
+
+enum HeroesDiscountReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 model WhatsAppConfig {

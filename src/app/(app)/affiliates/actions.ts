@@ -50,10 +50,15 @@ export async function approveAffiliate(affiliateId: string) {
 
 export async function rejectAffiliate(affiliateId: string) {
   const { organization } = await requireOrg();
-  await prisma.affiliate.update({
+  const affiliate = await prisma.affiliate.update({
     where: { id: affiliateId, organizationId: organization.id },
     data: { status: "REJECTED" },
   });
+  if (affiliate.email) {
+    sendTemplate(organization.id, "affiliate_rejected", affiliate.email, { affiliateName: affiliate.name }).catch((err) =>
+      console.error("Affiliate rejection email failed", err)
+    );
+  }
   revalidatePath("/affiliates");
 }
 

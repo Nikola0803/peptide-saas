@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireOrg } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
+import { sendTemplate } from "@/lib/email";
 
 // Staff review step per WHOLESALE-PARTNER-PORTAL.md: link an inquiry to a
 // Contact (creating one if the prospect never had an account -- a
@@ -35,15 +36,29 @@ export async function linkAndApproveInquiry(inquiryId: string) {
 
   await prisma.wholesaleInquiry.update({ where: { id: inquiryId }, data: { status: "LINKED" } });
 
+  sendTemplate(organization.id, "wholesale_approved", inquiry.email, {
+    contactName: inquiry.contactName,
+    companyName: inquiry.companyName,
+  }).catch((err) => console.error("Wholesale approval email failed", err));
+
   revalidatePath("/wholesale");
 }
 
 export async function rejectInquiry(inquiryId: string) {
   const { organization } = await requireOrg();
+  const inquiry = await prisma.wholesaleInquiry.findFirst({ where: { id: inquiryId, organizationId: organization.id } });
+  if (!inquiry) throw new Error("Not found");
+
   await prisma.wholesaleInquiry.updateMany({
     where: { id: inquiryId, organizationId: organization.id },
     data: { status: "REJECTED" },
   });
+
+  sendTemplate(organization.id, "wholesale_rejected", inquiry.email, {
+    contactName: inquiry.contactName,
+    companyName: inquiry.companyName,
+  }).catch((err) => console.error("Wholesale rejection email failed", err));
+
   revalidatePath("/wholesale");
 }
 

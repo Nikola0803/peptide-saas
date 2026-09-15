@@ -6,3 +6,4 @@ node_modules
 .DS_Store
 /prisma/dev.db
 /public/uploads
+/private-uploads
