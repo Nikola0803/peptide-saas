@@ -59,6 +59,8 @@ model Organization {
   affiliates  Affiliate[]
   wholesaleInquiries WholesaleInquiry[]
   heroesDiscountRequests HeroesDiscountRequest[]
+  membershipRequests     MembershipRequest[]
+  customerVerifications   CustomerVerification[]
   orders      Order[]
   webhookLogs WebhookEvent[]
   trackingEvents TrackingEvent[]
@@ -399,6 +401,8 @@ model Contact {
   affiliate        Affiliate?
   wholesalePartner WholesalePartner?
   personalCoupons  Coupon[]
+  membershipRequest MembershipRequest?
+  verification      CustomerVerification?
 
   @@unique([organizationId, email])
   @@index([organizationId, createdAt])
@@ -1223,6 +1227,50 @@ enum MessageDirection {
 // Approving creates a personal, single-use 20%-off Coupon (assignedContactId
 // + maxRedemptions: 1, same mechanism as any other per-customer deal) and
 // emails the code -- no separate discount system needed.
+// Real, server-verified customer access requests -- see MEMBERSHIP.md and
+// RESEARCHER-VERIFICATION.md. Two independent gates on Product, on purpose
+// (a paying Member could otherwise buy a restricted delivery-format
+// product just by being a member, which defeats the compliance point of
+// verification): Membership is a loyalty/pricing tier (unlocks
+// member-exclusive blends); Verification is a compliance control (unlocks
+// restricted delivery formats -- nasal sprays, injector pens). Both are
+// manually reviewed, one request per contact, same idempotent
+// request/status shape.
+model MembershipRequest {
+  id             String       @id @default(cuid())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+  contact        Contact      @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  contactId      String       @unique
+
+  status     AccessReviewStatus @default(PENDING)
+  reviewedAt DateTime?
+  createdAt  DateTime           @default(now())
+}
+
+model CustomerVerification {
+  id             String       @id @default(cuid())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+  contact        Contact      @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  contactId      String       @unique
+
+  institution String
+  role        String
+  phone       String
+  purpose     String
+
+  status     AccessReviewStatus @default(PENDING)
+  reviewedAt DateTime?
+  createdAt  DateTime           @default(now())
+}
+
+enum AccessReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 model HeroesDiscountRequest {
   id             String       @id @default(cuid())
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)

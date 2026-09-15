@@ -383,6 +383,72 @@ export const DEFAULT_TEMPLATES: EmailTemplateDefault[] = [
     `),
   },
   {
+    key: "membership_received",
+    name: "Membership request received",
+    description: "Sent right after someone requests Member access from evlv-site's /plans page, before review.",
+    subject: "We've got your Membership request",
+    sampleVars: { customerName: "Jordan" },
+    html: LAYOUT(`
+      <h1 style="font-size: 20px;">Thanks, {{customerName}}</h1>
+      <p>We've received your request for Member access. We review every request by hand -- we'll follow up by email within a couple of business days.</p>
+    `),
+  },
+  {
+    key: "membership_approved",
+    name: "Membership approved",
+    description: "Sent when a Membership request is approved from the Membership page.",
+    subject: "You're an EVLV Member!",
+    sampleVars: { customerName: "Jordan" },
+    html: LAYOUT(`
+      <h1 style="font-size: 20px;">Welcome as a Member, {{customerName}}!</h1>
+      <p>Your Member access has been approved -- member-exclusive research blends are now unlocked on your account. Sign in and take a look at the Shop any time.</p>
+    `),
+  },
+  {
+    key: "membership_rejected",
+    name: "Membership rejected",
+    description: "Sent when a Membership request is rejected from the Membership page.",
+    subject: "Update on your EVLV Membership request",
+    sampleVars: { customerName: "Jordan" },
+    html: LAYOUT(`
+      <h1 style="font-size: 20px;">Your Membership request</h1>
+      <p>Hi {{customerName}}, we're not able to approve Member access at this time. If you think this was a mistake, reply to this email.</p>
+    `),
+  },
+  {
+    key: "verification_received",
+    name: "Researcher verification request received",
+    description: "Sent right after someone submits the verification form on evlv-site's /account page, before review.",
+    subject: "We've got your verification request",
+    sampleVars: { customerName: "Jordan" },
+    html: LAYOUT(`
+      <h1 style="font-size: 20px;">Thanks, {{customerName}}</h1>
+      <p>We've received your researcher/institutional verification request. We review every request by hand -- we'll follow up by email within a couple of business days.</p>
+    `),
+  },
+  {
+    key: "verification_approved",
+    name: "Researcher verification approved",
+    description: "Sent when a verification request is approved from the Verification page.",
+    subject: "You're a verified researcher on EVLV",
+    sampleVars: { customerName: "Jordan" },
+    html: LAYOUT(`
+      <h1 style="font-size: 20px;">You're verified, {{customerName}}</h1>
+      <p>Your researcher/institutional verification has been approved -- restricted delivery formats are now unlocked on your account.</p>
+    `),
+  },
+  {
+    key: "verification_rejected",
+    name: "Researcher verification rejected",
+    description: "Sent when a verification request is rejected from the Verification page.",
+    subject: "Update on your EVLV verification request",
+    sampleVars: { customerName: "Jordan" },
+    html: LAYOUT(`
+      <h1 style="font-size: 20px;">Your verification request</h1>
+      <p>Hi {{customerName}}, we're not able to approve researcher/institutional verification at this time. If you think this was a mistake, reply to this email.</p>
+    `),
+  },
+  {
     key: "support_reply",
     name: "Support reply",
     description: "Wraps a staff reply sent from the Support inbox to a contact-form or WhatsApp lead.",
