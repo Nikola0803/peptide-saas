@@ -7,6 +7,8 @@ import { generateAffiliateCode } from "@/lib/affiliate-auth";
 
 const bodySchema = z.object({
   token: z.string().optional(),
+  name: z.string().trim().optional(),
+  email: z.string().trim().email().optional(),
   referredBy: z.string().optional(),
   socialLink: z.string().optional(),
   phone: z.string().optional(),
@@ -18,11 +20,13 @@ const bodySchema = z.object({
 });
 
 // POST /api/store/affiliate/register
-// Applies for affiliate status on the shopper's EXISTING account (resolved
-// from `token`, the same bearer token /api/store/auth/login issues) --
-// affiliates are a role on the Contact record, not a separate login. See
-// AFFILIATE-PORTAL.md. Creates an Affiliate row with status: PENDING; a
-// staff member approves/rejects from the CRM.
+// Applies for affiliate status. Prefers resolving an EXISTING Contact from
+// `token` when a signed-in shopper applies (their order history carries
+// over), but does NOT require one -- an applicant who's never shopped
+// (the common case for "Ambassadors" applying from evlv-site's public
+// /ambassadors page) is upserted by name+email instead, same pattern as
+// wholesale/heroes-discount. Creates an Affiliate row with status:
+// PENDING either way; a staff member approves/rejects from the CRM.
 export async function POST(req: NextRequest) {
   const store = await resolveHeaderOverride(req);
   if (!store) {
@@ -30,14 +34,27 @@ export async function POST(req: NextRequest) {
   }
 
   const raw = await req.json().catch(() => ({}));
-  const contact = await resolveContactFromToken(req, store, raw);
-  if (!contact) {
-    return NextResponse.json({ error: "Sign in to your account first, then apply." }, { status: 401 });
-  }
-
   const parsed = bodySchema.safeParse(raw);
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid request", detail: parsed.error.flatten() }, { status: 400 });
+  }
+
+  let contact = await resolveContactFromToken(req, store, raw);
+  if (!contact) {
+    const email = parsed.data.email?.toLowerCase();
+    if (!email) {
+      return NextResponse.json({ error: "Name and email are required" }, { status: 400 });
+    }
+    contact = await prisma.contact.upsert({
+      where: { organizationId_email: { organizationId: store.organizationId, email } },
+      update: parsed.data.name ? { name: parsed.data.name } : {},
+      create: { organizationId: store.organizationId, email, name: parsed.data.name },
+    });
+    await prisma.contactBrandLink.upsert({
+      where: { contactId_brandId: { contactId: contact.id, brandId: store.brandId } },
+      update: {},
+      create: { contactId: contact.id, brandId: store.brandId },
+    });
   }
 
   const existing = await prisma.affiliate.findUnique({ where: { contactId: contact.id } });
