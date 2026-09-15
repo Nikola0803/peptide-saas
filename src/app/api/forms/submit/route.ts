@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { pushNotifyContactForm } from "@/lib/push-notify";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -49,6 +50,14 @@ export async function POST(req: NextRequest) {
       },
     },
   });
+
+  pushNotifyContactForm({
+    name: body.name || "",
+    email: body.email || "",
+    subject: body.subject || undefined,
+    preview: String(body.message),
+    conversationId: conversation.id,
+  }).catch((err) => console.error("Contact form push notification failed", err));
 
   return NextResponse.json({ ok: true, conversationId: conversation.id }, { headers: CORS_HEADERS });
 }
