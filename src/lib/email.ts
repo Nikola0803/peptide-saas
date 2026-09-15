@@ -371,12 +371,15 @@ export const DEFAULT_TEMPLATES: EmailTemplateDefault[] = [
   {
     key: "newsletter_subscribed",
     name: "Newsletter subscription confirmed",
-    description: "Sent right after someone subscribes to the newsletter (evlv-site's footer signup or checkout opt-in).",
-    subject: "You're subscribed",
-    sampleVars: { customerName: "Jordan" },
+    description: "Sent right after someone subscribes to the newsletter (evlv-site's footer signup or checkout opt-in), with their welcome coupon code.",
+    subject: "You're subscribed -- here's 10% off",
+    sampleVars: { customerName: "Jordan", couponCode: "WELCOME10-AB12CD34" },
     html: LAYOUT(`
       <h1 style="font-size: 20px;">You're on the list</h1>
       <p>Thanks, {{customerName}} -- we'll email you when there's something worth sharing.</p>
+      <p>Here's 10% off your next order:</p>
+      <p style="font-size: 18px; font-weight: 700; letter-spacing: 0.05em;">{{couponCode}}</p>
+      <p>It's single-use and tied to your account -- it'll apply automatically at checkout when you're signed in.</p>
     `),
   },
   {

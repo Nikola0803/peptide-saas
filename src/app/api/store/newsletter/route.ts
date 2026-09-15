@@ -2,19 +2,27 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { resolveHeaderOverride } from "@/lib/store-context";
 import { sendTemplate } from "@/lib/email";
+import { pushContactToOmnisend } from "@/lib/omnisend";
 
 export const runtime = "nodejs";
+
+const WELCOME_COUPON_PREFIX = "WELCOME10-";
 
 // POST /api/store/newsletter -- called by evlv-site's server-only proxy
 // (same x-store-domain/x-store-api-key auth as /api/store/checkout).
 // Marks Contact.marketingOptIn = true (the same flag the in-house
 // Newsletter sender at /email-marketing/newsletter reads from -- that's
 // the source of truth, this DB write always happens first and
-// unconditionally) then sends a one-off confirmation via Resend.
+// unconditionally), issues a personal single-use 10%-off welcome coupon
+// the first time this contact ever opts in (same assignedContact
+// mechanism as Heroes Discount -- see coupon-engine.ts), pushes the
+// contact to Omnisend (best-effort, no-op until OMNISEND_API_KEY is set --
+// see src/lib/omnisend.ts), then sends a one-off confirmation via Resend
+// with the code.
 //
-// No Mailchimp here -- this app doesn't use it. Bulk/campaign sends are
-// the in-house Newsletter sender above; a real marketing-campaign tool
-// (Omnisend) is a separate, not-yet-built feature, not this route.
+// Bulk/campaign sends are the in-house Newsletter sender at
+// /email-marketing/newsletter -- this route only ever handles the single
+// opt-in event.
 export async function POST(req: NextRequest) {
   const store = await resolveHeaderOverride(req);
   if (!store) {
@@ -38,9 +46,35 @@ export async function POST(req: NextRequest) {
     create: { contactId: contact.id, brandId: store.brandId },
   });
 
+  let couponCode = await prisma.coupon.findFirst({
+    where: { organizationId: store.organizationId, assignedContactId: contact.id, code: { startsWith: WELCOME_COUPON_PREFIX } },
+    select: { code: true },
+  }).then((c) => c?.code);
+
+  if (!couponCode) {
+    const coupon = await prisma.coupon.create({
+      data: {
+        organizationId: store.organizationId,
+        code: `${WELCOME_COUPON_PREFIX}${contact.id.slice(-8).toUpperCase()}`,
+        description: `Newsletter welcome discount -- ${email}`,
+        type: "PERCENT",
+        percentOff: 10,
+        allowStacking: false,
+        maxRedemptions: 1,
+        assignedContactId: contact.id,
+      },
+    });
+    couponCode = coupon.code;
+  }
+
+  pushContactToOmnisend(email, { firstName: contact.name ?? undefined }).catch((err) =>
+    console.error("Omnisend push failed", err)
+  );
+
   await sendTemplate(store.organizationId, "newsletter_subscribed", email, {
     customerName: contact.name || email,
+    couponCode,
   }).catch((err) => console.error("Newsletter confirmation email failed", err));
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, couponCode });
 }
