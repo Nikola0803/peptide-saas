@@ -231,7 +231,9 @@ export async function runCheckout(
       const affiliate = await tx.affiliate.findFirst({
         where: { organizationId, couponCode: { equals: input.couponCode, mode: "insensitive" } },
       });
-      if (affiliate) {
+      // Self-referral guard: an affiliate using their own code on their own
+      // order should never earn commission on themselves.
+      if (affiliate && affiliate.contactId !== contact.id) {
         commissionCents = Math.round((grossCentsTotal * affiliate.ratePercent) / 100);
       }
     }
