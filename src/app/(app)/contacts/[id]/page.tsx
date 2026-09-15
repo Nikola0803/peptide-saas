@@ -5,8 +5,6 @@ import { prisma } from "@/lib/prisma";
 import { PageHeader, Card, StatCard, Badge } from "@/components/ui";
 import { money, shortDate, dateTime, initials } from "@/lib/format";
 import { updateContact } from "../actions";
-import { SyncMailchimpButton } from "./sync-mailchimp-button";
-import { mailchimpConfigured } from "@/lib/mailchimp";
 
 export default async function ContactDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { organization } = await requireOrg();
@@ -86,20 +84,6 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                 Save
               </button>
             </form>
-          </Card>
-
-          <Card className="p-4">
-            <h2 className="text-sm font-semibold text-foreground-950 mb-2">Mailchimp</h2>
-            {!mailchimpConfigured() ? (
-              <p className="text-xs text-foreground-500">Mailchimp isn't connected for this org.</p>
-            ) : !contact.marketingOptIn ? (
-              <p className="text-xs text-foreground-500">Not opted in — nothing to sync.</p>
-            ) : contact.mailchimpSyncedAt ? (
-              <p className="text-xs text-secondary-700 mb-2">Synced {dateTime(contact.mailchimpSyncedAt)}</p>
-            ) : (
-              <p className="text-xs text-foreground-500 mb-2">Opted in, not synced yet.</p>
-            )}
-            {mailchimpConfigured() && contact.marketingOptIn && <SyncMailchimpButton contactId={contact.id} />}
           </Card>
 
           <Card className="p-4">

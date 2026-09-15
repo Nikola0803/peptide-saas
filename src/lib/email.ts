@@ -299,6 +299,17 @@ export const DEFAULT_TEMPLATES: EmailTemplateDefault[] = [
     `),
   },
   {
+    key: "newsletter_subscribed",
+    name: "Newsletter subscription confirmed",
+    description: "Sent right after someone subscribes to the newsletter (evlv-site's footer signup or checkout opt-in).",
+    subject: "You're subscribed",
+    sampleVars: { customerName: "Jordan" },
+    html: LAYOUT(`
+      <h1 style="font-size: 20px;">You're on the list</h1>
+      <p>Thanks, {{customerName}} -- we'll email you when there's something worth sharing.</p>
+    `),
+  },
+  {
     key: "support_reply",
     name: "Support reply",
     description: "Wraps a staff reply sent from the Support inbox to a contact-form or WhatsApp lead.",

@@ -33,7 +33,7 @@ export default async function ContactsPage() {
         <StatCard label="Total contacts" value={String(rows.length)} />
         <StatCard label="Combined LTV" value={money(combinedLtv)} />
         <StatCard label="Average LTV" value={money(averageLtv)} />
-        <StatCard label="Marketing opt-in" value={String(rows.filter((r) => r.contact.marketingOptIn).length)} hint="Synced to Mailchimp" />
+        <StatCard label="Marketing opt-in" value={String(rows.filter((r) => r.contact.marketingOptIn).length)} hint="Eligible for the in-house newsletter" />
       </div>
 
       {rows.length === 0 ? (

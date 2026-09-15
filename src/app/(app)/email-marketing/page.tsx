@@ -33,7 +33,7 @@ export default async function EmailPage() {
 
   return (
     <div>
-      <PageHeader title="Email" subtitle="Transactional templates, sending, and (soon) Mailchimp newsletters" />
+      <PageHeader title="Email" subtitle="Transactional templates, sending, and the in-house newsletter" />
 
       {!emailConfigured() && (
         <Card className="p-4 mb-6 border-accent-300 bg-accent-50">
@@ -161,28 +161,6 @@ export default async function EmailPage() {
             </form>
           </Card>
 
-          <Card className="p-4">
-            <h2 className="text-sm font-semibold text-foreground-950 mb-1">Mailchimp</h2>
-            <p className="text-xs text-foreground-500 mb-3">
-              Reserved for the newsletter integration — saved here, not wired up to anything yet.
-            </p>
-            <form action={saveEmailSettings} className="space-y-2">
-              <input
-                name="mailchimpApiKey"
-                type="password"
-                defaultValue={organization.mailchimpApiKey ?? ""}
-                placeholder="Mailchimp API key"
-                className="w-full text-sm border border-background-300 rounded px-2.5 py-1.5 bg-background-50"
-              />
-              <input
-                name="mailchimpAudienceId"
-                defaultValue={organization.mailchimpAudienceId ?? ""}
-                placeholder="Audience/List ID"
-                className="w-full text-sm border border-background-300 rounded px-2.5 py-1.5 bg-background-50"
-              />
-              <SaveButton />
-            </form>
-          </Card>
         </div>
       </div>
     </div>

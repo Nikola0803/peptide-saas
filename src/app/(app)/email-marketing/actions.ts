@@ -66,15 +66,11 @@ export async function saveEmailSettings(formData: FormData) {
   const { organization } = await requireOrg();
 
   const notifyEmail = String(formData.get("notifyEmail") ?? "").trim();
-  const mailchimpApiKey = String(formData.get("mailchimpApiKey") ?? "").trim();
-  const mailchimpAudienceId = String(formData.get("mailchimpAudienceId") ?? "").trim();
 
   await prisma.organization.update({
     where: { id: organization.id },
     data: {
       notifyEmail: notifyEmail || null,
-      mailchimpApiKey: mailchimpApiKey || null,
-      mailchimpAudienceId: mailchimpAudienceId || null,
     },
   });
 
