@@ -115,3 +115,43 @@ export async function cancelAndReleaseStock(orderId: string) {
   revalidatePath(`/orders/${orderId}`);
   revalidatePath("/orders");
 }
+
+// Permanent delete -- distinct from cancelAndReleaseStock above, which
+// just marks an order REFUNDED and frees its stock but keeps the record.
+// This actually removes the Order row (and, since OrderItem/OrderNote/
+// Refund/AffiliateOrderAttribution all cascade at the DB level, its
+// line items, notes, refund history, and affiliate commission row too).
+// Meant for cleaning up test/duplicate/junk orders, not as a normal part
+// of order lifecycle -- there is no undo.
+export async function deleteOrder(orderId: string) {
+  const order = await assertOrderOwnership(orderId);
+
+  // Free any stock this order reserved at checkout before the row (and
+  // its items) disappear -- releaseOrderStock is a safe no-op if it was
+  // already released, or this was never a storefront stock reservation.
+  if (order.status === "ON_HOLD" || order.status === "PROCESSING") {
+    await releaseOrderStock(orderId).catch((err) => console.error("Stock release before delete failed", err));
+  }
+
+  await prisma.$transaction(async (tx) => {
+    // A coupon's redemptionCount should reflect real, still-existing
+    // orders -- deleting one that used a coupon shouldn't leave that
+    // coupon looking permanently more "used up" than it really is.
+    if (order.couponId) {
+      const coupon = await tx.coupon.findUnique({ where: { id: order.couponId } });
+      if (coupon && coupon.redemptionCount > 0) {
+        await tx.coupon.update({ where: { id: order.couponId }, data: { redemptionCount: coupon.redemptionCount - 1 } });
+      }
+    }
+
+    // Invoice.orderId has no cascade rule (an invoice is its own record,
+    // not order-owned) -- detach it instead of letting the delete fail on
+    // a foreign key constraint.
+    await tx.invoice.updateMany({ where: { orderId }, data: { orderId: null } });
+
+    await tx.order.delete({ where: { id: orderId } });
+  });
+
+  revalidatePath("/orders");
+  revalidatePath("/contacts");
+}

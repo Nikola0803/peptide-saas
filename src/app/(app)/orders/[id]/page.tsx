@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { PageHeader, Card, Badge } from "@/components/ui";
 import { money, dateTime } from "@/lib/format";
 import { addOrderNote, setFraudFlag, addRefund, updateRefundStatus, confirmPayment, markCompleted, cancelAndReleaseStock } from "../actions";
+import { DeleteOrderButton } from "../delete-order-button";
 import { RELEASE_WINDOW_HOURS } from "@/lib/stock-release-job";
 
 export default async function OrderDetailPage({ params }: { params: { id: string } }) {
@@ -62,6 +63,7 @@ export default async function OrderDetailPage({ params }: { params: { id: string
             >
               Download receipt
             </a>
+            <DeleteOrderButton orderId={order.id} orderNumber={order.externalOrderNumber} redirectTo="/orders" size="md" />
             <Link
               href={`/invoices/new?orderId=${order.id}`}
               className="text-sm bg-primary-500 text-background-50 rounded-md px-3 py-1.5 font-medium hover:bg-primary-600"

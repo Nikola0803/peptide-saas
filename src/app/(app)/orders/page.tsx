@@ -3,6 +3,7 @@ import { requireOrg } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader, Badge, EmptyState, StatCard } from "@/components/ui";
 import { OrdersFilters } from "@/components/orders-filters";
+import { DeleteOrderButton } from "./delete-order-button";
 import { money, dateTime } from "@/lib/format";
 
 const STATUS_MAP: Record<string, "COMPLETED" | "PROCESSING" | "ON_HOLD" | "REFUNDED"> = {
@@ -83,6 +84,7 @@ export default async function OrdersPage({
                 <th className="py-2.5 px-4 font-medium text-right">Gross</th>
                 <th className="py-2.5 px-4 font-medium text-right">Net profit</th>
                 <th className="py-2.5 px-4 font-medium text-right">Placed</th>
+                <th className="py-2.5 px-4 font-medium text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -120,6 +122,9 @@ export default async function OrdersPage({
                   </td>
                   <td className="py-3 px-4 text-right text-xs text-foreground-500 whitespace-nowrap">
                     {dateTime(o.placedAt)}
+                  </td>
+                  <td className="py-3 px-4 text-right">
+                    <DeleteOrderButton orderId={o.id} orderNumber={o.externalOrderNumber} />
                   </td>
                 </tr>
               ))}
