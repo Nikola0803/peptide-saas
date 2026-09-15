@@ -45,6 +45,13 @@ model Organization {
   // /api/store/affiliate/payout-request will let them request a payout.
   affiliateMinPayoutCents Int @default(5000)
 
+  // Hard floor for the coupon system (see Coupon model): no coupon, on
+  // its own or stacked, is ever allowed to discount an order's items
+  // below cogsCentsTotal * (1 + minMarginPercent/100) -- i.e. we never
+  // sell at less than cost + this minimum margin. Enforced in
+  // src/lib/coupon-engine.ts, not just at the UI layer.
+  minMarginPercent Int @default(30)
+
   memberships Membership[]
   brands      Brand[]
   products    Product[]
@@ -63,6 +70,7 @@ model Organization {
   suppliers       Supplier[]
   newsletters     Newsletter[]
   media           Media[]
+  coupons         Coupon[]
 }
 
 enum Plan {
@@ -207,6 +215,8 @@ model Product {
   orderItems       OrderItem[]
   lots             ProductLot[]
   supplierProducts SupplierProduct[]
+  bogoTriggerFor   Coupon[] @relation("CouponBogoTrigger")
+  bogoRewardFor    Coupon[] @relation("CouponBogoReward")
 
   createdAt DateTime @default(now())
 
@@ -423,6 +433,18 @@ model Order {
   externalOrderNumber String
   status              OrderStatus
   couponCode          String?
+
+  // Real price-discount coupon system (Coupon model below) -- separate
+  // from couponCode above, which is actually an Affiliate attribution
+  // code and never affects price. discountCents is the total amount
+  // knocked off grossCents by the applied coupon(s); couponId is the
+  // single coupon that was applied (stacking, when a coupon allows it,
+  // is still recorded as one "primary" coupon here for simplicity --
+  // see appliedCouponCodes for the full list actually redeemed).
+  discountCents       Int      @default(0)
+  coupon              Coupon?  @relation(fields: [couponId], references: [id])
+  couponId            String?
+  appliedCouponCodes  String?
   grossCents          Int
   netProfitCents      Int?
   placedAt            DateTime
@@ -491,6 +513,7 @@ model Order {
   @@unique([brandId, externalOrderNumber])
   @@index([organizationId, placedAt])
   @@index([brandId, placedAt])
+  @@index([couponId])
 }
 
 model OrderNote {
@@ -537,6 +560,80 @@ enum OrderStatus {
   PROCESSING
   ON_HOLD
   REFUNDED
+}
+
+// Discount coupons applied at storefront checkout (distinct from
+// Affiliate.couponCode, which only drives commission attribution and never
+// changes price -- see the doc comment on Order.couponCode above). CRM
+// admins create/manage these under Coupons; the storefront calls
+// /api/store/coupons/validate to preview a code before checkout, and
+// runCheckout() in order-engine.ts (via src/lib/coupon-engine.ts) is the
+// only place that actually computes and applies the discount.
+enum CouponType {
+  FIXED   // knock a flat fixedAmountCents off the order
+  PERCENT // knock percentOff% off the order
+  BOGO    // buy bogoBuyQuantity, get bogoGetQuantity at a reward
+}
+
+// What happens to the "get" units in a BOGO coupon.
+enum BogoRewardType {
+  FREE       // the reward units are free (100% off)
+  PERCENT_OFF
+  FIXED_OFF  // bogoRewardFixedCents off *each* reward unit
+}
+
+model Coupon {
+  id             String       @id @default(cuid())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+
+  code        String
+  description String?
+  type        CouponType
+  active      Boolean @default(true)
+
+  // If false (the default), this coupon can never be combined with any
+  // other coupon on the same order -- see src/lib/coupon-engine.ts, which
+  // rejects a second code whenever either the one already applied or the
+  // new one has allowStacking = false.
+  allowStacking Boolean @default(false)
+
+  // FIXED
+  fixedAmountCents Int?
+
+  // PERCENT (and the PERCENT_OFF BOGO reward type below)
+  percentOff Int?
+
+  // BOGO -- "buy bogoBuyQuantity of the trigger product(s), get
+  // bogoGetQuantity of the reward product(s) at bogoRewardType".
+  // bogoTriggerProductId null = any product in the order qualifies as the
+  // "buy" side. bogoRewardProductId null = reward applies to the same
+  // product as whatever triggered it (the common "buy 1 get 1 same item"
+  // case); set = reward always comes off a specific different product.
+  bogoBuyQuantity      Int?
+  bogoGetQuantity      Int?
+  bogoRewardType       BogoRewardType?
+  bogoRewardPercent    Int?
+  bogoRewardFixedCents Int?
+  bogoTriggerProduct   Product? @relation("CouponBogoTrigger", fields: [bogoTriggerProductId], references: [id])
+  bogoTriggerProductId String?
+  bogoRewardProduct    Product? @relation("CouponBogoReward", fields: [bogoRewardProductId], references: [id])
+  bogoRewardProductId  String?
+
+  // Guardrails
+  minOrderCents  Int?
+  maxRedemptions Int?
+  redemptionCount Int @default(0)
+  startsAt       DateTime?
+  expiresAt      DateTime?
+
+  orders Order[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizationId, code])
+  @@index([organizationId, active])
 }
 
 model OrderItem {

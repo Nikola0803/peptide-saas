@@ -13,6 +13,11 @@ const bodySchema = z.object({
   // request doesn't need to be stripped down before it reaches here.
   customerId: z.string().optional(),
   couponCode: z.string().optional(),
+  // Real discount coupon code(s) -- distinct from couponCode above
+  // (Affiliate attribution). Accepts either a single code or an array
+  // so the storefront doesn't have to special-case one vs. many.
+  discountCode: z.string().optional(),
+  discountCodes: z.array(z.string()).optional(),
   paymentMethod: z.string().optional(),
   paymentMemo: z.string().optional(),
   customerNote: z.string().optional(),
@@ -79,6 +84,10 @@ export async function POST(req: NextRequest) {
       customerEmail,
       customerName: parsed.data.customerName,
       couponCode: parsed.data.couponCode,
+      discountCodes: [
+        ...(parsed.data.discountCode ? [parsed.data.discountCode] : []),
+        ...(parsed.data.discountCodes ?? []),
+      ],
       paymentMethod: parsed.data.paymentMethod,
       paymentMemo: parsed.data.paymentMemo,
       customerNote: parsed.data.customerNote,

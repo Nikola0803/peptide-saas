@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { createId } from "@/lib/id";
 import { sendTemplate, escapeHtml } from "@/lib/email";
 import { pushNotifyNewOrder } from "@/lib/push-notify";
+import { resolveCoupons, evaluateCoupons, type CouponCartItem } from "@/lib/coupon-engine";
 
 // "YYYY-MM-DD" in UTC -- the calendar day used to decide whether a
 // StoreMapping's Deal of the Day is currently active and to bucket
@@ -41,6 +42,11 @@ export interface CheckoutInput {
   customerEmail: string;
   customerName?: string;
   couponCode?: string;
+  // Real price-discount coupon code(s) -- separate from couponCode above,
+  // which is an Affiliate attribution code and never changes price (see
+  // the doc comment on Order.couponCode in schema.prisma). A single
+  // string is normalized to a one-element array in runCheckout().
+  discountCodes?: string[];
   // Which rail (cashapp/zelle/venmo/...) plus the reference the customer
   // says they'll pay with — there's no real-time card capture on this
   // path, so the order lands as ON_HOLD until staff reconciles the memo
@@ -137,6 +143,7 @@ export async function runCheckout(
       lotId?: string;
       supplierId?: string;
     }[] = [];
+    const couponCartItems: CouponCartItem[] = [];
 
     for (const item of input.items) {
       const quantity = Math.max(1, Math.floor(item.quantity));
@@ -216,6 +223,7 @@ export async function runCheckout(
         lotId,
         supplierId: supplierProduct?.supplierId,
       });
+      couponCartItems.push({ productId: product.id, quantity, unitPriceCents, cogsCents: product.cogsCents });
     }
 
     let commissionCents = 0;
@@ -227,6 +235,37 @@ export async function runCheckout(
         commissionCents = Math.round((grossCentsTotal * affiliate.ratePercent) / 100);
       }
     }
+
+    // Real price-discount coupons -- distinct from the Affiliate lookup
+    // above, which only computes commission attribution and never
+    // touches price. A code that doesn't exist, is expired, or can't be
+    // combined with another one just doesn't apply (checkout never fails
+    // over a bad promo code) -- evlv-site's checkout should call
+    // /api/store/coupons/validate first so the customer sees why.
+    let discountCents = 0;
+    let couponId: string | undefined;
+    let appliedCouponCodes: string | undefined;
+    const requestedCodes = input.discountCodes?.filter(Boolean) ?? [];
+    if (requestedCodes.length > 0) {
+      const org = await tx.organization.findUnique({ where: { id: organizationId } });
+      const { coupons } = await resolveCoupons(organizationId, requestedCodes, grossCentsTotal);
+      if (coupons.length > 0) {
+        const evaluation = evaluateCoupons(coupons, couponCartItems, org?.minMarginPercent ?? 30);
+        discountCents = evaluation.discountCents;
+        couponId = evaluation.appliedCoupons[0]?.id;
+        appliedCouponCodes = evaluation.appliedCoupons.map((c) => c.code).join(",") || undefined;
+        for (const applied of evaluation.appliedCoupons) {
+          await tx.coupon.update({ where: { id: applied.id }, data: { redemptionCount: { increment: 1 } } });
+        }
+      }
+    }
+
+    // Everything downstream (netProfitCents, the merchant fee estimate,
+    // giveaway thresholds, the order confirmation total) should reflect
+    // what the customer is actually charged, i.e. after the coupon --
+    // grossCentsTotal is reassigned here rather than threaded through as
+    // a second variable so every existing use below picks it up for free.
+    grossCentsTotal = Math.max(0, grossCentsTotal - discountCents);
 
     const merchantFeeCents = Math.round((grossCentsTotal * MERCHANT_FEE_PERCENT) / 100) + MERCHANT_FEE_FIXED_CENTS;
     const netProfitCents = grossCentsTotal - cogsCentsTotal - merchantFeeCents - commissionCents;
@@ -266,6 +305,9 @@ export async function runCheckout(
         externalOrderNumber,
         status: "ON_HOLD",
         couponCode: input.couponCode,
+        discountCents,
+        couponId,
+        appliedCouponCodes,
         grossCents: grossCentsTotal,
         netProfitCents,
         paymentMethod: input.paymentMethod,
