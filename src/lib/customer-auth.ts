@@ -64,6 +64,35 @@ export function verifyCustomerToken(token: string | null | undefined): CustomerT
   return payload;
 }
 
+// Unsubscribe links in marketing email (never expires -- an unsubscribe
+// link that stops working is a compliance problem, not a security one).
+// Deliberately its own signed format, not a CustomerTokenPayload: it
+// carries only a contactId, no session claims, and works without the
+// customer ever having a real password/login.
+export function signUnsubscribeToken(contactId: string): string {
+  const body = Buffer.from(JSON.stringify({ contactId })).toString("base64url");
+  const signature = crypto.createHmac("sha256", secret()).update(body).digest("base64url");
+  return `${body}.${signature}`;
+}
+
+export function verifyUnsubscribeToken(token: string | null | undefined): { contactId: string } | null {
+  if (!token) return null;
+  const [body, signature] = token.split(".");
+  if (!body || !signature) return null;
+
+  const expected = crypto.createHmac("sha256", secret()).update(body).digest("base64url");
+  const a = Buffer.from(signature);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+
+  try {
+    const payload = JSON.parse(Buffer.from(body, "base64url").toString("utf8"));
+    return typeof payload?.contactId === "string" ? { contactId: payload.contactId } : null;
+  } catch {
+    return null;
+  }
+}
+
 export function bearerToken(req: Request): string | null {
   const header = req.headers.get("authorization");
   if (!header?.startsWith("Bearer ")) return null;

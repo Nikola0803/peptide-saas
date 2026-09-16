@@ -2,7 +2,9 @@
 
 import { requireOrg } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
-import { sendEmail, renderTemplate } from "@/lib/email";
+import { sendEmail, renderTemplate, unsubscribeFooterHtml } from "@/lib/email";
+import { signUnsubscribeToken } from "@/lib/customer-auth";
+import { getStorefrontUrl } from "@/lib/storefront-url";
 
 // In-house newsletter sender — same Resend account and Contact list this
 // app already has for transactional email, no separate Mailchimp
@@ -25,7 +27,12 @@ export async function sendNewsletter(formData: FormData) {
 
   const recipients = await prisma.contact.findMany({
     where: { organizationId: organization.id, marketingOptIn: true },
-    select: { email: true, name: true },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      brandLinks: { take: 1, select: { brand: { select: { domain: true } } } },
+    },
   });
   if (recipients.length === 0) throw new Error("No opted-in contacts to send to");
 
@@ -36,11 +43,20 @@ async function sendToAll(
   organizationId: string,
   subject: string,
   html: string,
-  recipients: { email: string; name: string | null }[]
+  recipients: { id: string; email: string; name: string | null; brandLinks: { brand: { domain: string } }[] }[]
 ) {
   let failedCount = 0;
   for (const r of recipients) {
-    const ok = await sendEmail(r.email, subject, renderTemplate(html, { customerName: r.name || r.email }));
+    // Bulk/campaign email is exactly the "marketing" category CAN-SPAM
+    // requires an unsubscribe link on -- transactional email (order
+    // confirmations, support replies) doesn't carry this, see
+    // unsubscribeFooterHtml()'s doc comment.
+    const brandDomain = r.brandLinks[0]?.brand.domain;
+    const footer = brandDomain
+      ? unsubscribeFooterHtml(getStorefrontUrl(brandDomain, `/unsubscribe?token=${signUnsubscribeToken(r.id)}`))
+      : "";
+    const body = renderTemplate(html, { customerName: r.name || r.email }) + footer;
+    const ok = await sendEmail(r.email, subject, body);
     if (!ok) failedCount += 1;
     await new Promise((resolve) => setTimeout(resolve, SEND_DELAY_MS));
   }

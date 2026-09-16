@@ -61,6 +61,7 @@ model Organization {
   heroesDiscountRequests HeroesDiscountRequest[]
   membershipRequests     MembershipRequest[]
   customerVerifications   CustomerVerification[]
+  accountDeletionRequests AccountDeletionRequest[]
   orders      Order[]
   webhookLogs WebhookEvent[]
   trackingEvents TrackingEvent[]
@@ -403,6 +404,7 @@ model Contact {
   personalCoupons  Coupon[]
   membershipRequest MembershipRequest?
   verification      CustomerVerification?
+  accountDeletionRequest AccountDeletionRequest?
 
   @@unique([organizationId, email])
   @@index([organizationId, createdAt])
@@ -1243,6 +1245,26 @@ enum MessageDirection {
 // manually reviewed, one request per contact, same idempotent
 // request/status shape.
 model MembershipRequest {
+  id             String       @id @default(cuid())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+  contact        Contact      @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  contactId      String       @unique
+
+  status     AccessReviewStatus @default(PENDING)
+  reviewedAt DateTime?
+  createdAt  DateTime           @default(now())
+}
+
+// A customer's request to have their account/PII removed. Approving one
+// ANONYMIZES the Contact (scrubs email/name/phone, clears passwordHash)
+// rather than hard-deleting the row -- Order records reference contactId
+// and need to survive for accounting/tax records regardless of what the
+// customer asked for, so a real delete would either cascade-destroy order
+// history or get blocked by the FK. Anonymizing satisfies the "remove my
+// personal data" request while keeping the order ledger intact. See
+// approveAccountDeletion() in (app)/account-deletion/actions.ts.
+model AccountDeletionRequest {
   id             String       @id @default(cuid())
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   organizationId String

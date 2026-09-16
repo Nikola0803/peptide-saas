@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { resolveHeaderOverride } from "@/lib/store-context";
-import { sendTemplate } from "@/lib/email";
+import { sendTemplate, unsubscribeFooterHtml } from "@/lib/email";
 import { pushContactToOmnisend } from "@/lib/omnisend";
+import { signUnsubscribeToken } from "@/lib/customer-auth";
+import { getStorefrontUrl } from "@/lib/storefront-url";
 
 export const runtime = "nodejs";
 
@@ -71,9 +73,12 @@ export async function POST(req: NextRequest) {
     console.error("Omnisend push failed", err)
   );
 
+  const unsubscribeUrl = getStorefrontUrl(store.brandDomain, `/unsubscribe?token=${signUnsubscribeToken(contact.id)}`);
+
   await sendTemplate(store.organizationId, "newsletter_subscribed", email, {
     customerName: contact.name || email,
     couponCode,
+    unsubscribeFooterHtml: unsubscribeFooterHtml(unsubscribeUrl),
   }).catch((err) => console.error("Newsletter confirmation email failed", err));
 
   return NextResponse.json({ ok: true, couponCode });

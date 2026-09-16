@@ -48,6 +48,17 @@ export function renderTemplate(template: string, vars: Record<string, string>): 
     .replace(/\{\{(\w+)\}\}/g, (_, key) => escapeHtml(vars[key] ?? ""));
 }
 
+// Standard unsubscribe line for marketing/bulk email -- NOT used on
+// transactional email (order confirmations, support replies, program
+// status emails), since those aren't "marketing" under CAN-SPAM and a
+// customer needs them regardless of their opt-in state. Callers build the
+// link with signUnsubscribeToken() (src/lib/customer-auth.ts) + a
+// storefront URL (src/lib/storefront-url.ts) since the page it lands on
+// lives on evlv-site, not this app.
+export function unsubscribeFooterHtml(unsubscribeUrl: string): string {
+  return `<p style="margin-top: 24px; font-size: 12px; color: #999;">Don't want these emails? <a href="${unsubscribeUrl}" style="color: #999;">Unsubscribe</a>.</p>`;
+}
+
 export interface EmailTemplateDefault {
   key: string;
   name: string;
@@ -375,13 +386,14 @@ export const DEFAULT_TEMPLATES: EmailTemplateDefault[] = [
     name: "Newsletter subscription confirmed",
     description: "Sent right after someone subscribes to the newsletter (evlv-site's footer signup or checkout opt-in), with their welcome coupon code.",
     subject: "You're subscribed -- here's 10% off",
-    sampleVars: { customerName: "Jordan", couponCode: "WELCOME10-AB12CD34" },
+    sampleVars: { customerName: "Jordan", couponCode: "WELCOME10-AB12CD34", unsubscribeFooterHtml: "" },
     html: LAYOUT(`
       <h1 style="font-size: 20px;">You're on the list</h1>
       <p>Thanks, {{customerName}} -- we'll email you when there's something worth sharing.</p>
       <p>Here's 10% off your next order:</p>
       <p style="font-size: 18px; font-weight: 700; letter-spacing: 0.05em;">{{couponCode}}</p>
       <p>It's single-use and tied to your account -- it'll apply automatically at checkout when you're signed in.</p>
+      {{{unsubscribeFooterHtml}}}
     `),
   },
   {
@@ -448,6 +460,41 @@ export const DEFAULT_TEMPLATES: EmailTemplateDefault[] = [
     html: LAYOUT(`
       <h1 style="font-size: 20px;">Your verification request</h1>
       <p>Hi {{customerName}}, we're not able to approve researcher/institutional verification at this time. If you think this was a mistake, reply to this email.</p>
+    `),
+  },
+  {
+    key: "account_deletion_received",
+    name: "Account removal request received",
+    description: "Sent right after a customer requests account removal from evlv-site's /account page, before review.",
+    subject: "We've got your account removal request",
+    sampleVars: { customerName: "Jordan" },
+    html: LAYOUT(`
+      <h1 style="font-size: 20px;">Thanks, {{customerName}}</h1>
+      <p>We've received your request to remove your account and personal data. We review every request by hand -- we'll follow up by email within a couple of business days once it's processed.</p>
+      <p>Order records are kept for accounting purposes as required by law, but your personal details (name, email) will be removed from our system.</p>
+    `),
+  },
+  {
+    key: "account_deletion_approved",
+    name: "Account removal approved",
+    description: "Sent right before a customer's personal data is anonymized, from the Account Removal page.",
+    subject: "Your EVLV account has been removed",
+    sampleVars: { customerName: "Jordan" },
+    html: LAYOUT(`
+      <h1 style="font-size: 20px;">Your account has been removed</h1>
+      <p>Hi {{customerName}}, your personal data has been removed from our system as requested. You won't receive any further emails from us.</p>
+      <p>Order records are retained in anonymized form for accounting purposes as required by law.</p>
+    `),
+  },
+  {
+    key: "account_deletion_rejected",
+    name: "Account removal rejected",
+    description: "Sent when an account removal request is rejected from the Account Removal page.",
+    subject: "Update on your account removal request",
+    sampleVars: { customerName: "Jordan" },
+    html: LAYOUT(`
+      <h1 style="font-size: 20px;">Your account removal request</h1>
+      <p>Hi {{customerName}}, we weren't able to process your account removal request at this time. If you think this was a mistake, reply to this email.</p>
     `),
   },
   {
