@@ -4,6 +4,17 @@ import { resolveHeaderOverride } from "@/lib/store-context";
 import { slugify } from "@/lib/slugify";
 import { utcDateString } from "@/lib/order-engine";
 
+// Falls back to stripping a trailing dose/strength ("5mg", "10 IU", "500mg")
+// off chemicalName when a product has no explicit variantGroup set (e.g.
+// a supplier CSV import that omitted the "name" column -- see
+// supplier-import.ts). Without this, "BPC-157 5mg" / "BPC-157 10mg" /
+// "BPC-157 20mg" each hash to their own one-item group and the storefront
+// shows every dose as a separate card instead of one product with a size
+// selector.
+function stripDoseSuffix(name: string): string {
+  return name.replace(/\s+\d+(\.\d+)?\s*(mg|mcg|ug|iu|ml|g)\.?\s*$/i, "").trim() || name;
+}
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -67,7 +78,7 @@ export async function GET(req: NextRequest) {
     const product = m.product;
     const stock = product.supplierProducts[0] ? product.supplierProducts[0].stock : product.masterStock;
 
-    const groupName = product.variantGroup || product.chemicalName;
+    const groupName = product.variantGroup || stripDoseSuffix(product.chemicalName);
     const groupSlug = slugify(groupName);
     const existing = groups.get(groupSlug) ?? { groupSlug, name: groupName, variants: [] };
 
