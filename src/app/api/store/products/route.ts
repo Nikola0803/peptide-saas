@@ -11,8 +11,21 @@ import { utcDateString } from "@/lib/order-engine";
 // "BPC-157 20mg" each hash to their own one-item group and the storefront
 // shows every dose as a separate card instead of one product with a size
 // selector.
+const DOSE_SUFFIX_RE = /\s+(\d+(?:\.\d+)?\s*(?:mg|mcg|ug|iu|ml|g))\.?\s*$/i;
+
 function stripDoseSuffix(name: string): string {
-  return name.replace(/\s+\d+(\.\d+)?\s*(mg|mcg|ug|iu|ml|g)\.?\s*$/i, "").trim() || name;
+  return name.replace(DOSE_SUFFIX_RE, "").trim() || name;
+}
+
+// Same idea as stripDoseSuffix, but keeps the captured dose instead of
+// discarding it -- for the per-variant pill label ("5mg", not the whole
+// "BPC-157 5MG") when a product has no variantLabel set. Without this,
+// any product missing that field falls back to its full chemicalName as
+// the pill text, which is how "[BPC-157 5MG][BPC-157 10MG][BPC-157 20MG]"
+// ended up rendered as the size-picker instead of "[5mg][10mg][20mg]".
+function doseLabel(name: string): string | null {
+  const m = name.match(DOSE_SUFFIX_RE);
+  return m ? m[1].replace(/\s+/g, "").toLowerCase() : null;
 }
 
 export const runtime = "nodejs";
@@ -88,7 +101,7 @@ export async function GET(req: NextRequest) {
     existing.variants.push({
       slug: m.slug as string,
       sku: product.sku,
-      label: product.variantLabel || product.chemicalName,
+      label: product.variantLabel || doseLabel(product.chemicalName) || product.chemicalName,
       priceCents: isDeal ? (m.dealPriceCents as number) : regularPriceCents,
       inStock: stock > 0,
       coaUrl: product.coas[0]?.url,
