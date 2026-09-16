@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { resolveHeaderOverride } from "@/lib/store-context";
 import { slugify } from "@/lib/slugify";
 import { utcDateString } from "@/lib/order-engine";
+import { getBaseUrl } from "@/lib/base-url";
 
 // Falls back to stripping a trailing dose/strength ("5mg", "10 IU", "500mg")
 // off chemicalName when a product has no explicit variantGroup set (e.g.
@@ -26,6 +27,24 @@ function stripDoseSuffix(name: string): string {
 function doseLabel(name: string): string | null {
   const m = name.match(DOSE_SUFFIX_RE);
   return m ? m[1].replace(/\s+/g, "").toLowerCase() : null;
+}
+
+// product.imageUrl / coaDocument.url are stored as paths relative to the
+// CRM app itself (see saveUploadedFile in lib/upload.ts -- an admin
+// upload writes "/uploads/<orgId>/<file>", never an absolute URL). This
+// feed is consumed by evlv-site, a *different* origin, so handing that
+// relative path straight through makes the browser resolve it against
+// evlv-site's own domain -- which doesn't have that file, and next/image
+// turns the resulting 404 into a 400 from its /_next/image optimizer.
+// Absolutize it against the CRM's own public URL so it survives being
+// read from another site. Left alone if it's already absolute (external
+// image/PDF the CRM was configured with directly).
+function absoluteMediaUrl(url: string | null | undefined): string | undefined {
+  if (!url) return undefined;
+  if (/^https?:\/\//i.test(url)) return url;
+  const base = getBaseUrl();
+  if (!base) return url;
+  return `${base}${url.startsWith("/") ? "" : "/"}${url}`;
 }
 
 export const runtime = "nodejs";
@@ -104,8 +123,8 @@ export async function GET(req: NextRequest) {
       label: product.variantLabel || doseLabel(product.chemicalName) || product.chemicalName,
       priceCents: isDeal ? (m.dealPriceCents as number) : regularPriceCents,
       inStock: stock > 0,
-      coaUrl: product.coas[0]?.url,
-      imageUrl: product.imageUrl ?? undefined,
+      coaUrl: absoluteMediaUrl(product.coas[0]?.url),
+      imageUrl: absoluteMediaUrl(product.imageUrl),
       shortDescription: product.shortDescription ?? undefined,
       description: product.description ?? undefined,
       purity: product.purity ?? undefined,
