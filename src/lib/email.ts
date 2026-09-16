@@ -86,11 +86,12 @@ export const DEFAULT_TEMPLATES: EmailTemplateDefault[] = [
     name: "Order confirmation (customer)",
     description: "Sent to the customer right after checkout.",
     subject: "Your EVLV order {{orderNumber}} is confirmed",
-    sampleVars: { customerName: "Jordan", orderNumber: "STORE-ABC123", itemsHtml: "<li>BPC-157 10MG x1 — $70.00</li>", totalFormatted: "$85.00", paymentMethod: "zelle", paymentMemo: "EVLV-JORDAN" },
+    sampleVars: { customerName: "Jordan", orderNumber: "STORE-ABC123", itemsHtml: "<li>BPC-157 10MG x1 — $70.00</li>", shippingFormatted: "$15.00", totalFormatted: "$85.00", paymentMethod: "zelle", paymentMemo: "EVLV-JORDAN" },
     html: LAYOUT(`
       <h1 style="font-size: 20px;">Thanks for your order, {{customerName}}!</h1>
       <p>We've received order <strong>{{orderNumber}}</strong> and it's on hold pending payment confirmation.</p>
       <ul style="padding-left: 18px;">{{{itemsHtml}}}</ul>
+      <p>Shipping: {{shippingFormatted}}</p>
       <p><strong>Total: {{totalFormatted}}</strong></p>
       <p>Payment method: {{paymentMethod}}<br/>Memo/reference: {{paymentMemo}}</p>
       <p>Once we confirm your payment, we'll get your order shipped out. Reply to this email if you have any questions.</p>
@@ -101,11 +102,12 @@ export const DEFAULT_TEMPLATES: EmailTemplateDefault[] = [
     name: "New order notification (office)",
     description: "Sent internally to the office/ops inbox whenever an order comes in.",
     subject: "New order {{orderNumber}} — {{totalFormatted}}",
-    sampleVars: { customerName: "Jordan", customerEmail: "jordan@lab.edu", orderNumber: "STORE-ABC123", itemsHtml: "<li>BPC-157 10MG x1 — $70.00</li>", totalFormatted: "$85.00", paymentMethod: "zelle", paymentMemo: "EVLV-JORDAN" },
+    sampleVars: { customerName: "Jordan", customerEmail: "jordan@lab.edu", orderNumber: "STORE-ABC123", itemsHtml: "<li>BPC-157 10MG x1 — $70.00</li>", shippingFormatted: "$15.00", totalFormatted: "$85.00", paymentMethod: "zelle", paymentMemo: "EVLV-JORDAN" },
     html: LAYOUT(`
       <h1 style="font-size: 20px;">New order: {{orderNumber}}</h1>
       <p>{{customerName}} ({{customerEmail}})</p>
       <ul style="padding-left: 18px;">{{{itemsHtml}}}</ul>
+      <p>Shipping: {{shippingFormatted}}</p>
       <p><strong>Total: {{totalFormatted}}</strong></p>
       <p>Payment method: {{paymentMethod}}<br/>Memo/reference to reconcile: {{paymentMemo}}</p>
     `),

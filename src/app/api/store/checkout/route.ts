@@ -20,6 +20,7 @@ const bodySchema = z.object({
   discountCodes: z.array(z.string()).optional(),
   paymentMethod: z.string().optional(),
   paymentMemo: z.string().optional(),
+  shippingCents: z.number().int().min(0).optional(),
   customerNote: z.string().optional(),
   // The storefront's own server sits between the real customer and this
   // API (see evlv-site's crm-proxy.ts), so req.headers here would just

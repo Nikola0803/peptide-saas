@@ -53,6 +53,10 @@ export interface CheckoutInput {
   // against the payment rail.
   paymentMethod?: string;
   paymentMemo?: string;
+  // What the customer was charged for shipping at checkout -- kept out of
+  // grossCentsTotal (product-revenue-only, feeds commission/margin math)
+  // and added back on top only for customer-facing totals.
+  shippingCents?: number;
   customerNote?: string;
   // evlv-site's checkout sends the customer/shipping address as a flat
   // "billing" object (firstName/lastName/zip, no address book concept) —
@@ -316,6 +320,7 @@ export async function runCheckout(
         couponId,
         appliedCouponCodes,
         grossCents: grossCentsTotal,
+        shippingCents: input.shippingCents ?? 0,
         netProfitCents,
         paymentMethod: input.paymentMethod,
         paymentMemo: input.paymentMemo,
@@ -372,6 +377,7 @@ export async function runCheckout(
     customerName: contactName || contactEmail,
     items: resolvedItems,
     grossCents: grossCentsTotal,
+    shippingCents: input.shippingCents ?? 0,
     paymentMethod: input.paymentMethod,
     paymentMemo: input.paymentMemo,
   }).catch((err) => console.error("Order confirmation email failed", err));
@@ -428,6 +434,7 @@ interface OrderEmailInput {
   customerName: string;
   items: { name: string; quantity: number; unitPriceCents: number }[];
   grossCents: number;
+  shippingCents: number;
   paymentMethod?: string;
   paymentMemo?: string;
 }
@@ -436,13 +443,19 @@ async function sendOrderEmails(organizationId: string, input: OrderEmailInput): 
   const itemsHtml = input.items
     .map((i) => `<li>${escapeHtml(i.name)} x${i.quantity} — $${((i.unitPriceCents * i.quantity) / 100).toFixed(2)}</li>`)
     .join("");
-  const totalFormatted = `$${(input.grossCents / 100).toFixed(2)}`;
+  // Customer-facing total = product revenue + shipping. grossCents itself
+  // stays product-only (see the doc comment on Order.shippingCents) --
+  // this is purely a display sum for emails/push, never written back.
+  const totalCents = input.grossCents + input.shippingCents;
+  const totalFormatted = `$${(totalCents / 100).toFixed(2)}`;
+  const shippingFormatted = input.shippingCents > 0 ? `$${(input.shippingCents / 100).toFixed(2)}` : "Free";
   const vars = {
     customerName: input.customerName,
     customerEmail: input.customerEmail,
     orderNumber: input.orderNumber,
     itemsHtml,
     totalFormatted,
+    shippingFormatted,
     paymentMethod: input.paymentMethod ?? "",
     paymentMemo: input.paymentMemo ?? "",
   };

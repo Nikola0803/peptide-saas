@@ -452,6 +452,12 @@ model Order {
   couponId            String?
   appliedCouponCodes  String?
   grossCents          Int
+  // What the customer paid for shipping on this order, tracked separately
+  // from grossCents (which is product revenue only, and feeds affiliate
+  // commission / margin math -- shipping should never inflate either).
+  // Customer-facing totals (order emails, push notifications) add this
+  // back on top of grossCents.
+  shippingCents       Int      @default(0)
   netProfitCents      Int?
   placedAt            DateTime
 
