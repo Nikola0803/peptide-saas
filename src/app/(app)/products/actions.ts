@@ -90,6 +90,28 @@ export async function setStorePrice(productId: string, brandId: string, formData
   revalidatePath(`/products/${productId}`);
 }
 
+// Pulls a product off one brand's storefront (StoreMapping.active =
+// false) without deleting the Product itself -- order history, COAs, and
+// supplier links all stay intact, and re-adding it later is just
+// setStorePrice again. Use this instead of deleteProduct whenever a
+// product just shouldn't be sold right now (inventory correction,
+// discontinued SKU, out of stock indefinitely) rather than never having
+// existed. evlv-site's live feed (/api/store/products) only reads
+// active: true mappings, so this is what actually pulls it off the shop
+// grid and homepage.
+export async function removeFromStorefront(productId: string, brandId: string) {
+  const { organization } = await requireOrg();
+
+  const mapping = await prisma.storeMapping.findFirst({
+    where: { productId, brandId, product: { organizationId: organization.id } },
+  });
+  if (!mapping) throw new Error("Not listed on that storefront");
+
+  await prisma.storeMapping.update({ where: { id: mapping.id }, data: { active: false } });
+
+  revalidatePath(`/products/${productId}`);
+}
+
 // Storefront content -- the fields that make this Product a real source
 // of truth for evlv-site's shop grid + PDP (see Product.imageUrl etc. in
 // schema.prisma), separate from updateProduct's financial/inventory fields

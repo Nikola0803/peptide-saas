@@ -4,7 +4,7 @@ import { requireOrg } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader, Card, Badge } from "@/components/ui";
 import { money, shortDate } from "@/lib/format";
-import { updateProduct, deleteProduct, addCoaDocument, addCoaDocumentFile, removeCoaDocument, setCoaPublished, setStorePrice, updateProductContent, uploadProductImage } from "../actions";
+import { updateProduct, deleteProduct, addCoaDocument, addCoaDocumentFile, removeCoaDocument, setCoaPublished, setStorePrice, removeFromStorefront, updateProductContent, uploadProductImage } from "../actions";
 import { addLot, recallLot, unrecallLot, deleteLot } from "../lot-actions";
 
 export default async function ProductDetailPage({ params }: { params: { id: string } }) {
@@ -223,7 +223,19 @@ export default async function ProductDetailPage({ params }: { params: { id: stri
                 <form key={m.id} action={setStorePrice.bind(null, product.id, m.brandId)} className="rounded-md border border-background-200 p-2.5">
                   <div className="flex items-center justify-between mb-1.5">
                     <span className="text-sm text-foreground-800">{m.brand.name}</span>
-                    <Badge status={m.active ? "connected" : "pending"} />
+                    <div className="flex items-center gap-2">
+                      <Badge status={m.active ? "connected" : "pending"} />
+                      {m.active && (
+                        <button
+                          type="submit"
+                          formAction={removeFromStorefront.bind(null, product.id, m.brandId)}
+                          className="text-[11px] text-foreground-500 hover:text-red-600"
+                          title="Pull this product off this brand's storefront -- it stops showing in the shop and homepage, but stays in your catalog and order history."
+                        >
+                          Remove from storefront
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <input
