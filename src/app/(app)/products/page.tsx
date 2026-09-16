@@ -30,6 +30,9 @@ export default async function ProductsPage() {
             <Link href="/products/new" className="text-sm border border-background-300 rounded-md px-3 py-1.5 text-foreground-800 hover:bg-background-100">
               Add product
             </Link>
+            <Link href="/products/fix-gp-slugs" className="text-sm border border-background-300 rounded-md px-3 py-1.5 text-foreground-800 hover:bg-background-100">
+              Fix GP-1/2/3 slugs
+            </Link>
             <button className="text-sm bg-primary-500 text-background-50 rounded-md px-3 py-1.5 font-medium hover:bg-primary-600">
               Sync all brands
             </button>

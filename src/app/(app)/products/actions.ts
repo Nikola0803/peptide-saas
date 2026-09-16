@@ -11,6 +11,64 @@ function dollarsToCents(value: string): number {
   return Number.isFinite(n) ? Math.round(n * 100) : 0;
 }
 
+// One-time fix for a specific data mixup: EVLV-1/2/3's real supplier
+// inventory got imported into the CRM as its own separate product line
+// under a raw supplier codename ("GP-1/GP-2/GP-3") instead of being
+// matched to the existing branded evlv-site catalog. evlv-site's live
+// feed groups a storefront listing by StoreMapping.slug -- so renaming
+// just the slug (not the underlying Product/SKU/cost data, which stays
+// exactly as-is) is what makes that real price/stock start flowing into
+// the existing "EVLV-1/2/3" cards on the storefront instead of showing
+// up as a separate, oddly-named listing. Confirmed these are the exact
+// live slugs from the storefront before writing this -- narrowly scoped
+// to just these 10, and safe to click more than once (a slug that's
+// already been renamed just won't match anything the second time).
+const GP_SLUG_RENAME: Record<string, string> = {
+  "gp-1-5mg": "evlv-1-5mg",
+  "gp-1-10mg": "evlv-1-10mg",
+  "gp-2-10mg": "evlv-2-10mg",
+  "gp-2-15mg": "evlv-2-15mg",
+  "gp-2-30mg": "evlv-2-30mg",
+  "gp-2-60mg": "evlv-2-60mg",
+  "gp-3-10mg": "evlv-3-10mg",
+  "gp-3-15mg": "evlv-3-15mg",
+  "gp-3-30mg": "evlv-3-30mg",
+  "gp-3-60mg": "evlv-3-60mg",
+};
+
+export interface GpSlugFixResult {
+  changed: { from: string; to: string; brand: string; product: string }[];
+  alreadyDone: string[];
+}
+
+export async function fixGpSlugs(): Promise<GpSlugFixResult> {
+  const { organization } = await requireOrg();
+
+  const mappings = await prisma.storeMapping.findMany({
+    where: {
+      slug: { in: Object.keys(GP_SLUG_RENAME) },
+      product: { organizationId: organization.id },
+    },
+    include: { product: true, brand: true },
+  });
+
+  const changed: GpSlugFixResult["changed"] = [];
+  for (const m of mappings) {
+    const from = m.slug as string;
+    const to = GP_SLUG_RENAME[from];
+    await prisma.storeMapping.update({ where: { id: m.id }, data: { slug: to } });
+    changed.push({ from, to, brand: m.brand.name, product: m.product.chemicalName });
+  }
+
+  const foundSlugs = new Set(mappings.map((m) => m.slug as string));
+  const alreadyDone = Object.keys(GP_SLUG_RENAME).filter((s) => !foundSlugs.has(s));
+
+  revalidatePath("/products");
+  revalidatePath("/products/fix-gp-slugs");
+
+  return { changed, alreadyDone };
+}
+
 export async function createProduct(formData: FormData) {
   const { organization } = await requireOrg();
 
