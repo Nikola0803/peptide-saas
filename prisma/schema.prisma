@@ -224,6 +224,16 @@ model Product {
   // out with *something* instead of a blank SKU.
   fulfillmentSku String?
 
+  // Per-unit shipped weight in ounces, including its own packaging (vial,
+  // box, desiccant) -- not the whole outer parcel. ShipStation won't rate
+  // a shipment or print a label without SOME weight for every line item
+  // (see /api/shipstation route), so this is required before a product's
+  // real orders can reach VVG cleanly; unset falls back to a placeholder
+  // (see WEIGHT_FALLBACK_OZ in that route) rather than blocking the feed
+  // entirely, but that fallback is a guess and should be replaced with the
+  // real number as soon as it's known.
+  weightOz Float?
+
   coas             CoaDocument[]
   storeMappings    StoreMapping[]
   orderItems       OrderItem[]
@@ -449,6 +459,14 @@ model Order {
   contactId      String?
 
   externalOrderNumber String
+
+  // Short, human-sayable order number -- externalOrderNumber above is
+  // either a WooCommerce/plugin order id or this app's own long
+  // createId()-based one (see order-engine.ts), neither of which anyone
+  // should be reading out loud or printing on a packing slip. This is a
+  // plain per-database sequence (1, 2, 3, ...), assigned once at creation
+  // and never reused, so "order 1042" always means the same order.
+  orderSeq            Int         @default(autoincrement()) @unique
   status              OrderStatus
   couponCode          String?
 

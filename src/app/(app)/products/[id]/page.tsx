@@ -82,6 +82,20 @@ export default async function ProductDetailPage({ params }: { params: { id: stri
                 className="w-full text-sm border border-background-300 rounded px-2.5 py-1.5 bg-background-50 font-mono"
               />
             </div>
+            <div>
+              <label className="block text-xs font-medium text-foreground-600 mb-1">
+                Shipping weight (oz) <span className="font-normal text-foreground-400">(per unit, incl. vial/packaging -- required for ShipStation to rate/label this SKU)</span>
+              </label>
+              <input
+                name="weightOz"
+                type="number"
+                step="0.01"
+                min="0"
+                defaultValue={product.weightOz ?? ""}
+                placeholder="e.g. 2.00"
+                className="w-full text-sm border border-background-300 rounded px-2.5 py-1.5 bg-background-50"
+              />
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-medium text-foreground-600 mb-1">COGS (USD)</label>

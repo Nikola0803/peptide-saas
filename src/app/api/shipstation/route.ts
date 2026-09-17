@@ -84,6 +84,12 @@ function formatShipStationDate(d: Date): string {
 
 const PAGE_SIZE = 100;
 
+// Placeholder only -- a small vial + padded mailer, roughly what most of
+// this catalog actually weighs, used only until a product's real weightOz
+// is set. Every use is logged (see the Weight comment below) so it's a
+// stopgap, not a permanent stand-in for the real per-SKU number.
+const WEIGHT_FALLBACK_OZ = 2;
+
 async function handleExport(req: NextRequest): Promise<NextResponse> {
   const brand = await resolveBrand();
   if (!brand) {
@@ -115,10 +121,26 @@ async function handleExport(req: NextRequest): Promise<NextResponse> {
   // (paymentConfirmedAt if the order has one, placedAt otherwise).
   const where = {
     brandId: brand.id,
-    status: { in: ["PROCESSING", "COMPLETED"] as OrderStatus[] },
-    OR: [
-      { paymentConfirmedAt: { gte: startDate, lte: endDate } },
-      { paymentConfirmedAt: null, placedAt: { gte: startDate, lte: endDate } },
+    AND: [
+      // PROCESSING (paid) and COMPLETED (shipped) always go out. A
+      // REFUNDED order also goes out, but only once and only if it was
+      // cancelled before ever shipping (shippedAt null) -- VVG needs the
+      // explicit "cancelled" status once so their own copy stops sitting
+      // in Awaiting Shipment, but a REFUNDED order that already shipped
+      // (a post-fulfillment return) has nothing left for them to act on
+      // and shouldn't retroactively look cancelled.
+      {
+        OR: [
+          { status: { in: ["PROCESSING", "COMPLETED"] as OrderStatus[] } },
+          { status: "REFUNDED" as OrderStatus, shippedAt: null },
+        ],
+      },
+      {
+        OR: [
+          { paymentConfirmedAt: { gte: startDate, lte: endDate } },
+          { paymentConfirmedAt: null, placedAt: { gte: startDate, lte: endDate } },
+        ],
+      },
     ],
   };
 
@@ -138,17 +160,20 @@ async function handleExport(req: NextRequest): Promise<NextResponse> {
   const orderXml = orders
     .map((order) => {
       // "Order numbers prefixed EVLV- so they don't mix with my brands" --
-      // externalOrderNumber is already unique on its own (createId()-based,
-      // see order-engine.ts), this is purely cosmetic for VVG's own
-      // multi-brand ShipStation account.
-      const orderNumber = `EVLV-${order.externalOrderNumber}`;
+      // purely cosmetic for VVG's own multi-brand ShipStation account.
+      // Short and human-sayable -- externalOrderNumber (a WooCommerce/
+      // plugin id or this app's own long createId()) is what the previous
+      // version of this feed sent, and at 40 characters it's neither
+      // readable on a packing slip nor something Theresa can read out
+      // loud over the phone.
+      const orderNumber = `EVLV-${order.orderSeq}`;
       // VVG's Custom Store connection maps ShipStation's 5 default status
       // buckets literally: "unpaid", "paid", "shipped", "cancelled",
       // "on_hold" -- these are the only strings that land anywhere. The
-      // export query above already filters to PROCESSING/COMPLETED only
-      // (ON_HOLD/REFUNDED orders never reach this feed at all), so this
-      // only ever needs to distinguish those two.
-      const orderStatus = order.status === "COMPLETED" ? "shipped" : "paid";
+      // export query above only ever admits PROCESSING, COMPLETED, or a
+      // REFUNDED-before-shipping order, so this only ever needs to cover
+      // those three.
+      const orderStatus = order.status === "COMPLETED" ? "shipped" : order.status === "REFUNDED" ? "cancelled" : "paid";
       const customerEmail = order.contact?.email ?? "";
       const customerName = order.shipToName || order.contact?.name || customerEmail || "Customer";
       const totalCents = order.grossCents + order.shippingCents;
@@ -161,11 +186,25 @@ async function handleExport(req: NextRequest): Promise<NextResponse> {
           // this CRM's internal sku (item.sku, snapshotted at order time)
           // for anything never mapped, so nothing ships with a blank SKU.
           const sku = item.product?.fulfillmentSku || item.sku;
+          // ShipStation won't rate a shipment or print a label without a
+          // weight on every line item -- Weight here is per unit, same as
+          // UnitPrice above (ShipStation multiplies by Quantity itself).
+          // Falls back to a conservative placeholder for any product that
+          // hasn't had its real weight set yet (Product.weightOz) rather
+          // than blocking the whole order from reaching VVG, but every
+          // fallback use is logged so it gets caught and fixed with the
+          // real number instead of silently mis-rating shipments forever.
+          const weightOz = item.product?.weightOz ?? WEIGHT_FALLBACK_OZ;
+          if (item.product?.weightOz == null) {
+            console.warn(`ShipStation export: no weightOz set for product ${item.product?.id ?? "(unmapped)"} (sku ${sku}) -- using ${WEIGHT_FALLBACK_OZ}oz fallback`);
+          }
           return `      <Item>
         <SKU>${xmlEscape(sku)}</SKU>
         <Name>${xmlEscape(item.name)}</Name>
         <Quantity>${item.quantity}</Quantity>
         <UnitPrice>${(item.unitPriceCents / 100).toFixed(2)}</UnitPrice>
+        <Weight>${weightOz.toFixed(2)}</Weight>
+        <WeightUnits>Ounces</WeightUnits>
       </Item>`;
         })
         .join("\n");

@@ -141,6 +141,17 @@ export async function updateProduct(productId: string, formData: FormData) {
       cogsCents: dollarsToCents(String(formData.get("cogs") ?? "0")),
       masterStock: Number(formData.get("masterStock") ?? 0),
       fulfillmentSku: String(formData.get("fulfillmentSku") ?? "").trim() || null,
+      // Ounces, per unit -- see the comment on Product.weightOz for why
+      // this exists (ShipStation's export feed needs it on every line
+      // item to rate a shipment or print a label). Blank leaves it unset
+      // rather than coercing to 0, since 0oz is worse than the feed's own
+      // placeholder fallback.
+      weightOz: (() => {
+        const raw = String(formData.get("weightOz") ?? "").trim();
+        if (!raw) return null;
+        const n = Number(raw);
+        return Number.isFinite(n) && n > 0 ? n : null;
+      })(),
     },
   });
 
