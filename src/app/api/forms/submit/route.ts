@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { pushNotifyContactForm } from "@/lib/push-notify";
+import { sendTemplate, escapeHtml } from "@/lib/email";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -29,7 +30,7 @@ export async function POST(req: NextRequest) {
 
   const config = await prisma.trackingConfig.findUnique({
     where: { publicKey: body.publicKey },
-    include: { brand: true },
+    include: { brand: { include: { organization: true } } },
   });
   if (!config) {
     return NextResponse.json({ error: "Unknown key" }, { status: 404, headers: CORS_HEADERS });
@@ -58,6 +59,21 @@ export async function POST(req: NextRequest) {
     preview: String(body.message),
     conversationId: conversation.id,
   }).catch((err) => console.error("Contact form push notification failed", err));
+
+  // Email too, not just the phone push -- ntfy is a nice-to-have someone
+  // has to remember to subscribe their phone to; the office inbox is the
+  // one place a lead genuinely can't be missed if nobody's watching
+  // /support. Same organization.notifyEmail every other office
+  // notification (new orders, supplier invoices) already goes to.
+  if (config.brand.organization.notifyEmail) {
+    sendTemplate(config.brand.organizationId, "contact_form_received", config.brand.organization.notifyEmail, {
+      contactName: body.name || "Unknown",
+      contactEmail: body.email || "",
+      subjectLine: body.subject || "(no subject)",
+      messageHtml: escapeHtml(String(body.message)),
+      subjectSuffix: body.subject ? `: ${body.subject}` : "",
+    }).catch((err) => console.error("Contact form office email failed", err));
+  }
 
   return NextResponse.json({ ok: true, conversationId: conversation.id }, { headers: CORS_HEADERS });
 }

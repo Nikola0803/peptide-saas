@@ -124,6 +124,19 @@ export const DEFAULT_TEMPLATES: EmailTemplateDefault[] = [
     `),
   },
   {
+    key: "contact_form_received",
+    name: "New contact form message (office)",
+    description: "Sent internally whenever a visitor submits the storefront contact form -- the only email copy of a lead if nobody happens to check the Support inbox or have push notifications set up.",
+    subject: "New contact form message{{subjectSuffix}}",
+    sampleVars: { contactName: "Jordan", contactEmail: "jordan@lab.edu", subjectLine: "Order Question", messageHtml: "Where's my order?", subjectSuffix: ": Order Question" },
+    html: LAYOUT(`
+      <h1 style="font-size: 20px;">New contact form message</h1>
+      <p>{{contactName}} ({{contactEmail}})</p>
+      <p>Subject: {{subjectLine}}</p>
+      <p style="white-space: pre-line;">{{{messageHtml}}}</p>
+    `),
+  },
+  {
     key: "supplier_new_order",
     name: "New order notification (supplier)",
     description: "Sent to a dropship supplier when one of their products is ordered.",
