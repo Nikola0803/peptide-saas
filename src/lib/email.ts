@@ -530,5 +530,24 @@ export async function getTemplate(organizationId: string, key: string): Promise<
 
 export async function sendTemplate(organizationId: string, key: string, to: string, vars: Record<string, string>): Promise<void> {
   const { subject, html } = await getTemplate(organizationId, key);
-  await sendEmail(to, renderTemplate(subject, vars), renderTemplate(html, vars));
+  const unsubscribeUrl = await buildUnsubscribeUrl(organizationId, to);
+  const mergedVars = { unsubscribeUrl, preferenceCenterUrl: unsubscribeUrl, ...vars };
+  await sendEmail(to, renderTemplate(subject, mergedVars), renderTemplate(html, mergedVars));
+}
+
+async function buildUnsubscribeUrl(organizationId: string, to: string): Promise<string> {
+  const { getStorefrontUrl } = await import("./storefront-url");
+  const { signUnsubscribeToken } = await import("./customer-auth");
+
+  const contact = await prisma.contact.findUnique({
+    where: { organizationId_email: { organizationId, email: to } },
+  });
+  const brand = contact
+    ? (await prisma.contactBrandLink.findFirst({ where: { contactId: contact.id }, select: { brand: { select: { domain: true } } } }))?.brand
+    : await prisma.brand.findFirst({ where: { organizationId }, select: { domain: true } });
+  if (!brand?.domain) return "";
+
+  return contact
+    ? getStorefrontUrl(brand.domain, `/unsubscribe?token=${signUnsubscribeToken(contact.id)}`)
+    : getStorefrontUrl(brand.domain);
 }
