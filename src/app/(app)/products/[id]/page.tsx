@@ -71,6 +71,17 @@ export default async function ProductDetailPage({ params }: { params: { id: stri
                 className="w-full text-sm border border-background-300 rounded px-2.5 py-1.5 bg-background-50"
               />
             </div>
+            <div>
+              <label className="block text-xs font-medium text-foreground-600 mb-1">
+                Fulfillment SKU <span className="font-normal text-foreground-400">(what ShipStation/VVG expects, if different from SKU above)</span>
+              </label>
+              <input
+                name="fulfillmentSku"
+                defaultValue={product.fulfillmentSku ?? ""}
+                placeholder="Falls back to SKU above if left blank"
+                className="w-full text-sm border border-background-300 rounded px-2.5 py-1.5 bg-background-50 font-mono"
+              />
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-medium text-foreground-600 mb-1">COGS (USD)</label>

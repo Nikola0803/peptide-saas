@@ -214,6 +214,16 @@ model Product {
   storageInstructions         String? @db.Text
   reconstitutionInstructions  String? @db.Text
 
+  // SKU a fulfillment partner (ShipStation, a dropship supplier) expects
+  // on the packing slip -- distinct from `sku` above, which is this CRM's
+  // own internal identifier. A partner's SKU scheme almost never matches
+  // ours 1:1 (see the ShipStation custom store feed at
+  // /api/shipstation/orders, built for VVGOps: their "RET10" is our
+  // "GP3-10"/whatever this product's own sku happens to be) -- falls back
+  // to `sku` when unset so a product that's never been mapped still goes
+  // out with *something* instead of a blank SKU.
+  fulfillmentSku String?
+
   coas             CoaDocument[]
   storeMappings    StoreMapping[]
   orderItems       OrderItem[]

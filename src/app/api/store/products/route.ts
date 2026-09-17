@@ -4,30 +4,22 @@ import { resolveHeaderOverride } from "@/lib/store-context";
 import { slugify } from "@/lib/slugify";
 import { utcDateString } from "@/lib/order-engine";
 import { getBaseUrl } from "@/lib/base-url";
+import { stripDoseSuffix, doseLabel } from "@/lib/dose";
 
-// Falls back to stripping a trailing dose/strength ("5mg", "10 IU", "500mg")
-// off chemicalName when a product has no explicit variantGroup set (e.g.
-// a supplier CSV import that omitted the "name" column -- see
-// supplier-import.ts). Without this, "BPC-157 5mg" / "BPC-157 10mg" /
-// "BPC-157 20mg" each hash to their own one-item group and the storefront
-// shows every dose as a separate card instead of one product with a size
-// selector.
-const DOSE_SUFFIX_RE = /\s+(\d+(?:\.\d+)?\s*(?:mg|mcg|ug|iu|ml|g))\.?\s*$/i;
-
-function stripDoseSuffix(name: string): string {
-  return name.replace(DOSE_SUFFIX_RE, "").trim() || name;
-}
-
-// Same idea as stripDoseSuffix, but keeps the captured dose instead of
-// discarding it -- for the per-variant pill label ("5mg", not the whole
-// "BPC-157 5MG") when a product has no variantLabel set. Without this,
-// any product missing that field falls back to its full chemicalName as
-// the pill text, which is how "[BPC-157 5MG][BPC-157 10MG][BPC-157 20MG]"
+// stripDoseSuffix falls back to stripping a trailing dose/strength ("5mg",
+// "10 IU", "500mg") off chemicalName when a product has no explicit
+// variantGroup set (e.g. a supplier CSV import that omitted the "name"
+// column -- see supplier-import.ts). Without this, "BPC-157 5mg" /
+// "BPC-157 10mg" / "BPC-157 20mg" each hash to their own one-item group
+// and the storefront shows every dose as a separate card instead of one
+// product with a size selector. doseLabel keeps the captured dose instead
+// of discarding it, for the per-variant pill label ("5mg", not the whole
+// "BPC-157 5MG") when a product has no variantLabel set -- without it, a
+// product missing that field fell back to its full chemicalName as the
+// pill text, which is how "[BPC-157 5MG][BPC-157 10MG][BPC-157 20MG]"
 // ended up rendered as the size-picker instead of "[5mg][10mg][20mg]".
-function doseLabel(name: string): string | null {
-  const m = name.match(DOSE_SUFFIX_RE);
-  return m ? m[1].replace(/\s+/g, "").toLowerCase() : null;
-}
+// Both now shared from lib/dose.ts (see its doc comment) rather than
+// redefined here.
 
 // product.imageUrl / coaDocument.url are stored as paths relative to the
 // CRM app itself (see saveUploadedFile in lib/upload.ts -- an admin

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { requireOrg } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { saveUploadedFile } from "@/lib/upload";
+import { stripDoseSuffix, doseNumber } from "@/lib/dose";
 
 function dollarsToCents(value: string): number {
   const n = Number(value);
@@ -139,6 +140,7 @@ export async function updateProduct(productId: string, formData: FormData) {
       chemicalName: String(formData.get("chemicalName") ?? "").trim(),
       cogsCents: dollarsToCents(String(formData.get("cogs") ?? "0")),
       masterStock: Number(formData.get("masterStock") ?? 0),
+      fulfillmentSku: String(formData.get("fulfillmentSku") ?? "").trim() || null,
     },
   });
 
@@ -327,4 +329,115 @@ export async function setCoaPublished(productId: string, coaId: string, publishe
   if (!coa) throw new Error("Not found");
   await prisma.coaDocument.update({ where: { id: coaId }, data: { published } });
   revalidatePath(`/products/${productId}`);
+}
+
+// VVG (the ShipStation fulfillment partner -- see /api/shipstation/orders)
+// runs their own SKU scheme that doesn't match ours 1:1 (their "RET10" is
+// whatever this CRM happens to have as that product's own `sku`, e.g.
+// "GP3-10"). Sourced directly from VVGFullPricingStructure.xlsx, the
+// pricing sheet VVG themselves sent over -- one row per (product name,
+// dose) pair, matched here by name fragment + dose since chemicalName
+// spellings drift over time (e.g. "GP-3 (Retatrutide)" before the
+// GP->EVLV rename, "EVLV-3" after) in a way an exact string never
+// survives. `aliases` lists every name fragment (lowercased) this
+// product might appear under; matching is substring-based against the
+// dose-stripped, lowercased chemicalName.
+const VVG_SKU_TABLE: { aliases: string[]; doseMg: number; vvgSku: string }[] = [
+  { aliases: ["aod-9604", "aod 9604", "aod9604"], doseMg: 10, vvgSku: "10AD" },
+  { aliases: ["ara-290", "ara 290"], doseMg: 50, vvgSku: "AR90" },
+  { aliases: ["bpc+tb-500", "bpc/tb-500", "bpc-tb-500", "bpc157+tb500", "bpc 157+tb 500", "bpc+tb500"], doseMg: 10, vvgSku: "BB10" },
+  { aliases: ["bpc+tb-500", "bpc/tb-500", "bpc-tb-500", "bpc157+tb500", "bpc 157+tb 500", "bpc+tb500"], doseMg: 20, vvgSku: "BB20" },
+  { aliases: ["bpc+tb-500", "bpc/tb-500", "bpc-tb-500", "bpc157+tb500", "bpc 157+tb 500", "bpc+tb500"], doseMg: 30, vvgSku: "BB30" },
+  { aliases: ["bpc-157", "bpc 157"], doseMg: 10, vvgSku: "BPC10" },
+  { aliases: ["bpc-157", "bpc 157"], doseMg: 20, vvgSku: "BPC20" },
+  { aliases: ["bpc-157", "bpc 157"], doseMg: 5, vvgSku: "BPC5" },
+  { aliases: ["cartalax"], doseMg: 20, vvgSku: "CART20" },
+  { aliases: ["cerebrolysin"], doseMg: 60, vvgSku: "CBL60" },
+  { aliases: ["cagrilintide"], doseMg: 10, vvgSku: "CGL10" },
+  { aliases: ["cagrilintide"], doseMg: 20, vvgSku: "CGL20" },
+  { aliases: ["cagrilintide"], doseMg: 5, vvgSku: "CGL5" },
+  { aliases: ["cjc/ipa", "cjc-ipa", "cjc/ipamorelin", "cjc-1295/ipamorelin", "cjc 1295/ipamorelin"], doseMg: 10, vvgSku: "CP10" },
+  { aliases: ["cjc/ipa", "cjc-ipa", "cjc/ipamorelin", "cjc-1295/ipamorelin", "cjc 1295/ipamorelin"], doseMg: 20, vvgSku: "CP20" },
+  { aliases: ["ghk-cu", "ghk cu"], doseMg: 50, vvgSku: "GHK50" },
+  { aliases: ["glow blend", "glow"], doseMg: 70, vvgSku: "GW70" },
+  { aliases: ["humanin"], doseMg: 10, vvgSku: "HU10" },
+  { aliases: ["igf-1 lr3", "igf1 lr3", "igf-1lr3"], doseMg: 1, vvgSku: "IGF1" },
+  { aliases: ["kpv oral", "kpv-oral"], doseMg: 0.5, vvgSku: "KPVo500" },
+  { aliases: ["kpv"], doseMg: 10, vvgSku: "KPV10" },
+  { aliases: ["klow blend", "klow"], doseMg: 80, vvgSku: "KW80" },
+  { aliases: ["mots-c", "mots c"], doseMg: 10, vvgSku: "MOT10" },
+  { aliases: ["mots-c", "mots c"], doseMg: 20, vvgSku: "MOT20" },
+  { aliases: ["mots-c", "mots c"], doseMg: 40, vvgSku: "MOT40" },
+  { aliases: ["melanotan ii", "melanotan-ii", "melanotan 2", "mt-2", "mt2"], doseMg: 10, vvgSku: "MT-2" },
+  { aliases: ["nad+", "nad plus", "nad "], doseMg: 1000, vvgSku: "NAD1000" },
+  { aliases: ["nad+", "nad plus", "nad "], doseMg: 500, vvgSku: "NAD500" },
+  { aliases: ["oxytocin"], doseMg: 10, vvgSku: "OXY10" },
+  { aliases: ["korean pink glutathione", "pink glutathione"], doseMg: 1200, vvgSku: "PG1200" },
+  { aliases: ["pt-141", "pt 141"], doseMg: 10, vvgSku: "PT10" },
+  { aliases: ["retatrutide", "gp-3", "gp3", "evlv-3", "evlv3"], doseMg: 10, vvgSku: "RET10" },
+  { aliases: ["retatrutide", "gp-3", "gp3", "evlv-3", "evlv3"], doseMg: 15, vvgSku: "RET15" },
+  { aliases: ["retatrutide", "gp-3", "gp3", "evlv-3", "evlv3"], doseMg: 30, vvgSku: "RET30" },
+  { aliases: ["retatrutide", "gp-3", "gp3", "evlv-3", "evlv3"], doseMg: 60, vvgSku: "RET60" },
+  { aliases: ["semaglutide", "gp-1", "gp1", "evlv-1", "evlv1"], doseMg: 10, vvgSku: "SEM10" },
+  { aliases: ["semaglutide", "gp-1", "gp1", "evlv-1", "evlv1"], doseMg: 5, vvgSku: "SEM5" },
+  { aliases: ["selank"], doseMg: 10, vvgSku: "SLK10" },
+  { aliases: ["semax"], doseMg: 10, vvgSku: "SMX10" },
+  { aliases: ["ss-31", "ss 31"], doseMg: 10, vvgSku: "SS3110" },
+  { aliases: ["ss-31", "ss 31"], doseMg: 50, vvgSku: "SS3150" },
+  { aliases: ["thymosin alpha-1", "thymosin alpha 1", "ta-1", "ta1"], doseMg: 5, vvgSku: "TA15" },
+  { aliases: ["tb-500", "tb 500"], doseMg: 10, vvgSku: "TB10" },
+  { aliases: ["tb-500", "tb 500"], doseMg: 20, vvgSku: "TB20" },
+  { aliases: ["tb-500", "tb 500"], doseMg: 5, vvgSku: "TB5" },
+  { aliases: ["tesamorelin"], doseMg: 10, vvgSku: "TES10" },
+  { aliases: ["tesamorelin"], doseMg: 20, vvgSku: "TES20" },
+  { aliases: ["tirzepatide", "gp-2", "gp2", "evlv-2", "evlv2"], doseMg: 10, vvgSku: "TIR10" },
+  { aliases: ["tirzepatide", "gp-2", "gp2", "evlv-2", "evlv2"], doseMg: 15, vvgSku: "TIR15" },
+  { aliases: ["tirzepatide", "gp-2", "gp2", "evlv-2", "evlv2"], doseMg: 30, vvgSku: "TIR30" },
+  { aliases: ["tirzepatide", "gp-2", "gp2", "evlv-2", "evlv2"], doseMg: 60, vvgSku: "TIR60" },
+  { aliases: ["bacteriostatic water", "bac water", "bac-water"], doseMg: 30, vvgSku: "BAC30" },
+];
+
+export interface VvgSkuFixResult {
+  matched: { product: string; sku: string; vvgSku: string }[];
+  unmatched: { product: string; sku: string }[];
+}
+
+// Best-effort auto-match against VVG_SKU_TABLE above; anything it can't
+// confidently match (ambiguous dose, a genuinely new product not on
+// VVG's sheet yet, a typo in chemicalName) is left alone and surfaced in
+// `unmatched` for a human to fill in via the product's own edit page
+// rather than guessing wrong on a fulfillment SKU -- a wrong SKU here
+// means the wrong vial goes out, which is worse than an empty one (that
+// at least falls back to our own `sku` and gets caught by a human
+// reading the packing slip).
+export async function setVvgFulfillmentSkus(): Promise<VvgSkuFixResult> {
+  const { organization } = await requireOrg();
+
+  const products = await prisma.product.findMany({ where: { organizationId: organization.id } });
+
+  const matched: VvgSkuFixResult["matched"] = [];
+  const unmatched: VvgSkuFixResult["unmatched"] = [];
+
+  for (const product of products) {
+    const dose = doseNumber(product.chemicalName);
+    const baseName = stripDoseSuffix(product.chemicalName).toLowerCase();
+    const hit =
+      dose != null
+        ? VVG_SKU_TABLE.find((row) => row.doseMg === dose && row.aliases.some((a) => baseName.includes(a)))
+        : undefined;
+
+    if (hit) {
+      if (product.fulfillmentSku !== hit.vvgSku) {
+        await prisma.product.update({ where: { id: product.id }, data: { fulfillmentSku: hit.vvgSku } });
+      }
+      matched.push({ product: product.chemicalName, sku: product.sku, vvgSku: hit.vvgSku });
+    } else {
+      unmatched.push({ product: product.chemicalName, sku: product.sku });
+    }
+  }
+
+  revalidatePath("/products");
+  revalidatePath("/products/fulfillment-skus");
+
+  return { matched, unmatched };
 }
