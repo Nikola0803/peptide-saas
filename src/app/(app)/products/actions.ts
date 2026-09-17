@@ -441,3 +441,167 @@ export async function setVvgFulfillmentSkus(): Promise<VvgSkuFixResult> {
 
   return { matched, unmatched };
 }
+
+export interface VvgCatalogSyncResult {
+  updated: { product: string; sku: string; retail?: string; wholesale?: string; stock?: number }[];
+  skippedNoPrice: string[];
+  unmatched: string[];
+  skuConflicts: { vvgSku: string; product: string; conflictingSku: string }[];
+}
+
+interface VvgCatalogRow {
+  vvgSku: string;
+  retailCents: number | null;
+  cogsCents: number | null;
+  stock: number | null;
+}
+
+// Straight from VVG's own 2026-09-09 catalog sheet
+// (VVGcataloguploadsheet20260909v5FINALrounded.csv) -- this is VVG's own
+// multi-brand (msv/vintage/liberty) product list, not ours, so we only
+// pull 3 of its columns per SKU: price_retail (column H, what we charge),
+// price_wholesale (column J, our COG), and stock_qty (column G). Rows
+// with nothing usable in any of those three (still "TBD"/on order, e.g.
+// 5-Amino 1MQ 5mg/10mg) are left out entirely rather than zeroing
+// something a human hasn't actually set yet.
+const VVG_CATALOG_DATA: VvgCatalogRow[] = [
+  { vvgSku: "10AD", retailCents: 6499, cogsCents: 4000, stock: 10 },
+  { vvgSku: "AR90", retailCents: 9999, cogsCents: 5000, stock: 0 },
+  { vvgSku: "BB10", retailCents: 7499, cogsCents: 2550, stock: 0 },
+  { vvgSku: "BB20", retailCents: 10999, cogsCents: 4500, stock: 33 },
+  { vvgSku: "BB30", retailCents: 6999, cogsCents: 4900, stock: 50 },
+  { vvgSku: "BPC10", retailCents: 4999, cogsCents: 2050, stock: 0 },
+  { vvgSku: "BPC20", retailCents: 8999, cogsCents: 3500, stock: 0 },
+  { vvgSku: "BPC5", retailCents: 3999, cogsCents: 1400, stock: 0 },
+  { vvgSku: "CART20", retailCents: 5999, cogsCents: 3500, stock: 10 },
+  { vvgSku: "CBL60", retailCents: 5499, cogsCents: 3000, stock: 10 },
+  { vvgSku: "CGL10", retailCents: 6999, cogsCents: 4400, stock: 0 },
+  { vvgSku: "CGL20", retailCents: 14999, cogsCents: 6700, stock: 0 },
+  { vvgSku: "CGL5", retailCents: 6999, cogsCents: 2900, stock: 0 },
+  { vvgSku: "CP10", retailCents: 7499, cogsCents: 2500, stock: 31 },
+  { vvgSku: "CP20", retailCents: 12999, cogsCents: 4500, stock: 10 },
+  { vvgSku: "GHK50", retailCents: 3999, cogsCents: 1300, stock: 29 },
+  { vvgSku: "GW70", retailCents: 13999, cogsCents: 3350, stock: 9 },
+  { vvgSku: "HU10", retailCents: 8999, cogsCents: null, stock: 0 },
+  { vvgSku: "IGF1", retailCents: 5999, cogsCents: 5300, stock: 0 },
+  { vvgSku: "KPV10", retailCents: 3999, cogsCents: 1950, stock: 20 },
+  { vvgSku: "KPVo500", retailCents: null, cogsCents: 4000, stock: 0 },
+  { vvgSku: "KW80", retailCents: 14999, cogsCents: 5200, stock: 96 },
+  { vvgSku: "MOT10", retailCents: 4999, cogsCents: 1600, stock: 25 },
+  { vvgSku: "MOT20", retailCents: 5499, cogsCents: 2700, stock: 20 },
+  { vvgSku: "MOT40", retailCents: 14999, cogsCents: 4500, stock: 30 },
+  { vvgSku: "MT-2", retailCents: 3999, cogsCents: 2050, stock: 0 },
+  { vvgSku: "NAD1000", retailCents: 8499, cogsCents: 3200, stock: 0 },
+  { vvgSku: "NAD500", retailCents: 6499, cogsCents: 2400, stock: 19 },
+  { vvgSku: "OXY10", retailCents: 3999, cogsCents: 2500, stock: 10 },
+  { vvgSku: "PG1200", retailCents: 5999, cogsCents: 3000, stock: 25 },
+  { vvgSku: "PT10", retailCents: 3999, cogsCents: 1800, stock: 10 },
+  { vvgSku: "RET10", retailCents: 7499, cogsCents: 2200, stock: 50 },
+  { vvgSku: "RET15", retailCents: 12999, cogsCents: 2950, stock: 24 },
+  { vvgSku: "RET30", retailCents: 18999, cogsCents: 5000, stock: 30 },
+  { vvgSku: "RET60", retailCents: 34999, cogsCents: 9000, stock: 0 },
+  { vvgSku: "SEM10", retailCents: 7499, cogsCents: 1650, stock: 17 },
+  { vvgSku: "SEM5", retailCents: 4999, cogsCents: 1300, stock: 20 },
+  { vvgSku: "SLK10", retailCents: 4999, cogsCents: 2200, stock: 4 },
+  { vvgSku: "SMX10", retailCents: 4999, cogsCents: 1950, stock: 5 },
+  { vvgSku: "SS3110", retailCents: 4500, cogsCents: 2250, stock: 10 },
+  { vvgSku: "SS3150", retailCents: 11999, cogsCents: 4550, stock: 0 },
+  { vvgSku: "TA15", retailCents: 4499, cogsCents: 2300, stock: 10 },
+  { vvgSku: "TB10", retailCents: 6999, cogsCents: 3500, stock: 0 },
+  { vvgSku: "TB20", retailCents: 12999, cogsCents: 5350, stock: 0 },
+  { vvgSku: "TB5", retailCents: 4499, cogsCents: 2300, stock: 0 },
+  { vvgSku: "TES10", retailCents: 9499, cogsCents: 4200, stock: 15 },
+  { vvgSku: "TES20", retailCents: 14999, cogsCents: 6400, stock: 0 },
+  { vvgSku: "TIR10", retailCents: 5999, cogsCents: 1950, stock: 19 },
+  { vvgSku: "TIR15", retailCents: 8999, cogsCents: 2500, stock: 30 },
+  { vvgSku: "TIR30", retailCents: 14999, cogsCents: 3900, stock: 29 },
+  { vvgSku: "TIR60", retailCents: 27499, cogsCents: 6000, stock: 7 },
+  { vvgSku: "BAC30", retailCents: 2500, cogsCents: 1700, stock: 46 },
+];
+
+// Applies VVG_CATALOG_DATA above to the master catalog: COG (Product.
+// cogsCents) from their wholesale column, our own internal `sku` from
+// their SKU column, stock (Product.masterStock) from their stock column,
+// and storefront price (StoreMapping.storePriceCents, every verified
+// brand) from their retail column -- matched to a Product the same
+// name+dose way setVvgFulfillmentSkus() above does, since this sheet
+// uses the identical SKU scheme. Only touches a field when this sheet
+// actually has a value for it (see the null checks in VVG_CATALOG_DATA)
+// -- never zeroes a price/stock a human set on purpose just because this
+// particular row of VVG's sheet left it blank ("TBD"). Doesn't touch
+// StoreMapping.active: whether a product should be for sale at all is a
+// separate call (setStorePrice/removeFromStorefront), this only updates
+// what it costs if it already is.
+export async function applyVvgCatalogSync(): Promise<VvgCatalogSyncResult> {
+  const { organization } = await requireOrg();
+
+  const products = await prisma.product.findMany({ where: { organizationId: organization.id } });
+  const brands = await prisma.brand.findMany({ where: { organizationId: organization.id, verifiedAt: { not: null } } });
+
+  const result: VvgCatalogSyncResult = { updated: [], skippedNoPrice: [], unmatched: [], skuConflicts: [] };
+
+  for (const row of VVG_CATALOG_DATA) {
+    if (row.retailCents == null && row.cogsCents == null && row.stock == null) {
+      result.skippedNoPrice.push(row.vvgSku);
+      continue;
+    }
+
+    const tableEntry = VVG_SKU_TABLE.find((t) => t.vvgSku === row.vvgSku);
+    if (!tableEntry) {
+      result.unmatched.push(row.vvgSku);
+      continue;
+    }
+
+    const product = products.find((p) => {
+      const dose = doseNumber(p.chemicalName);
+      const baseName = stripDoseSuffix(p.chemicalName).toLowerCase();
+      return dose === tableEntry.doseMg && tableEntry.aliases.some((a) => baseName.includes(a));
+    });
+
+    if (!product) {
+      result.unmatched.push(row.vvgSku);
+      continue;
+    }
+
+    const data: { cogsCents?: number; masterStock?: number; sku?: string } = {};
+    if (row.cogsCents != null) data.cogsCents = row.cogsCents;
+    if (row.stock != null) data.masterStock = row.stock;
+
+    let skuApplied = product.sku;
+    if (product.sku !== row.vvgSku) {
+      const conflict = products.find((p) => p.id !== product.id && p.sku === row.vvgSku);
+      if (conflict) {
+        result.skuConflicts.push({ vvgSku: row.vvgSku, product: product.chemicalName, conflictingSku: conflict.sku });
+      } else {
+        data.sku = row.vvgSku;
+        skuApplied = row.vvgSku;
+      }
+    }
+
+    if (Object.keys(data).length > 0) {
+      await prisma.product.update({ where: { id: product.id }, data });
+    }
+
+    if (row.retailCents != null && brands.length > 0) {
+      for (const brand of brands) {
+        const mapping = await prisma.storeMapping.findFirst({ where: { brandId: brand.id, productId: product.id } });
+        if (mapping) {
+          await prisma.storeMapping.update({ where: { id: mapping.id }, data: { storePriceCents: row.retailCents } });
+        }
+      }
+    }
+
+    result.updated.push({
+      product: product.chemicalName,
+      sku: skuApplied,
+      retail: row.retailCents != null ? `$${(row.retailCents / 100).toFixed(2)}` : undefined,
+      wholesale: row.cogsCents != null ? `$${(row.cogsCents / 100).toFixed(2)}` : undefined,
+      stock: row.stock ?? undefined,
+    });
+  }
+
+  revalidatePath("/products");
+  revalidatePath("/products/vvg-catalog-sync");
+
+  return result;
+}

@@ -36,6 +36,9 @@ export default async function ProductsPage() {
             <Link href="/products/fulfillment-skus" className="text-sm border border-background-300 rounded-md px-3 py-1.5 text-foreground-800 hover:bg-background-100">
               Set VVG fulfillment SKUs
             </Link>
+            <Link href="/products/vvg-catalog-sync" className="text-sm border border-background-300 rounded-md px-3 py-1.5 text-foreground-800 hover:bg-background-100">
+              Sync VVG catalog (COG/SKU/stock/price)
+            </Link>
             <button className="text-sm bg-primary-500 text-background-50 rounded-md px-3 py-1.5 font-medium hover:bg-primary-600">
               Sync all brands
             </button>
