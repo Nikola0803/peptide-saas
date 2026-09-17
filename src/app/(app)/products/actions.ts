@@ -345,9 +345,9 @@ export async function setCoaPublished(productId: string, coaId: string, publishe
 const VVG_SKU_TABLE: { aliases: string[]; doseMg: number; vvgSku: string }[] = [
   { aliases: ["aod-9604", "aod 9604", "aod9604"], doseMg: 10, vvgSku: "10AD" },
   { aliases: ["ara-290", "ara 290"], doseMg: 50, vvgSku: "AR90" },
-  { aliases: ["bpc+tb-500", "bpc/tb-500", "bpc-tb-500", "bpc157+tb500", "bpc 157+tb 500", "bpc+tb500"], doseMg: 10, vvgSku: "BB10" },
-  { aliases: ["bpc+tb-500", "bpc/tb-500", "bpc-tb-500", "bpc157+tb500", "bpc 157+tb 500", "bpc+tb500"], doseMg: 20, vvgSku: "BB20" },
-  { aliases: ["bpc+tb-500", "bpc/tb-500", "bpc-tb-500", "bpc157+tb500", "bpc 157+tb 500", "bpc+tb500"], doseMg: 30, vvgSku: "BB30" },
+  { aliases: ["bpc-157 / tb-500", "bpc-157/tb-500", "bpc+tb-500", "bpc157+tb500"], doseMg: 10, vvgSku: "BB10" },
+  { aliases: ["bpc-157 / tb-500", "bpc-157/tb-500", "bpc+tb-500", "bpc157+tb500"], doseMg: 20, vvgSku: "BB20" },
+  { aliases: ["bpc-157 / tb-500", "bpc-157/tb-500", "bpc+tb-500", "bpc157+tb500"], doseMg: 30, vvgSku: "BB30" },
   { aliases: ["bpc-157", "bpc 157"], doseMg: 10, vvgSku: "BPC10" },
   { aliases: ["bpc-157", "bpc 157"], doseMg: 20, vvgSku: "BPC20" },
   { aliases: ["bpc-157", "bpc 157"], doseMg: 5, vvgSku: "BPC5" },
@@ -356,8 +356,8 @@ const VVG_SKU_TABLE: { aliases: string[]; doseMg: number; vvgSku: string }[] = [
   { aliases: ["cagrilintide"], doseMg: 10, vvgSku: "CGL10" },
   { aliases: ["cagrilintide"], doseMg: 20, vvgSku: "CGL20" },
   { aliases: ["cagrilintide"], doseMg: 5, vvgSku: "CGL5" },
-  { aliases: ["cjc/ipa", "cjc-ipa", "cjc/ipamorelin", "cjc-1295/ipamorelin", "cjc 1295/ipamorelin"], doseMg: 10, vvgSku: "CP10" },
-  { aliases: ["cjc/ipa", "cjc-ipa", "cjc/ipamorelin", "cjc-1295/ipamorelin", "cjc 1295/ipamorelin"], doseMg: 20, vvgSku: "CP20" },
+  { aliases: ["cjc-1295 / ipamorelin", "cjc-1295/ipamorelin", "cjc/ipa", "cjc-ipa"], doseMg: 10, vvgSku: "CP10" },
+  { aliases: ["cjc-1295 / ipamorelin", "cjc-1295/ipamorelin", "cjc/ipa", "cjc-ipa"], doseMg: 20, vvgSku: "CP20" },
   { aliases: ["ghk-cu", "ghk cu"], doseMg: 50, vvgSku: "GHK50" },
   { aliases: ["glow blend", "glow"], doseMg: 70, vvgSku: "GW70" },
   { aliases: ["humanin"], doseMg: 10, vvgSku: "HU10" },
@@ -397,6 +397,32 @@ const VVG_SKU_TABLE: { aliases: string[]; doseMg: number; vvgSku: string }[] = [
   { aliases: ["bacteriostatic water", "bac water", "bac-water"], doseMg: 30, vvgSku: "BAC30" },
 ];
 
+// Guards against a single-compound alias (e.g. "bpc-157") false-matching
+// a blend product whose name happens to contain that same substring
+// (e.g. "BPC-157 / TB-500 BLEND 10MG") -- and the mirror case, a blend
+// alias false-matching a plain product. A blend table entry is one whose
+// own aliases contain "/" or "+"; a blend product name is one containing
+// "/", "+", or the word "blend". The two must agree, or the entry is
+// skipped for that product. This is what caused BPC-157 10mg's own data
+// to get written onto the BPC-157/TB-500 blend product instead (and
+// TB-500 20mg's data onto the same blend at 20mg) the first time this
+// ran for real -- both plain-compound aliases are genuine substrings of
+// the blend's own chemicalName, so the old unqualified .includes() check
+// matched either product and just took whichever came first in the
+// findMany() order.
+const BLEND_NAME_RE = /\/|\+|blend/i;
+
+function vvgEntryMatchesProduct(
+  entry: { aliases: string[]; doseMg: number },
+  dose: number | null,
+  baseName: string
+): boolean {
+  if (dose !== entry.doseMg) return false;
+  const isBlendEntry = entry.aliases.some((a) => /\/|\+/.test(a));
+  if (BLEND_NAME_RE.test(baseName) !== isBlendEntry) return false;
+  return entry.aliases.some((a) => baseName.includes(a));
+}
+
 export interface VvgSkuFixResult {
   matched: { product: string; sku: string; vvgSku: string }[];
   unmatched: { product: string; sku: string }[];
@@ -421,10 +447,7 @@ export async function setVvgFulfillmentSkus(): Promise<VvgSkuFixResult> {
   for (const product of products) {
     const dose = doseNumber(product.chemicalName);
     const baseName = stripDoseSuffix(product.chemicalName).toLowerCase();
-    const hit =
-      dose != null
-        ? VVG_SKU_TABLE.find((row) => row.doseMg === dose && row.aliases.some((a) => baseName.includes(a)))
-        : undefined;
+    const hit = VVG_SKU_TABLE.find((row) => vvgEntryMatchesProduct(row, dose, baseName));
 
     if (hit) {
       if (product.fulfillmentSku !== hit.vvgSku) {
@@ -555,7 +578,7 @@ export async function applyVvgCatalogSync(): Promise<VvgCatalogSyncResult> {
     const product = products.find((p) => {
       const dose = doseNumber(p.chemicalName);
       const baseName = stripDoseSuffix(p.chemicalName).toLowerCase();
-      return dose === tableEntry.doseMg && tableEntry.aliases.some((a) => baseName.includes(a));
+      return vvgEntryMatchesProduct(tableEntry, dose, baseName);
     });
 
     if (!product) {
