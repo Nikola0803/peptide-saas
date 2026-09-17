@@ -54,6 +54,18 @@ export function FixGpSlugsButton() {
               Already done (skipped): {result.alreadyDone.join(", ")}
             </p>
           )}
+          {result.notFound.length > 0 && (
+            <div className="rounded-md border border-amber-300 bg-amber-50 p-3">
+              <p className="text-xs font-medium text-amber-800">
+                Couldn&rsquo;t find these -- neither the old nor the new slug exists as an active mapping:
+              </p>
+              <p className="mt-1 text-xs font-mono text-amber-700">{result.notFound.join(", ")}</p>
+              <p className="mt-1 text-xs text-amber-700">
+                The live slug in the CRM probably isn&rsquo;t exactly what this tool expects -- check that
+                product&rsquo;s storefront mapping directly.
+              </p>
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -39,11 +39,25 @@ const GP_SLUG_RENAME: Record<string, string> = {
 export interface GpSlugFixResult {
   changed: { from: string; to: string; brand: string; product: string }[];
   alreadyDone: string[];
+  // Slugs from GP_SLUG_RENAME that matched no active StoreMapping AND
+  // whose evlv-* target also doesn't exist -- i.e. genuinely unresolved,
+  // not just previously renamed. Surfaced separately so this never
+  // silently reports "nothing to do" for a product that's actually still
+  // stuck on its gp-* slug under a different live value than assumed.
+  notFound: string[];
 }
 
 export async function fixGpSlugs(): Promise<GpSlugFixResult> {
   const { organization } = await requireOrg();
 
+  // Renaming the StoreMapping.slug alone is what fixes the *storefront*
+  // (that's the merge key mergeProducts() uses) -- but it left the
+  // underlying Product.chemicalName untouched, so the CRM's own Products
+  // list kept showing "GP-1 5MG" etc. even after the storefront was
+  // showing the right thing. Rename both in the same pass so the CRM and
+  // the storefront agree. Only touches the chemicalName, never sku/COGS/
+  // supplier fields -- those are real inventory identifiers, not display
+  // text, and renaming them isn't this button's job.
   const mappings = await prisma.storeMapping.findMany({
     where: {
       slug: { in: Object.keys(GP_SLUG_RENAME) },
@@ -56,17 +70,46 @@ export async function fixGpSlugs(): Promise<GpSlugFixResult> {
   for (const m of mappings) {
     const from = m.slug as string;
     const to = GP_SLUG_RENAME[from];
+    const newChemicalName = m.product.chemicalName.replace(/^GP-([123])/i, (_match, n) => `EVLV-${n}`);
     await prisma.storeMapping.update({ where: { id: m.id }, data: { slug: to } });
-    changed.push({ from, to, brand: m.brand.name, product: m.product.chemicalName });
+    if (newChemicalName !== m.product.chemicalName) {
+      await prisma.product.update({ where: { id: m.product.id }, data: { chemicalName: newChemicalName } });
+    }
+    changed.push({ from, to, brand: m.brand.name, product: newChemicalName });
   }
 
-  const foundSlugs = new Set(mappings.map((m) => m.slug as string));
-  const alreadyDone = Object.keys(GP_SLUG_RENAME).filter((s) => !foundSlugs.has(s));
+  // A GP_SLUG_RENAME key that matched nothing this run is ambiguous with
+  // the query above alone -- it could mean "already renamed on a
+  // previous click" (fine), or it could mean the live slug never
+  // actually matched this map's assumption in the first place (NOT
+  // fine -- that product is silently still stuck on "gp-*", unrenamed,
+  // and this button would keep reporting it as harmless). Distinguish
+  // the two by checking whether the *target* evlv-* slug now exists --
+  // if it does, the rename really did happen (this run or a previous
+  // one); if neither the gp-* nor the evlv-* slug exists, something else
+  // is going on and it's surfaced separately instead of being lumped in
+  // with "already done".
+  const renamedFromSlugs = new Set(mappings.map((m) => m.slug as string));
+  const unmatched = Object.keys(GP_SLUG_RENAME).filter((s) => !renamedFromSlugs.has(s));
+  const targetSlugs = unmatched.map((s) => GP_SLUG_RENAME[s]);
+  const existingTargets = targetSlugs.length
+    ? await prisma.storeMapping.findMany({
+        where: { slug: { in: targetSlugs }, product: { organizationId: organization.id } },
+        select: { slug: true },
+      })
+    : [];
+  const existingTargetSlugs = new Set(existingTargets.map((m) => m.slug as string));
+
+  const alreadyDone: string[] = [];
+  const notFound: string[] = [];
+  for (const s of unmatched) {
+    (existingTargetSlugs.has(GP_SLUG_RENAME[s]) ? alreadyDone : notFound).push(s);
+  }
 
   revalidatePath("/products");
   revalidatePath("/products/fix-gp-slugs");
 
-  return { changed, alreadyDone };
+  return { changed, alreadyDone, notFound };
 }
 
 export async function createProduct(formData: FormData) {
