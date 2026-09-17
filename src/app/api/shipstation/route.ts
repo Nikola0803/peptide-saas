@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import type { OrderStatus } from "@prisma/client";
 import { sendTemplate } from "@/lib/email";
 
 export const runtime = "nodejs";
@@ -88,7 +89,7 @@ async function handleExport(req: NextRequest): Promise<NextResponse> {
   // needing a label if VVG's own records get out of sync.
   const where = {
     brandId: brand.id,
-    status: { in: ["PROCESSING", "COMPLETED"] as const },
+    status: { in: ["PROCESSING", "COMPLETED"] as OrderStatus[] },
     placedAt: { gte: startDate, lte: endDate },
   };
 
