@@ -102,10 +102,24 @@ async function handleExport(req: NextRequest): Promise<NextResponse> {
   // COMPLETED (already shipped) both go out -- ShipStation needs to see a
   // COMPLETED order too, at least once, to know not to re-flag it as
   // needing a label if VVG's own records get out of sync.
+  //
+  // ShipStation's poller sends start_date/end_date as a rolling "since
+  // last poll" window (every 5 minutes here) and expects this query to
+  // return anything MODIFIED in that window -- not anything placed in
+  // it. Filtering on placedAt (the previous bug) meant an order dropped
+  // out of every future poll's window the moment more than one polling
+  // interval had passed since it was placed, even though it was still
+  // sitting there unshipped: a clean, empty-looking poll every 5 minutes
+  // forever. This now matches on the same "effective last modified"
+  // timestamp already used for the <LastModified> field below
+  // (paymentConfirmedAt if the order has one, placedAt otherwise).
   const where = {
     brandId: brand.id,
     status: { in: ["PROCESSING", "COMPLETED"] as OrderStatus[] },
-    placedAt: { gte: startDate, lte: endDate },
+    OR: [
+      { paymentConfirmedAt: { gte: startDate, lte: endDate } },
+      { paymentConfirmedAt: null, placedAt: { gte: startDate, lte: endDate } },
+    ],
   };
 
   const [total, orders] = await Promise.all([
