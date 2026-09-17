@@ -128,7 +128,13 @@ async function handleExport(req: NextRequest): Promise<NextResponse> {
       // see order-engine.ts), this is purely cosmetic for VVG's own
       // multi-brand ShipStation account.
       const orderNumber = `EVLV-${order.externalOrderNumber}`;
-      const orderStatus = order.status === "COMPLETED" ? "shipped" : "awaiting_shipment";
+      // VVG's Custom Store connection maps ShipStation's 5 default status
+      // buckets literally: "unpaid", "paid", "shipped", "cancelled",
+      // "on_hold" -- these are the only strings that land anywhere. The
+      // export query above already filters to PROCESSING/COMPLETED only
+      // (ON_HOLD/REFUNDED orders never reach this feed at all), so this
+      // only ever needs to distinguish those two.
+      const orderStatus = order.status === "COMPLETED" ? "shipped" : "paid";
       const customerEmail = order.contact?.email ?? "";
       const customerName = order.shipToName || order.contact?.name || customerEmail || "Customer";
       const totalCents = order.grossCents + order.shippingCents;
