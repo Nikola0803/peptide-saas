@@ -58,13 +58,28 @@ async function resolveBrand() {
   return prisma.brand.findFirst({ where: { domain } });
 }
 
-// ShipStation sends "MM/dd/yyyy HH:mm" (server's local time, not UTC) --
-// new Date() parses that fine in practice for the "M/d/yyyy H:mm" shape
-// it actually sends, so no manual parsing needed.
+// ShipStation sends start_date/end_date as "MM/dd/yyyy HH:mm" in UTC.
+// new Date("09/17/2026 14:30") parses as the SERVER'S LOCAL time, not
+// UTC, which silently shifts the export window by the server's UTC
+// offset -- so this parses the exact "M/d/yyyy H:mm" shape by hand and
+// builds the Date with Date.UTC(...) instead of trusting the Date
+// constructor's locale-dependent parsing.
 function parseDate(value: string | null, fallback: Date): Date {
   if (!value) return fallback;
-  const d = new Date(value);
+  const match = value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})$/);
+  if (!match) return fallback;
+  const [, month, day, year, hour, minute] = match;
+  const d = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute)));
   return Number.isNaN(d.getTime()) ? fallback : d;
+}
+
+// ShipStation's custom-store XML wants OrderDate/LastModified back in the
+// same "MM/dd/yyyy HH:mm" UTC format it sends, not ISO8601 -- formatting
+// a Date as ISO8601 here (the previous bug) is silently ignored/misread
+// by ShipStation's importer.
+function formatShipStationDate(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(d.getUTCMonth() + 1)}/${pad(d.getUTCDate())}/${d.getUTCFullYear()} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
 }
 
 const PAGE_SIZE = 100;
@@ -138,9 +153,9 @@ async function handleExport(req: NextRequest): Promise<NextResponse> {
       return `  <Order>
     <OrderID>${xmlEscape(order.id)}</OrderID>
     <OrderNumber>${xmlEscape(orderNumber)}</OrderNumber>
-    <OrderDate>${order.placedAt.toISOString()}</OrderDate>
+    <OrderDate>${formatShipStationDate(order.placedAt)}</OrderDate>
     <OrderStatus>${orderStatus}</OrderStatus>
-    <LastModified>${(order.paymentConfirmedAt ?? order.placedAt).toISOString()}</LastModified>
+    <LastModified>${formatShipStationDate(order.paymentConfirmedAt ?? order.placedAt)}</LastModified>
     <OrderTotal>${(totalCents / 100).toFixed(2)}</OrderTotal>
     <ShippingAmount>${(order.shippingCents / 100).toFixed(2)}</ShippingAmount>
     <TaxAmount>0.00</TaxAmount>
