@@ -49,11 +49,18 @@ export default async function OrderDetailPage({ params }: { params: { id: string
               </>
             )}
             {order.status === "PROCESSING" && (
-              <form action={markCompleted.bind(null, order.id)}>
-                <button className="text-sm bg-primary-500 text-background-50 rounded-md px-3 py-1.5 font-medium hover:bg-primary-600">
-                  Mark completed
-                </button>
-              </form>
+              <>
+                <form action={markCompleted.bind(null, order.id)}>
+                  <button className="text-sm bg-primary-500 text-background-50 rounded-md px-3 py-1.5 font-medium hover:bg-primary-600">
+                    Mark completed
+                  </button>
+                </form>
+                <form action={cancelAndReleaseStock.bind(null, order.id)}>
+                  <button className="text-sm border border-background-300 rounded-md px-3 py-1.5 text-accent-700 hover:bg-accent-50">
+                    Cancel order
+                  </button>
+                </form>
+              </>
             )}
             <a
               href={`/api/orders/${order.id}/receipt`}

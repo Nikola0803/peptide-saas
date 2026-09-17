@@ -97,17 +97,36 @@ export async function markCompleted(orderId: string) {
   revalidatePath("/orders");
 }
 
-// Manual version of what the 24h job does automatically -- for staff to
-// cancel a storefront order and free its reserved stock right away
-// instead of waiting out the window.
+// Manual version of what the 24h job does automatically for an ON_HOLD
+// order -- for staff to cancel a storefront order and free its reserved
+// stock right away instead of waiting out the window. Also the only way
+// to cancel a PROCESSING (paid, not yet shipped) order at all: before
+// this, a paid order could only be marked completed or permanently
+// deleted -- there was no way to cancel one and have that cancellation
+// actually reach anyone. This is also what the ShipStation export feed
+// (see /api/shipstation route) keys off of: a REFUNDED order with no
+// shippedAt goes out as "cancelled" on VVG's next poll, so cancelling
+// here is also how you tell a fulfillment partner to stand down.
+// COMPLETED (already shipped) isn't handled here -- that's a return, use
+// the Refund workflow on the order instead, not a cancellation.
 export async function cancelAndReleaseStock(orderId: string) {
   const order = await assertOrderOwnership(orderId);
-  if (order.status !== "ON_HOLD") throw new Error("Only an ON_HOLD order can be cancelled this way");
+  if (order.status !== "ON_HOLD" && order.status !== "PROCESSING") {
+    throw new Error("Only an ON_HOLD or PROCESSING order can be cancelled this way");
+  }
 
+  const wasPaid = order.status === "PROCESSING";
   const released = await releaseOrderStock(orderId);
   await prisma.order.update({ where: { id: orderId }, data: { status: "REFUNDED" } });
   if (!released) {
     await prisma.orderNote.create({ data: { orderId, body: "Order cancelled by staff (stock had already been released)." } });
+  } else if (wasPaid) {
+    await prisma.orderNote.create({
+      data: {
+        orderId,
+        body: "Order cancelled by staff — payment had already been confirmed; issue a refund separately if money needs to go back to the customer. Stock released back to available.",
+      },
+    });
   } else {
     await prisma.orderNote.create({ data: { orderId, body: "Order cancelled by staff — stock released back to available." } });
   }
