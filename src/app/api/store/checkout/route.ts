@@ -91,6 +91,7 @@ export async function POST(req: NextRequest) {
       ],
       paymentMethod: parsed.data.paymentMethod,
       paymentMemo: parsed.data.paymentMemo,
+      shippingCents: parsed.data.shippingCents,
       customerNote: parsed.data.customerNote,
       billing: parsed.data.billing,
       shipTo: parsed.data.shipTo,
