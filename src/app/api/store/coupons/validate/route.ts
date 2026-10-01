@@ -4,6 +4,7 @@ import { resolveHeaderOverride } from "@/lib/store-context";
 import { prisma } from "@/lib/prisma";
 import { utcDateString } from "@/lib/order-engine";
 import { resolveCoupons, evaluateCoupons, getAutoApplyCodes, type CouponCartItem } from "@/lib/coupon-engine";
+import { getQuantityUnitPriceCents } from "@/lib/quantity-pricing";
 
 const bodySchema = z.object({
   items: z.array(z.object({ slug: z.string().min(1), quantity: z.number().int().positive() })).min(1),
@@ -64,7 +65,8 @@ export async function POST(req: NextRequest) {
     if (!mapping || mapping.storePriceCents == null) continue; // ignore unknown lines, same tolerance as checkout would hit later
 
     const dealActive = mapping.dealDate === utcDateString() && mapping.dealPriceCents != null;
-    const unitPriceCents = dealActive ? (mapping.dealPriceCents as number) : mapping.storePriceCents;
+    const retailUnitPriceCents = dealActive ? (mapping.dealPriceCents as number) : mapping.storePriceCents;
+    const unitPriceCents = getQuantityUnitPriceCents(retailUnitPriceCents, quantity);
 
     subtotalCents += unitPriceCents * quantity;
     couponCartItems.push({
@@ -102,7 +104,11 @@ export async function POST(req: NextRequest) {
   }
 
   const org = await prisma.organization.findUnique({ where: { id: store.organizationId } });
-  const evaluation = evaluateCoupons(coupons, couponCartItems, org?.minMarginPercent ?? 30);
+  const wholesale = contactId
+    ? await prisma.wholesalePartner.findUnique({ where: { contactId }, select: { status: true } })
+    : null;
+  const maximumDiscountPercent = wholesale?.status === "APPROVED" ? 40 : 30;
+  const evaluation = evaluateCoupons(coupons, couponCartItems, org?.minMarginPercent ?? 30, maximumDiscountPercent);
 
   return NextResponse.json({
     valid: evaluation.discountCents > 0 || visibleErrors.length === 0,
@@ -111,6 +117,7 @@ export async function POST(req: NextRequest) {
     totalCents: Math.max(0, subtotalCents - evaluation.discountCents),
     appliedCoupons: evaluation.appliedCoupons,
     flooredByMargin: evaluation.flooredByMargin,
+    maximumDiscountPercent,
     errors: visibleErrors,
   });
 }

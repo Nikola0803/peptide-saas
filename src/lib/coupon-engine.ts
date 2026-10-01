@@ -121,7 +121,14 @@ export async function resolveCoupons(
     }
 
     if (kept.length > 0) {
-      const stackingOk = coupon.allowStacking && kept.every((k) => k.allowStacking);
+      const pair = [...kept, coupon];
+      const isWelcomePlusTen = pair.length === 2 &&
+        pair.some((entry) => /^WELCOME(?:10|20)-/i.test(entry.code) && entry.percentOff === 20) &&
+        pair.some((entry) => entry.type === "PERCENT" && entry.percentOff === 10);
+      // The active GLP 10% offer is explicitly allowed to join the personal
+      // 20% welcome reward even if the existing CRM row was originally
+      // created as non-stackable. The retail ceiling still stops at 30%.
+      const stackingOk = isWelcomePlusTen || (coupon.allowStacking && kept.every((k) => k.allowStacking));
       if (!stackingOk) {
         errors.push({ code, reason: "This coupon cannot be combined with another coupon" });
         continue;
@@ -136,13 +143,16 @@ export async function resolveCoupons(
 
 // Discount contributed by one FIXED or PERCENT coupon, computed against the
 // order's current (pre-this-coupon) subtotal.
-function flatDiscountCents(coupon: Coupon, remainingSubtotalCents: number): number {
+function flatDiscountCents(coupon: Coupon, remainingSubtotalCents: number, originalSubtotalCents: number): number {
   if (coupon.type === "FIXED") {
     return Math.min(coupon.fixedAmountCents ?? 0, remainingSubtotalCents);
   }
   if (coupon.type === "PERCENT") {
     const pct = coupon.percentOff ?? 0;
-    return Math.round((remainingSubtotalCents * pct) / 100);
+    // Stacked percentage offers are additive: 20% welcome + 10% GLP is
+    // exactly 30%, not a compounded 28%. The tier ceiling below still
+    // clamps any larger combination before an order is charged.
+    return Math.round((originalSubtotalCents * pct) / 100);
   }
   return 0;
 }
@@ -219,7 +229,8 @@ function bogoDiscountCents(coupon: Coupon, items: CouponCartItem[]): number {
 export function evaluateCoupons(
   coupons: Coupon[],
   items: CouponCartItem[],
-  minMarginPercent: number
+  minMarginPercent: number,
+  maximumDiscountPercent = 30
 ): CouponEvaluationResult {
   const subtotalCents = items.reduce((sum, i) => sum + i.unitPriceCents * i.quantity, 0);
   const cogsCentsTotal = items.reduce((sum, i) => sum + i.cogsCents * i.quantity, 0);
@@ -232,7 +243,7 @@ export function evaluateCoupons(
     if (coupon.type === "BOGO") {
       discount = bogoDiscountCents(coupon, items);
     } else {
-      discount = flatDiscountCents(coupon, runningSubtotal);
+      discount = flatDiscountCents(coupon, runningSubtotal, subtotalCents);
     }
     discount = Math.max(0, Math.min(discount, runningSubtotal));
     runningSubtotal -= discount;
@@ -241,12 +252,16 @@ export function evaluateCoupons(
 
   const rawDiscountCents = applied.reduce((sum, a) => sum + a.discountCents, 0);
 
-  // Wholesale-price floor: never let the order's total drop below cost
-  // plus the org's minimum margin, no matter how many coupons stacked or
-  // how generous any single one is. Math.ceil so we round in the
-  // merchant's favor when the percentage doesn't divide evenly.
+  // Two independent safeguards apply to every order:
+  // 1. never sell below cost plus the organization's minimum margin;
+  // 2. never reduce the subtotal beyond the customer's tier ceiling
+  //    (30% retail, 40% for approved wholesale partners).
+  // The tighter limit wins, so stacked, assigned, BOGO, and manually
+  // entered coupons all follow the same non-negotiable ceiling.
   const minAllowedTotalCents = Math.ceil(cogsCentsTotal * (1 + minMarginPercent / 100));
-  const maxAllowedDiscountCents = Math.max(0, subtotalCents - minAllowedTotalCents);
+  const marginAllowedDiscountCents = Math.max(0, subtotalCents - minAllowedTotalCents);
+  const tierCapDiscountCents = Math.floor(subtotalCents * (maximumDiscountPercent / 100));
+  const maxAllowedDiscountCents = Math.min(marginAllowedDiscountCents, tierCapDiscountCents);
 
   let discountCents = rawDiscountCents;
   let flooredByMargin = false;

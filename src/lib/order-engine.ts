@@ -3,6 +3,7 @@ import { createId } from "@/lib/id";
 import { sendTemplate, escapeHtml } from "@/lib/email";
 import { pushNotifyNewOrder } from "@/lib/push-notify";
 import { resolveCoupons, evaluateCoupons, getAutoApplyCodes, type CouponCartItem } from "@/lib/coupon-engine";
+import { getQuantityUnitPriceCents } from "@/lib/quantity-pricing";
 
 // "YYYY-MM-DD" in UTC -- the calendar day used to decide whether a
 // StoreMapping's Deal of the Day is currently active and to bucket
@@ -185,7 +186,8 @@ export async function runCheckout(
       // that IS the real price -- not just a display discount (see the
       // dealPriceCents/dealDate doc comment in schema.prisma).
       const dealActive = mapping.dealDate === utcDateString() && mapping.dealPriceCents != null;
-      const unitPriceCents = dealActive ? (mapping.dealPriceCents as number) : mapping.storePriceCents;
+      const retailUnitPriceCents = dealActive ? (mapping.dealPriceCents as number) : mapping.storePriceCents;
+      const unitPriceCents = getQuantityUnitPriceCents(retailUnitPriceCents, quantity);
       grossCentsTotal += unitPriceCents * quantity;
       cogsCentsTotal += product.cogsCents * quantity;
 
@@ -259,9 +261,11 @@ export async function runCheckout(
     const requestedCodes = [...autoApplyCodes, ...(input.discountCodes?.filter(Boolean) ?? [])];
     if (requestedCodes.length > 0) {
       const org = await tx.organization.findUnique({ where: { id: organizationId } });
+      const wholesale = await tx.wholesalePartner.findUnique({ where: { contactId: contact.id }, select: { status: true } });
+      const maximumDiscountPercent = wholesale?.status === "APPROVED" ? 40 : 30;
       const { coupons } = await resolveCoupons(organizationId, requestedCodes, grossCentsTotal, contact.id);
       if (coupons.length > 0) {
-        const evaluation = evaluateCoupons(coupons, couponCartItems, org?.minMarginPercent ?? 30);
+        const evaluation = evaluateCoupons(coupons, couponCartItems, org?.minMarginPercent ?? 30, maximumDiscountPercent);
         discountCents = evaluation.discountCents;
         couponId = evaluation.appliedCoupons[0]?.id;
         appliedCouponCodes = evaluation.appliedCoupons.map((c) => c.code).join(",") || undefined;

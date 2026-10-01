@@ -5,17 +5,16 @@ import { sendTemplate, unsubscribeFooterHtml } from "@/lib/email";
 import { pushContactToOmnisend } from "@/lib/omnisend";
 import { signUnsubscribeToken } from "@/lib/customer-auth";
 import { getStorefrontUrl } from "@/lib/storefront-url";
+import { ensureWelcomeCoupon } from "@/lib/welcome-coupon";
 
 export const runtime = "nodejs";
-
-const WELCOME_COUPON_PREFIX = "WELCOME10-";
 
 // POST /api/store/newsletter -- called by evlv-site's server-only proxy
 // (same x-store-domain/x-store-api-key auth as /api/store/checkout).
 // Marks Contact.marketingOptIn = true (the same flag the in-house
 // Newsletter sender at /email-marketing/newsletter reads from -- that's
 // the source of truth, this DB write always happens first and
-// unconditionally), issues a personal single-use 10%-off welcome coupon
+// unconditionally), issues a personal single-use 20%-off welcome coupon
 // the first time this contact ever opts in (same assignedContact
 // mechanism as Heroes Discount -- see coupon-engine.ts), pushes the
 // contact to Omnisend (best-effort, no-op until OMNISEND_API_KEY is set --
@@ -48,26 +47,9 @@ export async function POST(req: NextRequest) {
     create: { contactId: contact.id, brandId: store.brandId },
   });
 
-  let couponCode = await prisma.coupon.findFirst({
-    where: { organizationId: store.organizationId, assignedContactId: contact.id, code: { startsWith: WELCOME_COUPON_PREFIX } },
-    select: { code: true },
-  }).then((c) => c?.code);
-
-  if (!couponCode) {
-    const coupon = await prisma.coupon.create({
-      data: {
-        organizationId: store.organizationId,
-        code: `${WELCOME_COUPON_PREFIX}${contact.id.slice(-8).toUpperCase()}`,
-        description: `Newsletter welcome discount -- ${email}`,
-        type: "PERCENT",
-        percentOff: 10,
-        allowStacking: false,
-        maxRedemptions: 1,
-        assignedContactId: contact.id,
-      },
-    });
-    couponCode = coupon.code;
-  }
+  // Account registration uses this same helper, preventing customers from
+  // claiming two separate first-purchase rewards through the two flows.
+  const couponCode = await ensureWelcomeCoupon(store.organizationId, contact.id, email);
 
   pushContactToOmnisend(email, { firstName: contact.name ?? undefined }).catch((err) =>
     console.error("Omnisend push failed", err)
