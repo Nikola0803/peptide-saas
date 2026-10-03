@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { PageHeader, Card, Badge } from "@/components/ui";
 import { dateTime } from "@/lib/format";
 import { sendReply, setConversationStatus } from "../actions";
+import { LiveChatRefresher } from "@/components/LiveChatRefresher";
 
 export default async function ConversationPage({ params }: { params: { id: string } }) {
   const { organization } = await requireOrg();
@@ -23,6 +24,8 @@ export default async function ConversationPage({ params }: { params: { id: strin
 
   return (
     <div>
+      {isLiveChat && <LiveChatRefresher />}
+
       <PageHeader
         title={conversation.contactName || conversation.contactEmail || conversation.contactPhone || "Visitor"}
         subtitle={[conversation.contactEmail, conversation.contactPhone, conversation.brand?.name].filter(Boolean).join(" · ")}

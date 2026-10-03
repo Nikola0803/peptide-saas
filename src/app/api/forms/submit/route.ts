@@ -13,15 +13,6 @@ export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
 }
 
-// POST /api/forms/submit
-// body: { publicKey, name?, email?, phone?, subject?, message }
-//
-// `publicKey` is the same per-brand key the tracking pixel uses (see
-// TrackingConfig on the Tracking & Pixels page) — already safe to expose
-// client-side, no reason to mint a second kind of key for this. Every
-// submission becomes its own Conversation (a "ticket"), not merged into
-// an existing thread, since contact-form submissions aren't really an
-// ongoing back-and-forth the way WhatsApp is.
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
   if (!body?.publicKey || !body?.message) {
@@ -60,13 +51,6 @@ export async function POST(req: NextRequest) {
     conversationId: conversation.id,
   }).catch((err) => console.error("Contact form push notification failed", err));
 
-  // Email too, not just the phone push -- ntfy is a nice-to-have someone
-  // has to remember to subscribe their phone to; the office inbox is the
-  // one place a lead genuinely can't be missed if nobody's watching
-  // /support. Same organization.notifyEmail every other office
-  // notification (new orders, supplier invoices) already goes to.
-  // replyTo is set to the contact's email so a quick email reply goes
-  // directly back to them without opening the CRM.
   if (config.brand.organization.notifyEmail) {
     const crmUrl = process.env.NEXTAUTH_URL || "";
     sendTemplate(
