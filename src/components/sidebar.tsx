@@ -8,9 +8,11 @@ import { NAV_GROUPS } from "@/lib/nav";
 export function Sidebar({
   organizationName,
   brandCount,
+  pendingChats,
 }: {
   organizationName: string;
   brandCount: number;
+  pendingChats?: number;
 }) {
   const pathname = usePathname();
 
@@ -35,6 +37,8 @@ export function Sidebar({
             <div className="space-y-0.5">
               {group.items.map((item) => {
                 const active = pathname?.startsWith(item.href);
+                const isSupport = item.href === "/support";
+                const showBadge = isSupport && pendingChats && pendingChats > 0;
                 return (
                   <Link
                     key={item.href}
@@ -47,7 +51,12 @@ export function Sidebar({
                     )}
                   >
                     <i className={clsx(item.icon, "text-base w-5 h-5 flex items-center justify-center")} />
-                    <span>{item.label}</span>
+                    <span className="flex-1">{item.label}</span>
+                    {showBadge && (
+                      <span className="ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
+                        {pendingChats > 9 ? "9+" : pendingChats}
+                      </span>
+                    )}
                   </Link>
                 );
               })}

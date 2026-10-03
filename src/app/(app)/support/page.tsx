@@ -43,7 +43,7 @@ export default async function SupportPage({
         <Card className="p-4 mb-6 max-w-lg">
           <h2 className="text-sm font-semibold text-foreground-950 mb-1">Connect WhatsApp</h2>
           <p className="text-xs text-foreground-500 mb-3">
-            From your Meta Business app's WhatsApp settings. The webhook URL and verify token go in Meta's
+            From your Meta Business app&apos;s WhatsApp settings. The webhook URL and verify token go in Meta&apos;s
             dashboard; the phone number ID and access token go here.
           </p>
           <CopyableField label="Webhook URL (for Meta's dashboard)" value={webhookUrl} monospace />
@@ -75,7 +75,7 @@ export default async function SupportPage({
               className="w-full text-sm border border-background-300 rounded px-2.5 py-1.5 bg-background-50"
             />
             <button className="text-sm bg-primary-500 text-background-50 rounded-md px-3 py-1.5 font-medium hover:bg-primary-600">
-              Save & test connection
+              Save &amp; test connection
             </button>
           </form>
         </Card>
@@ -100,36 +100,11 @@ export default async function SupportPage({
       </div>
 
       <div className="flex items-center gap-2 mb-4">
-        <Link
-          href="/support"
-          className="text-xs border border-background-300 rounded-md px-2.5 py-1 text-foreground-700 hover:bg-background-100"
-        >
-          All
-        </Link>
-        <Link
-          href="/support?channel=whatsapp"
-          className="text-xs border border-background-300 rounded-md px-2.5 py-1 text-foreground-700 hover:bg-background-100"
-        >
-          WhatsApp
-        </Link>
-        <Link
-          href="/support?channel=contact_form"
-          className="text-xs border border-background-300 rounded-md px-2.5 py-1 text-foreground-700 hover:bg-background-100"
-        >
-          Contact form
-        </Link>
-        <Link
-          href="/support?channel=live_chat"
-          className="text-xs border border-background-300 rounded-md px-2.5 py-1 text-foreground-700 hover:bg-background-100"
-        >
-          Live chat
-        </Link>
-        <Link
-          href="/support?status=closed"
-          className="text-xs border border-background-300 rounded-md px-2.5 py-1 text-foreground-700 hover:bg-background-100"
-        >
-          Closed
-        </Link>
+        <Link href="/support" className="text-xs border border-background-300 rounded-md px-2.5 py-1 text-foreground-700 hover:bg-background-100">All</Link>
+        <Link href="/support?channel=whatsapp" className="text-xs border border-background-300 rounded-md px-2.5 py-1 text-foreground-700 hover:bg-background-100">WhatsApp</Link>
+        <Link href="/support?channel=contact_form" className="text-xs border border-background-300 rounded-md px-2.5 py-1 text-foreground-700 hover:bg-background-100">Contact form</Link>
+        <Link href="/support?channel=live_chat" className="text-xs border border-background-300 rounded-md px-2.5 py-1 text-foreground-700 hover:bg-background-100">Live chat</Link>
+        <Link href="/support?status=closed" className="text-xs border border-background-300 rounded-md px-2.5 py-1 text-foreground-700 hover:bg-background-100">Closed</Link>
       </div>
 
       {conversations.length === 0 ? (
@@ -144,6 +119,7 @@ export default async function SupportPage({
             const preview = c.messages[0]?.body ?? "";
             const channelLabel = c.channel === "WHATSAPP" ? "WhatsApp" : c.channel === "LIVE_CHAT" ? "Live chat" : "Contact form";
             const channelStatus = c.channel === "WHATSAPP" ? "connected" : c.channel === "LIVE_CHAT" ? "info" : "pending";
+            const needsReply = c.channel === "LIVE_CHAT" && c.status === "OPEN" && c.messages[0]?.direction === "INBOUND";
             return (
               <Link
                 key={c.id}
@@ -158,6 +134,12 @@ export default async function SupportPage({
                     <Badge status={channelStatus as "connected" | "pending"} />
                     <span className="text-[11px] text-foreground-500">{channelLabel}</span>
                     {c.brand && <span className="text-[11px] text-foreground-500">{c.brand.name}</span>}
+                    {needsReply && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700">
+                        <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
+                        needs reply
+                      </span>
+                    )}
                   </div>
                   {c.subject && <div className="text-xs text-foreground-600 mb-0.5">{c.subject}</div>}
                   {c.pageUrl && (
