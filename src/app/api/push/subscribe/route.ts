@@ -5,7 +5,9 @@ import { prisma } from "@/lib/prisma";
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.organizationId) {
+  const organizationId = (session?.user as any)?.organizationId as string | undefined;
+
+  if (!organizationId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -20,7 +22,7 @@ export async function POST(req: NextRequest) {
     where: { endpoint },
     update: { p256dh: keys.p256dh, auth: keys.auth },
     create: {
-      organizationId: session.user.organizationId,
+      organizationId,
       endpoint,
       p256dh: keys.p256dh,
       auth: keys.auth,
