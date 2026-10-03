@@ -20,12 +20,19 @@ export function emailConfigured(): boolean {
 // Returns whether the send actually succeeded — most callers (order/reply
 // emails) don't check this and just treat the whole thing as best-effort,
 // but the newsletter sender needs a real per-recipient success count.
-export async function sendEmail(to: string, subject: string, html: string): Promise<boolean> {
+export async function sendEmail(to: string, subject: string, html: string, options?: { replyTo?: string }): Promise<boolean> {
   if (!resend || !process.env.EMAIL_FROM) {
     console.warn(`[email] Not configured (RESEND_API_KEY/EMAIL_FROM missing) — skipped "${subject}" to ${to}`);
     return false;
   }
-  const { error } = await resend.emails.send({ from: process.env.EMAIL_FROM, to, subject, html });
+  const payload: { from: string; to: string; subject: string; html: string; replyTo?: string } = {
+    from: process.env.EMAIL_FROM,
+    to,
+    subject,
+    html,
+  };
+  if (options?.replyTo) payload.replyTo = options.replyTo;
+  const { error } = await resend.emails.send(payload);
   if (error) {
     console.error(`[email] Send failed for "${subject}" to ${to}:`, error);
     return false;
@@ -128,12 +135,13 @@ export const DEFAULT_TEMPLATES: EmailTemplateDefault[] = [
     name: "New contact form message (office)",
     description: "Sent internally whenever a visitor submits the storefront contact form -- the only email copy of a lead if nobody happens to check the Support inbox or have push notifications set up.",
     subject: "New contact form message{{subjectSuffix}}",
-    sampleVars: { contactName: "Jordan", contactEmail: "jordan@lab.edu", subjectLine: "Order Question", messageHtml: "Where's my order?", subjectSuffix: ": Order Question" },
+    sampleVars: { contactName: "Jordan", contactEmail: "jordan@lab.edu", subjectLine: "Order Question", messageHtml: "Where's my order?", subjectSuffix: ": Order Question", conversationUrl: "https://crm.evlvpeptides.com/support/abc123" },
     html: LAYOUT(`
       <h1 style="font-size: 20px;">New contact form message</h1>
       <p>{{contactName}} ({{contactEmail}})</p>
       <p>Subject: {{subjectLine}}</p>
       <p style="white-space: pre-line;">{{{messageHtml}}}</p>
+      <p style="margin-top: 20px;"><a href="{{conversationUrl}}" style="display: inline-block; background: #1c1c1c; color: #fff; padding: 10px 20px; text-decoration: none; border-radius: 4px; font-size: 14px; font-weight: 500;">View in Support →</a></p>
     `),
   },
   {
@@ -528,11 +536,11 @@ export async function getTemplate(organizationId: string, key: string): Promise<
   return row ? { subject: row.subject, html: row.html } : { subject: fallback.subject, html: fallback.html };
 }
 
-export async function sendTemplate(organizationId: string, key: string, to: string, vars: Record<string, string>): Promise<void> {
+export async function sendTemplate(organizationId: string, key: string, to: string, vars: Record<string, string>, options?: { replyTo?: string }): Promise<void> {
   const { subject, html } = await getTemplate(organizationId, key);
   const unsubscribeUrl = await buildUnsubscribeUrl(organizationId, to);
   const mergedVars = { unsubscribeUrl, preferenceCenterUrl: unsubscribeUrl, ...vars };
-  await sendEmail(to, renderTemplate(subject, mergedVars), renderTemplate(html, mergedVars));
+  await sendEmail(to, renderTemplate(subject, mergedVars), renderTemplate(html, mergedVars), options);
 }
 
 async function buildUnsubscribeUrl(organizationId: string, to: string): Promise<string> {
