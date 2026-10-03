@@ -22,7 +22,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <div className="min-h-screen flex bg-background-100">
       <Sidebar organizationName={organization.name} brandCount={brandCount} pendingChats={pendingChats} />
-      <main className="flex-1 min-w-0 p-6">{children}</main>
+      {/* pt-14 on mobile to clear the fixed top bar; no top padding on desktop */}
+      <main className="flex-1 min-w-0 p-4 pt-[calc(3.5rem+1rem)] md:p-6 md:pt-6">{children}</main>
     </div>
   );
 }

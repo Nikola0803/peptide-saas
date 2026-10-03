@@ -1,11 +1,22 @@
 'use client';
 import { useEffect, useState } from 'react';
 
+type State = 'idle' | 'subscribed' | 'denied' | 'loading' | 'needs-pwa';
+
 export function PushNotificationManager() {
-  const [state, setState] = useState<'idle' | 'subscribed' | 'denied' | 'loading'>('idle');
+  const [state, setState] = useState<State>('idle');
 
   useEffect(() => {
-    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+      // iOS Safari not in standalone — push not available
+      const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+      const isStandalone = (navigator as any).standalone === true ||
+        window.matchMedia('(display-mode: standalone)').matches;
+      if (isIOS && !isStandalone) {
+        setState('needs-pwa');
+      }
+      return;
+    }
 
     navigator.serviceWorker.register("/sw.js").catch(console.error);
 
@@ -42,6 +53,15 @@ export function PushNotificationManager() {
     }
   }
 
+  if (state === 'needs-pwa') {
+    return (
+      <div className="flex items-start gap-2 rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-700">
+        <i className="ri-add-box-line mt-0.5 shrink-0" />
+        <span>Add to Home Screen to enable push notifications</span>
+      </div>
+    );
+  }
+
   if (state === "subscribed") {
     return (
       <div className="flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
@@ -60,16 +80,28 @@ export function PushNotificationManager() {
     );
   }
 
-  return (
-    <button
-      onClick={subscribe}
-      disabled={state === "loading"}
-      className="flex w-full items-center gap-2 rounded-lg bg-green-900/10 px-3 py-2 text-xs font-medium text-green-800 hover:bg-green-900/20 disabled:opacity-60"
-    >
-      <i className="ri-notification-3-line" />
-      {state === "loading" ? "Enabling…" : "Enable push notifications"}
-    </button>
-  );
+  if (state === "idle") {
+    return (
+      <button
+        onClick={subscribe}
+        className="flex w-full items-center gap-2 rounded-lg bg-green-900/10 px-3 py-2 text-xs font-medium text-green-800 hover:bg-green-900/20"
+      >
+        <i className="ri-notification-3-line" />
+        Enable push notifications
+      </button>
+    );
+  }
+
+  if (state === "loading") {
+    return (
+      <div className="flex items-center gap-2 rounded-lg bg-green-900/10 px-3 py-2 text-xs text-green-800 opacity-60">
+        <i className="ri-loader-4-line animate-spin" />
+        Enabling…
+      </div>
+    );
+  }
+
+  return null;
 }
 
 function urlBase64ToUint8Array(base64String: string) {

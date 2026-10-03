@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState, useEffect } from "react";
 import clsx from "clsx";
 import { NAV_GROUPS } from "@/lib/nav";
 import { PushNotificationManager } from "./PushNotificationManager";
@@ -16,9 +17,15 @@ export function Sidebar({
   pendingChats?: number;
 }) {
   const pathname = usePathname();
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
-  return (
-    <aside className="w-60 shrink-0 h-screen sticky top-0 border-r border-background-200 bg-background-50 flex flex-col">
+  // Close drawer on route change
+  useEffect(() => {
+    setDrawerOpen(false);
+  }, [pathname]);
+
+  const navContent = (
+    <>
       <div className="h-16 px-5 flex items-center gap-2.5 border-b border-background-200">
         <div className="w-8 h-8 rounded-md bg-primary-500 flex items-center justify-center text-background-50">
           <i className="ri-pulse-line text-lg" />
@@ -27,6 +34,13 @@ export function Sidebar({
           <div className="text-sm font-semibold text-foreground-950">Command Center</div>
           <div className="text-[11px] text-foreground-500">Multi-Brand CRM</div>
         </div>
+        {/* Close button — mobile only */}
+        <button
+          className="ml-auto md:hidden p-1 rounded text-foreground-500 hover:text-foreground-950"
+          onClick={() => setDrawerOpen(false)}
+        >
+          <i className="ri-close-line text-xl" />
+        </button>
       </div>
 
       <nav className="flex-1 px-3 py-4 overflow-y-auto">
@@ -45,7 +59,7 @@ export function Sidebar({
                     key={item.href}
                     href={item.href}
                     className={clsx(
-                      "flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors whitespace-nowrap",
+                      "flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-md transition-colors whitespace-nowrap",
                       active
                         ? "bg-primary-500 text-background-50"
                         : "text-foreground-700 hover:bg-background-100 hover:text-foreground-950"
@@ -78,6 +92,51 @@ export function Sidebar({
           </div>
         </div>
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* Mobile top bar */}
+      <header className="md:hidden fixed top-0 left-0 right-0 z-30 h-14 bg-background-50 border-b border-background-200 flex items-center px-4 gap-3">
+        <button
+          onClick={() => setDrawerOpen(true)}
+          className="p-1.5 rounded-md text-foreground-700 hover:bg-background-100"
+        >
+          <i className="ri-menu-line text-xl" />
+          {pendingChats && pendingChats > 0 ? (
+            <span className="absolute top-2 left-2 w-2 h-2 rounded-full bg-red-500" />
+          ) : null}
+        </button>
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded bg-primary-500 flex items-center justify-center">
+            <i className="ri-pulse-line text-xs text-background-50" />
+          </div>
+          <span className="text-sm font-semibold text-foreground-950">Command Center</span>
+        </div>
+      </header>
+
+      {/* Mobile drawer backdrop */}
+      {drawerOpen && (
+        <div
+          className="md:hidden fixed inset-0 z-40 bg-black/40"
+          onClick={() => setDrawerOpen(false)}
+        />
+      )}
+
+      {/* Sidebar — desktop: static left column; mobile: slide-out drawer */}
+      <aside
+        className={clsx(
+          "flex flex-col bg-background-50 border-r border-background-200 transition-transform duration-200",
+          // Desktop
+          "md:w-60 md:shrink-0 md:h-screen md:sticky md:top-0 md:translate-x-0",
+          // Mobile
+          "fixed inset-y-0 left-0 z-50 w-72 h-full md:relative",
+          drawerOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+        )}
+      >
+        {navContent}
+      </aside>
+    </>
   );
 }
