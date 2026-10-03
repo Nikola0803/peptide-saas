@@ -74,6 +74,7 @@ model Organization {
   suppliers       Supplier[]
   newsletters     Newsletter[]
   media           Media[]
+  pushSubscriptions PushSubscription[]
   coupons         Coupon[]
 }
 
@@ -1262,7 +1263,7 @@ enum MessageDirection {
 
 // Heroes Discount (military/first-responder) applications, submitted from
 // evlv-site's /heroes-discount form. Manually reviewed like the affiliate
-// program: reviewer opens the proof-of-service file before approving.
+// program: reviewing opens the proof-of-service file before approving.
 // Approving creates a personal, single-use 20%-off Coupon (assignedContactId
 // + maxRedemptions: 1, same mechanism as any other per-customer deal) and
 // emails the code -- no separate discount system needed.
@@ -1474,4 +1475,17 @@ model Newsletter {
   createdAt DateTime @default(now())
 
   @@index([organizationId, createdAt])
+}
+
+
+model PushSubscription {
+  id             String       @id @default(cuid())
+  organizationId String
+  endpoint       String       @unique
+  p256dh         String
+  auth           String
+  createdAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
 }
