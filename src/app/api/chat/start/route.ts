@@ -17,7 +17,7 @@ export async function OPTIONS() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { publicKey, name, email, message, pageUrl } = body;
+    const { publicKey, name, email, phone, message, pageUrl } = body;
 
     if (!publicKey || !message?.trim()) {
       return NextResponse.json({ error: "publicKey and message are required" }, { status: 400, headers: CORS });
@@ -43,6 +43,7 @@ export async function POST(req: NextRequest) {
         channel: "LIVE_CHAT",
         contactName: name || null,
         contactEmail: email || null,
+        contactPhone: phone || null,
         chatToken,
         pageUrl: pageUrl || null,
         messages: {
@@ -55,7 +56,7 @@ export async function POST(req: NextRequest) {
     });
 
     pushNotifyContactForm({
-      name: name || email || "Visitor",
+      name: name || email || phone || "Visitor",
       email: email || "",
       preview: message.trim().slice(0, 200),
       conversationId: conversation.id,
@@ -64,7 +65,7 @@ export async function POST(req: NextRequest) {
     if (organization.notifyEmail) {
       const crmUrl = process.env.NEXTAUTH_URL || "";
       sendTemplate(organization.id, "contact_form_received", organization.notifyEmail, {
-        name: name || email || "Visitor",
+        name: name || email || phone || "Visitor",
         email: email || "N/A",
         subject: "Live chat started",
         message: message.trim(),
