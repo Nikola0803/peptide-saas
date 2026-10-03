@@ -1,25 +1,12 @@
 import { Resend } from "resend";
 import { prisma } from "@/lib/prisma";
 
-// Every email this app sends goes through here. Provider is Resend, chosen
-// because it needed the least setup ceremony (an API key + a verified
-// sending domain) to get order confirmations out the door fast — swap
-// `sendEmail` if that ever needs to change, nothing else in this file
-// talks to Resend directly.
-//
-// EMAIL_FROM must be an address on a domain verified in the Resend
-// dashboard (e.g. "EVLV <orders@evlvpeptides.com>") — sending from an
-// unverified domain is rejected by Resend, not silently dropped.
-
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 export function emailConfigured(): boolean {
   return Boolean(process.env.RESEND_API_KEY && process.env.EMAIL_FROM);
 }
 
-// Returns whether the send actually succeeded — most callers (order/reply
-// emails) don't check this and just treat the whole thing as best-effort,
-// but the newsletter sender needs a real per-recipient success count.
 export async function sendEmail(to: string, subject: string, html: string, options?: { replyTo?: string }): Promise<boolean> {
   if (!resend || !process.env.EMAIL_FROM) {
     console.warn(`[email] Not configured (RESEND_API_KEY/EMAIL_FROM missing) — skipped "${subject}" to ${to}`);
@@ -40,11 +27,6 @@ export async function sendEmail(to: string, subject: string, html: string, optio
   return true;
 }
 
-// {{variableName}} substitution — deliberately not a templating engine
-// (no loops/conditionals). Every value gets HTML-escaped except ones
-// wrapped as {{{rawHtml}}} (e.g. a pre-built order-items table), matching
-// the common "double braces escapes, triple doesn't" convention so a
-// customer's own name/address can't inject markup into their own email.
 export function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
 }
@@ -55,13 +37,6 @@ export function renderTemplate(template: string, vars: Record<string, string>): 
     .replace(/\{\{(\w+)\}\}/g, (_, key) => escapeHtml(vars[key] ?? ""));
 }
 
-// Standard unsubscribe line for marketing/bulk email -- NOT used on
-// transactional email (order confirmations, support replies, program
-// status emails), since those aren't "marketing" under CAN-SPAM and a
-// customer needs them regardless of their opt-in state. Callers build the
-// link with signUnsubscribeToken() (src/lib/customer-auth.ts) + a
-// storefront URL (src/lib/storefront-url.ts) since the page it lands on
-// lives on evlv-site, not this app.
 export function unsubscribeFooterHtml(unsubscribeUrl: string): string {
   return `<p style="margin-top: 24px; font-size: 12px; color: #999;">Don't want these emails? <a href="${unsubscribeUrl}" style="color: #999;">Unsubscribe</a>.</p>`;
 }
@@ -83,9 +58,6 @@ const LAYOUT = (body: string) => `
   </p>
 </div>`;
 
-// Built-in fallback for every template this app sends — used whenever no
-// EmailTemplate row exists yet for that key/org, so real emails go out
-// correctly from day one, before anyone has touched the Email page.
 export const DEFAULT_TEMPLATES: EmailTemplateDefault[] = [
   {
     key: "welcome_customer",
@@ -133,7 +105,7 @@ export const DEFAULT_TEMPLATES: EmailTemplateDefault[] = [
   {
     key: "contact_form_received",
     name: "New contact form message (office)",
-    description: "Sent internally whenever a visitor submits the storefront contact form -- the only email copy of a lead if nobody happens to check the Support inbox or have push notifications set up.",
+    description: "Sent internally whenever a visitor submits the storefront contact form.",
     subject: "New contact form message{{subjectSuffix}}",
     sampleVars: { contactName: "Jordan", contactEmail: "jordan@lab.edu", subjectLine: "Order Question", messageHtml: "Where's my order?", subjectSuffix: ": Order Question", conversationUrl: "https://crm.evlvpeptides.com/support/abc123" },
     html: LAYOUT(`
@@ -160,7 +132,7 @@ export const DEFAULT_TEMPLATES: EmailTemplateDefault[] = [
   {
     key: "supplier_invoice_generated",
     name: "Supplier invoice generated (office)",
-    description: "Sent to the office/ops inbox when a dropship supplier generates an invoice from their portal.",
+    description: "Sent to the office/ops inbox when a dropship supplier generates an invoice.",
     subject: "New invoice from {{supplierName}}: {{totalFormatted}}",
     sampleVars: { supplierName: "Acme Fulfillment", totalFormatted: "$420.00", itemCount: "12" },
     html: LAYOUT(`
@@ -172,7 +144,7 @@ export const DEFAULT_TEMPLATES: EmailTemplateDefault[] = [
   {
     key: "supplier_coa_uploaded",
     name: "Supplier COA uploaded (office)",
-    description: "Sent to the office/ops inbox when a dropship supplier uploads a COA for one of his products, awaiting publish.",
+    description: "Sent when a dropship supplier uploads a COA for one of their products.",
     subject: "COA uploaded for review: {{productName}}",
     sampleVars: { supplierName: "Acme Fulfillment", productName: "BPC-157 10MG" },
     html: LAYOUT(`
@@ -188,13 +160,13 @@ export const DEFAULT_TEMPLATES: EmailTemplateDefault[] = [
     sampleVars: { supplierName: "Acme Fulfillment", totalFormatted: "$420.00" },
     html: LAYOUT(`
       <h1 style="font-size: 20px;">Payment sent</h1>
-      <p>Hi {{supplierName}}, we've marked your invoice for <strong>{{totalFormatted}}</strong> as paid. Thanks for keeping orders moving!</p>
+      <p>Hi {{supplierName}}, we've marked your invoice for <strong>{{totalFormatted}}</strong> as paid.</p>
     `),
   },
   {
     key: "affiliate_approved",
     name: "Affiliate application approved",
-    description: "Sent when a self-serve affiliate application is approved from the Affiliates page.",
+    description: "Sent when a self-serve affiliate application is approved.",
     subject: "You're approved as an EVLV affiliate!",
     sampleVars: { affiliateName: "Jordan" },
     html: LAYOUT(`
@@ -205,7 +177,7 @@ export const DEFAULT_TEMPLATES: EmailTemplateDefault[] = [
   {
     key: "affiliate_rejected",
     name: "Affiliate application rejected",
-    description: "Sent when a self-serve affiliate application is rejected from the Affiliates page.",
+    description: "Sent when a self-serve affiliate application is rejected.",
     subject: "Update on your EVLV affiliate application",
     sampleVars: { affiliateName: "Jordan" },
     html: LAYOUT(`
@@ -217,24 +189,23 @@ export const DEFAULT_TEMPLATES: EmailTemplateDefault[] = [
   {
     key: "wholesale_approved",
     name: "Wholesale inquiry approved",
-    description: "Sent when a wholesale inquiry is linked & approved from the Wholesale page.",
+    description: "Sent when a wholesale inquiry is approved.",
     subject: "You're approved as an EVLV wholesale partner",
     sampleVars: { contactName: "Jordan", companyName: "Acme Labs" },
     html: LAYOUT(`
       <h1 style="font-size: 20px;">Welcome as an EVLV wholesale partner, {{contactName}}!</h1>
-      <p>{{companyName}}'s wholesale inquiry has been approved. We'll be in touch with next steps, or reply to this email with any questions in the meantime.</p>
+      <p>{{companyName}}'s wholesale inquiry has been approved. We'll be in touch with next steps.</p>
     `),
   },
   {
     key: "wholesale_rejected",
     name: "Wholesale inquiry rejected",
-    description: "Sent when a wholesale inquiry is rejected from the Wholesale page.",
+    description: "Sent when a wholesale inquiry is rejected.",
     subject: "Update on your EVLV wholesale inquiry",
     sampleVars: { contactName: "Jordan", companyName: "Acme Labs" },
     html: LAYOUT(`
       <h1 style="font-size: 20px;">Your wholesale inquiry</h1>
       <p>Hi {{contactName}}, thanks for {{companyName}}'s interest in an EVLV wholesale partnership. We're not able to move forward at this time.</p>
-      <p>If your situation changes, feel free to reach back out any time.</p>
     `),
   },
   {
@@ -245,38 +216,36 @@ export const DEFAULT_TEMPLATES: EmailTemplateDefault[] = [
     sampleVars: { affiliateName: "Jordan", amountFormatted: "$120.00" },
     html: LAYOUT(`
       <h1 style="font-size: 20px;">Payout sent</h1>
-      <p>Hi {{affiliateName}}, we've sent your payout of <strong>{{amountFormatted}}</strong> via the payout method on file. It should arrive shortly depending on your provider.</p>
+      <p>Hi {{affiliateName}}, we've sent your payout of <strong>{{amountFormatted}}</strong> via the payout method on file.</p>
     `),
   },
   {
     key: "welcome_2",
     name: "Welcome #2",
-    description: "Sent a few days after signup (see the Email page's Automations section for timing) -- why EVLV, testing/quality, product categories.",
+    description: "Sent a few days after signup.",
     subject: "Why researchers choose EVLV",
     sampleVars: { customerName: "Jordan" },
     html: LAYOUT(`
       <h1 style="font-size: 20px;">A bit more about EVLV, {{customerName}}</h1>
       <p>Every batch we sell is independently tested for identity and purity, with a published Certificate of Analysis (COA) you can check any time from your account.</p>
-      <p>We carry both single-compound peptides and pre-combined research blends -- browse the full catalog any time from the Shop page.</p>
-      <p>Questions about a specific compound or protocol? Just reply to this email.</p>
     `),
   },
   {
     key: "browse_abandonment",
     name: "Browse abandonment",
-    description: "Sent after someone views a product without adding it to cart (see Automations for timing).",
+    description: "Sent after someone views a product without adding it to cart.",
     subject: "Still researching {{productName}}?",
     sampleVars: { customerName: "Jordan", productName: "BPC-157 10MG", productUrl: "https://evlvpeptides.com/shop/bpc-157-10mg" },
     html: LAYOUT(`
       <h1 style="font-size: 20px;">Still deciding on {{productName}}?</h1>
-      <p>Hi {{customerName}}, we noticed you checked out {{productName}} recently. It's independently tested and ready to ship whenever you are.</p>
+      <p>Hi {{customerName}}, we noticed you checked out {{productName}} recently.</p>
       <p><a href="{{productUrl}}" style="color: #b5804a;">Take another look</a></p>
     `),
   },
   {
     key: "cart_abandonment",
     name: "Cart abandonment",
-    description: "Sent after items sit in a cart without checkout (see Automations for timing).",
+    description: "Sent after items sit in a cart without checkout.",
     subject: "You left something in your cart",
     sampleVars: { customerName: "Jordan", itemsHtml: "<li>BPC-157 10MG</li>", checkoutUrl: "https://evlvpeptides.com/checkout" },
     html: LAYOUT(`
@@ -288,43 +257,41 @@ export const DEFAULT_TEMPLATES: EmailTemplateDefault[] = [
   {
     key: "checkout_abandonment",
     name: "Checkout abandonment",
-    description: "Sent after checkout is started but not completed (see Automations for timing).",
+    description: "Sent after checkout is started but not completed.",
     subject: "Complete your EVLV order",
     sampleVars: { customerName: "Jordan", checkoutUrl: "https://evlvpeptides.com/checkout" },
     html: LAYOUT(`
       <h1 style="font-size: 20px;">You're almost there, {{customerName}}</h1>
-      <p>Your order is still saved in your cart -- it only takes a minute to finish checking out.</p>
-      <p><a href="{{checkoutUrl}}" style="color: #b5804a; font-weight: 600;">Finish checkout</a></p>
+      <p>Your order is still saved in your cart.<br/><a href="{{checkoutUrl}}" style="color: #b5804a; font-weight: 600;">Finish checkout</a></p>
     `),
   },
   {
     key: "payment_pending_reminder",
     name: "Payment pending reminder",
-    description: "Sent while an order awaits payment confirmation (see Automations for timing).",
+    description: "Sent while an order awaits payment confirmation.",
     subject: "Reminder: complete payment for order {{orderNumber}}",
     sampleVars: { customerName: "Jordan", orderNumber: "STORE-ABC123", paymentMethod: "zelle", paymentMemo: "EVLV-JORDAN" },
     html: LAYOUT(`
       <h1 style="font-size: 20px;">Your order is on hold pending payment</h1>
       <p>Hi {{customerName}}, order <strong>{{orderNumber}}</strong> is reserved but we haven't confirmed your payment yet.</p>
       <p>Payment method: {{paymentMethod}}<br/>Memo/reference: {{paymentMemo}}</p>
-      <p>If we don't receive payment soon, the reserved stock is released back and someone else may purchase it -- reply to this email if you've already paid and it hasn't been confirmed.</p>
     `),
   },
   {
     key: "payment_confirmed",
     name: "Payment confirmed",
-    description: "Sent the moment staff confirms payment on an order.",
+    description: "Sent when staff confirms payment on an order.",
     subject: "Your EVLV order {{orderNumber}} is confirmed",
     sampleVars: { customerName: "Jordan", orderNumber: "STORE-ABC123" },
     html: LAYOUT(`
       <h1 style="font-size: 20px;">Payment confirmed!</h1>
-      <p>Hi {{customerName}}, we've confirmed payment on order <strong>{{orderNumber}}</strong>. It's now being prepared for shipment -- we'll email you tracking as soon as it ships.</p>
+      <p>Hi {{customerName}}, we've confirmed payment on order <strong>{{orderNumber}}</strong>.</p>
     `),
   },
   {
     key: "shipping_confirmation",
     name: "Shipping confirmation",
-    description: "Sent when a tracking number becomes available for an order.",
+    description: "Sent when a tracking number becomes available.",
     subject: "Your EVLV order {{orderNumber}} has shipped",
     sampleVars: { customerName: "Jordan", orderNumber: "STORE-ABC123", trackingNumber: "1Z999AA10123456784", carrierCode: "ups" },
     html: LAYOUT(`
@@ -336,194 +303,187 @@ export const DEFAULT_TEMPLATES: EmailTemplateDefault[] = [
   {
     key: "post_purchase",
     name: "Post-purchase",
-    description: "Sent a few days after an order completes (see Automations for timing) -- COA/docs and account reminder.",
+    description: "Sent a few days after an order completes.",
     subject: "How's your EVLV order treating you?",
     sampleVars: { customerName: "Jordan", orderNumber: "STORE-ABC123" },
     html: LAYOUT(`
       <h1 style="font-size: 20px;">Hope research is going well, {{customerName}}</h1>
-      <p>Just checking in on order <strong>{{orderNumber}}</strong>. A reminder that every batch's Certificate of Analysis is available any time from your account page.</p>
-      <p>Questions about storage, reconstitution, or anything else? Just reply to this email.</p>
+      <p>Just checking in on order <strong>{{orderNumber}}</strong>.</p>
     `),
   },
   {
     key: "win_back",
     name: "Win-back",
-    description: "Sent to contacts who haven't ordered in a while (see Automations for timing).",
+    description: "Sent to contacts who haven't ordered in a while.",
     subject: "We miss you at EVLV",
     sampleVars: { customerName: "Jordan" },
     html: LAYOUT(`
       <h1 style="font-size: 20px;">It's been a while, {{customerName}}</h1>
-      <p>We've added new products and every batch is still independently tested with a published COA. Come take a look at what's new.</p>
+      <p>We've added new products and every batch is still independently tested.</p>
     `),
   },
   {
     key: "vip_thank_you",
     name: "VIP thank you",
-    description: "Sent to contacts whose trailing-90-day spend crosses the VIP threshold (set on the Email page).",
+    description: "Sent when a contact's trailing spend crosses the VIP threshold.",
     subject: "Thank you for being an EVLV regular",
     sampleVars: { customerName: "Jordan" },
     html: LAYOUT(`
       <h1 style="font-size: 20px;">You're one of our best, {{customerName}}</h1>
-      <p>We wanted to say thanks for being a repeat EVLV customer -- your continued trust means a lot. Reach out any time if there's ever anything we can do for you.</p>
+      <p>We wanted to say thanks for being a repeat EVLV customer.</p>
     `),
   },
   {
     key: "heroes_discount_received",
     name: "Heroes Discount application received",
-    description: "Sent right after someone submits the Heroes Discount form on evlv-site, before review.",
+    description: "Sent right after someone submits the Heroes Discount form.",
     subject: "We've got your Heroes Discount application",
     sampleVars: { name: "Jordan" },
     html: LAYOUT(`
       <h1 style="font-size: 20px;">Thanks, {{name}}</h1>
-      <p>We've received your Heroes Discount application along with your proof of service. We review every application by hand -- we'll follow up by email within a couple of business days.</p>
+      <p>We've received your Heroes Discount application. We'll follow up within a couple of business days.</p>
     `),
   },
   {
     key: "heroes_discount_approved",
     name: "Heroes Discount approved",
-    description: "Sent when a Heroes Discount application is approved from the Heroes Discount page, with the personal coupon code.",
+    description: "Sent when a Heroes Discount application is approved.",
     subject: "You're approved for the EVLV Heroes Discount",
     sampleVars: { name: "Jordan", couponCode: "HEROES-AB12CD34" },
     html: LAYOUT(`
       <h1 style="font-size: 20px;">Thank you for your service, {{name}}</h1>
-      <p>Your Heroes Discount application has been approved. Your personal 20% off code is:</p>
-      <p style="font-size: 18px; font-weight: 700; letter-spacing: 0.05em;">{{couponCode}}</p>
-      <p>It's single-use and tied to your account -- it'll apply automatically at checkout when you're signed in.</p>
+      <p>Your personal 20% off code is: <strong style="font-size: 18px; letter-spacing: 0.05em;">{{couponCode}}</strong></p>
     `),
   },
   {
     key: "heroes_discount_rejected",
     name: "Heroes Discount rejected",
-    description: "Sent when a Heroes Discount application is rejected from the Heroes Discount page.",
+    description: "Sent when a Heroes Discount application is rejected.",
     subject: "Update on your Heroes Discount application",
     sampleVars: { name: "Jordan" },
     html: LAYOUT(`
       <h1 style="font-size: 20px;">Your Heroes Discount application</h1>
-      <p>Hi {{name}}, we weren't able to verify your proof of service for the Heroes Discount. If you think this was a mistake, reply to this email and we're happy to take another look.</p>
+      <p>Hi {{name}}, we weren't able to verify your proof of service. Reply to this email if you think this was a mistake.</p>
     `),
   },
   {
     key: "newsletter_subscribed",
     name: "Newsletter subscription confirmed",
-    description: "Sent right after someone subscribes to the newsletter (evlv-site's footer signup or checkout opt-in), with their welcome coupon code.",
+    description: "Sent right after someone subscribes to the newsletter.",
     subject: "You're subscribed -- here's 20% off",
     sampleVars: { customerName: "Jordan", couponCode: "WELCOME20-AB12CD34", unsubscribeFooterHtml: "" },
     html: LAYOUT(`
       <h1 style="font-size: 20px;">You're on the list</h1>
-      <p>Thanks, {{customerName}} -- we'll email you when there's something worth sharing.</p>
-      <p>Here's 20% off your first purchase:</p>
+      <p>Thanks, {{customerName}} -- here's 20% off your first purchase:</p>
       <p style="font-size: 18px; font-weight: 700; letter-spacing: 0.05em;">{{couponCode}}</p>
-      <p>It's single-use and tied to your email. GLP series offers may stack with it up to the 30% retail maximum.</p>
       {{{unsubscribeFooterHtml}}}
     `),
   },
   {
     key: "membership_received",
     name: "Membership request received",
-    description: "Sent right after someone requests Member access from evlv-site's /plans page, before review.",
+    description: "Sent right after someone requests Member access.",
     subject: "We've got your Membership request",
     sampleVars: { customerName: "Jordan" },
     html: LAYOUT(`
       <h1 style="font-size: 20px;">Thanks, {{customerName}}</h1>
-      <p>We've received your request for Member access. We review every request by hand -- we'll follow up by email within a couple of business days.</p>
+      <p>We've received your request for Member access. We'll follow up within a couple of business days.</p>
     `),
   },
   {
     key: "membership_approved",
     name: "Membership approved",
-    description: "Sent when a Membership request is approved from the Membership page.",
+    description: "Sent when a Membership request is approved.",
     subject: "You're an EVLV Member!",
     sampleVars: { customerName: "Jordan" },
     html: LAYOUT(`
       <h1 style="font-size: 20px;">Welcome as a Member, {{customerName}}!</h1>
-      <p>Your Member access has been approved -- member-exclusive research blends are now unlocked on your account. Sign in and take a look at the Shop any time.</p>
+      <p>Member-exclusive research blends are now unlocked on your account.</p>
     `),
   },
   {
     key: "membership_rejected",
     name: "Membership rejected",
-    description: "Sent when a Membership request is rejected from the Membership page.",
+    description: "Sent when a Membership request is rejected.",
     subject: "Update on your EVLV Membership request",
     sampleVars: { customerName: "Jordan" },
     html: LAYOUT(`
       <h1 style="font-size: 20px;">Your Membership request</h1>
-      <p>Hi {{customerName}}, we're not able to approve Member access at this time. If you think this was a mistake, reply to this email.</p>
+      <p>Hi {{customerName}}, we're not able to approve Member access at this time.</p>
     `),
   },
   {
     key: "verification_received",
     name: "Researcher verification request received",
-    description: "Sent right after someone submits the verification form on evlv-site's /account page, before review.",
+    description: "Sent right after someone submits the verification form.",
     subject: "We've got your verification request",
     sampleVars: { customerName: "Jordan" },
     html: LAYOUT(`
       <h1 style="font-size: 20px;">Thanks, {{customerName}}</h1>
-      <p>We've received your researcher/institutional verification request. We review every request by hand -- we'll follow up by email within a couple of business days.</p>
+      <p>We've received your researcher/institutional verification request. We'll follow up within a couple of business days.</p>
     `),
   },
   {
     key: "verification_approved",
     name: "Researcher verification approved",
-    description: "Sent when a verification request is approved from the Verification page.",
+    description: "Sent when a verification request is approved.",
     subject: "You're a verified researcher on EVLV",
     sampleVars: { customerName: "Jordan" },
     html: LAYOUT(`
       <h1 style="font-size: 20px;">You're verified, {{customerName}}</h1>
-      <p>Your researcher/institutional verification has been approved -- restricted delivery formats are now unlocked on your account.</p>
+      <p>Restricted delivery formats are now unlocked on your account.</p>
     `),
   },
   {
     key: "verification_rejected",
     name: "Researcher verification rejected",
-    description: "Sent when a verification request is rejected from the Verification page.",
+    description: "Sent when a verification request is rejected.",
     subject: "Update on your EVLV verification request",
     sampleVars: { customerName: "Jordan" },
     html: LAYOUT(`
       <h1 style="font-size: 20px;">Your verification request</h1>
-      <p>Hi {{customerName}}, we're not able to approve researcher/institutional verification at this time. If you think this was a mistake, reply to this email.</p>
+      <p>Hi {{customerName}}, we're not able to approve researcher/institutional verification at this time.</p>
     `),
   },
   {
     key: "account_deletion_received",
     name: "Account removal request received",
-    description: "Sent right after a customer requests account removal from evlv-site's /account page, before review.",
+    description: "Sent right after a customer requests account removal.",
     subject: "We've got your account removal request",
     sampleVars: { customerName: "Jordan" },
     html: LAYOUT(`
       <h1 style="font-size: 20px;">Thanks, {{customerName}}</h1>
-      <p>We've received your request to remove your account and personal data. We review every request by hand -- we'll follow up by email within a couple of business days once it's processed.</p>
-      <p>Order records are kept for accounting purposes as required by law, but your personal details (name, email) will be removed from our system.</p>
+      <p>We've received your request to remove your account and personal data. We'll follow up within a couple of business days.</p>
     `),
   },
   {
     key: "account_deletion_approved",
     name: "Account removal approved",
-    description: "Sent right before a customer's personal data is anonymized, from the Account Removal page.",
+    description: "Sent right before a customer's personal data is anonymized.",
     subject: "Your EVLV account has been removed",
     sampleVars: { customerName: "Jordan" },
     html: LAYOUT(`
       <h1 style="font-size: 20px;">Your account has been removed</h1>
-      <p>Hi {{customerName}}, your personal data has been removed from our system as requested. You won't receive any further emails from us.</p>
-      <p>Order records are retained in anonymized form for accounting purposes as required by law.</p>
+      <p>Hi {{customerName}}, your personal data has been removed from our system as requested.</p>
     `),
   },
   {
     key: "account_deletion_rejected",
     name: "Account removal rejected",
-    description: "Sent when an account removal request is rejected from the Account Removal page.",
+    description: "Sent when an account removal request is rejected.",
     subject: "Update on your account removal request",
     sampleVars: { customerName: "Jordan" },
     html: LAYOUT(`
       <h1 style="font-size: 20px;">Your account removal request</h1>
-      <p>Hi {{customerName}}, we weren't able to process your account removal request at this time. If you think this was a mistake, reply to this email.</p>
+      <p>Hi {{customerName}}, we weren't able to process your account removal request at this time.</p>
     `),
   },
   {
     key: "support_reply",
     name: "Support reply",
-    description: "Wraps a staff reply sent from the Support inbox to a contact-form or WhatsApp lead.",
+    description: "Wraps a staff reply sent from the Support inbox.",
     subject: "Re: {{subject}}",
-    sampleVars: { subject: "Order Question", replyHtml: "<p>Thanks for reaching out — here's the answer...</p>" },
+    sampleVars: { subject: "Order Question", replyHtml: "<p>Thanks for reaching out...</p>" },
     html: LAYOUT(`{{{replyHtml}}}`),
   },
 ];
