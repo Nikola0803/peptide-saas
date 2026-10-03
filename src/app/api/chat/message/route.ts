@@ -69,7 +69,6 @@ async function sendPushToOrg(organizationId: string, payload: { title: string; b
         { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
         JSON.stringify(payload)
       ).catch(async (err: any) => {
-        // Remove expired/invalid subscriptions
         if (err.statusCode === 410 || err.statusCode === 404) {
           await prisma.pushSubscription.delete({ where: { id: sub.id } }).catch(() => {});
         }
