@@ -1215,6 +1215,8 @@ model Conversation {
   contactName   String?
   contactEmail  String?
   contactPhone  String? // E.164, WhatsApp threads are keyed off this
+  chatToken     String?  @unique // live-chat widget session token
+  pageUrl       String?  // page the visitor was on when they started the chat
 
   subject       String? // contact-form submissions often have one
   lastMessageAt DateTime @default(now())
@@ -1229,6 +1231,7 @@ model Conversation {
 enum ConversationChannel {
   WHATSAPP
   CONTACT_FORM
+  LIVE_CHAT
 }
 
 enum ConversationStatus {
@@ -1472,5 +1475,3 @@ model Newsletter {
 
   @@index([organizationId, createdAt])
 }
-
-
