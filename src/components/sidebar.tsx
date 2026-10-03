@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
 import { NAV_GROUPS } from "@/lib/nav";
+import { PushNotificationManager } from "./PushNotificationManager";
 
 export function Sidebar({
   organizationName,
@@ -65,7 +66,8 @@ export function Sidebar({
         ))}
       </nav>
 
-      <div className="p-3 border-t border-background-200">
+      <div className="p-3 border-t border-background-200 space-y-2">
+        <PushNotificationManager />
         <div className="flex items-center gap-2.5 px-2 py-2 rounded-md">
           <div className="w-8 h-8 rounded-full bg-secondary-200 text-secondary-900 flex items-center justify-center text-xs font-semibold">
             {organizationName.slice(0, 2).toUpperCase()}
