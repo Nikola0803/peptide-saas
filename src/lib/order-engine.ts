@@ -19,6 +19,8 @@ export function utcDateString(d: Date = new Date()): string {
 // kept only so netProfitCents stays comparable across both order sources.
 const MERCHANT_FEE_PERCENT = 2.9;
 const MERCHANT_FEE_FIXED_CENTS = 30;
+const FLAT_SHIPPING_CENTS = 1500;
+const FREE_SHIPPING_THRESHOLD_CENTS = 30000;
 
 export interface CheckoutItemInput {
   slug: string;
@@ -54,9 +56,8 @@ export interface CheckoutInput {
   // against the payment rail.
   paymentMethod?: string;
   paymentMemo?: string;
-  // What the customer was charged for shipping at checkout -- kept out of
-  // grossCentsTotal (product-revenue-only, feeds commission/margin math)
-  // and added back on top only for customer-facing totals.
+  // Accepted for storefront API compatibility, but intentionally ignored.
+  // Shipping is calculated from the server-authoritative discounted total.
   shippingCents?: number;
   customerNote?: string;
   // evlv-site's checkout sends the customer/shipping address as a flat
@@ -102,6 +103,7 @@ export interface CheckoutResult {
   orderId: string;
   externalOrderNumber: string;
   grossCents: number;
+  shippingCents: number;
   status: string;
 }
 
@@ -123,7 +125,7 @@ export async function runCheckout(
     throw new CheckoutError("Cart is empty", "EMPTY_CART");
   }
 
-  const { result, contactEmail, contactName, resolvedItems, grossCentsTotal } = await prisma.$transaction(async (tx) => {
+  const { result, contactEmail, contactName, resolvedItems, grossCentsTotal, shippingCents } = await prisma.$transaction(async (tx) => {
     const email = input.customerEmail.toLowerCase().trim();
 
     const contact = await tx.contact.upsert({
@@ -282,6 +284,10 @@ export async function runCheckout(
     // a second variable so every existing use below picks it up for free.
     grossCentsTotal = Math.max(0, grossCentsTotal - discountCents);
 
+    // Calculated after discounts so the free-shipping threshold matches the
+    // amount the customer actually owes for products.
+    const shippingCents = grossCentsTotal >= FREE_SHIPPING_THRESHOLD_CENTS ? 0 : FLAT_SHIPPING_CENTS;
+
     const merchantFeeCents = Math.round((grossCentsTotal * MERCHANT_FEE_PERCENT) / 100) + MERCHANT_FEE_FIXED_CENTS;
     const netProfitCents = grossCentsTotal - cogsCentsTotal - merchantFeeCents - commissionCents;
 
@@ -324,7 +330,7 @@ export async function runCheckout(
         couponId,
         appliedCouponCodes,
         grossCents: grossCentsTotal,
-        shippingCents: input.shippingCents ?? 0,
+        shippingCents,
         netProfitCents,
         paymentMethod: input.paymentMethod,
         paymentMemo: input.paymentMemo,
@@ -363,12 +369,14 @@ export async function runCheckout(
         orderId: order.id,
         externalOrderNumber,
         grossCents: grossCentsTotal,
+        shippingCents,
         status: order.status,
       },
       contactEmail: contact.email,
       contactName: contact.name ?? billingName,
       resolvedItems,
       grossCentsTotal,
+      shippingCents,
     };
   });
 
@@ -381,7 +389,7 @@ export async function runCheckout(
     customerName: contactName || contactEmail,
     items: resolvedItems,
     grossCents: grossCentsTotal,
-    shippingCents: input.shippingCents ?? 0,
+    shippingCents,
     paymentMethod: input.paymentMethod,
     paymentMemo: input.paymentMemo,
   }).catch((err) => console.error("Order confirmation email failed", err));
