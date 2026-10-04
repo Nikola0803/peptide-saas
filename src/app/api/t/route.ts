@@ -2,14 +2,31 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { relayToMeta, relayToTiktok, relayToGa4 } from "@/lib/tracking-relay";
 
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
-};
+const DEFAULT_ALLOWED_ORIGINS = [
+  "https://evlvpeptides.com",
+  "https://www.evlvpeptides.com",
+];
 
-export async function OPTIONS() {
-  return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
+function corsHeaders(req: NextRequest) {
+  const configured = process.env.TRACKING_ALLOWED_ORIGINS?.split(",").map((origin) => origin.trim()).filter(Boolean) ?? [];
+  const allowed = new Set([...DEFAULT_ALLOWED_ORIGINS, ...configured]);
+  const origin = req.headers.get("origin");
+  const headers: Record<string, string> = {
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Credentials": "true",
+    "Vary": "Origin",
+  };
+  if (origin && allowed.has(origin)) headers["Access-Control-Allow-Origin"] = origin;
+  return headers;
+}
+
+export async function OPTIONS(req: NextRequest) {
+  const headers = corsHeaders(req);
+  if (!headers["Access-Control-Allow-Origin"]) {
+    return NextResponse.json({ error: "Origin not allowed" }, { status: 403, headers });
+  }
+  return new NextResponse(null, { status: 204, headers });
 }
 
 // POST /api/t
@@ -23,9 +40,13 @@ export async function OPTIONS() {
 // attributes a conversion even when the visitor's browser blocks
 // client-side pixels.
 export async function POST(req: NextRequest) {
+  const headers = corsHeaders(req);
+  if (req.headers.get("origin") && !headers["Access-Control-Allow-Origin"]) {
+    return NextResponse.json({ error: "Origin not allowed" }, { status: 403, headers });
+  }
   const body = await req.json().catch(() => null);
   if (!body?.publicKey || !body?.event || !body?.visitorId) {
-    return NextResponse.json({ error: "publicKey, event, and visitorId are required" }, { status: 400, headers: CORS_HEADERS });
+    return NextResponse.json({ error: "publicKey, event, and visitorId are required" }, { status: 400, headers });
   }
 
   const config = await prisma.trackingConfig.findUnique({
@@ -33,7 +54,7 @@ export async function POST(req: NextRequest) {
     include: { brand: true },
   });
   if (!config) {
-    return NextResponse.json({ error: "Unknown tracking key" }, { status: 404, headers: CORS_HEADERS });
+    return NextResponse.json({ error: "Unknown tracking key" }, { status: 404, headers });
   }
 
   const trackingEvent = await prisma.trackingEvent.create({
@@ -69,7 +90,7 @@ export async function POST(req: NextRequest) {
       .catch(() => {});
   }
 
-  return NextResponse.json({ ok: true }, { headers: CORS_HEADERS });
+  return NextResponse.json({ ok: true }, { headers });
 }
 
 async function relayEvent(
