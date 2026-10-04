@@ -49,6 +49,7 @@ export async function POST(req: NextRequest) {
   });
 
   const couponCode = await ensureWelcomeCoupon(store.organizationId, contact.id, email);
+  const welcomeDiscountPercent = couponCode.toUpperCase().startsWith("WELCOME20-") ? 20 : 10;
 
   sendTemplate(store.organizationId, "welcome_customer", email, { customerName: contact.name || email }).catch((err) =>
     console.error("Welcome email failed", err)
@@ -66,7 +67,7 @@ export async function POST(req: NextRequest) {
   // writes them straight to localStorage as-is (src/lib/auth.ts), so
   // anything nested here is silently lost on their end.
   return NextResponse.json(
-    { token, email, username: contact.name || email, user_id: contact.id, couponCode, welcomeDiscountPercent: 20 },
+    { token, email, username: contact.name || email, user_id: contact.id, couponCode, welcomeDiscountPercent },
     { status: 201 }
   );
 }

@@ -123,11 +123,11 @@ export async function resolveCoupons(
     if (kept.length > 0) {
       const pair = [...kept, coupon];
       const isWelcomePlusTen = pair.length === 2 &&
-        pair.some((entry) => /^WELCOME(?:10|20)-/i.test(entry.code) && entry.percentOff === 20) &&
-        pair.some((entry) => entry.type === "PERCENT" && entry.percentOff === 10);
+        pair.some((entry) => /^WELCOME(?:10|20)-/i.test(entry.code) && [10, 20].includes(entry.percentOff ?? 0)) &&
+        pair.some((entry) => !/^WELCOME(?:10|20)-/i.test(entry.code) && entry.type === "PERCENT" && entry.percentOff === 10);
       // The active GLP 10% offer is explicitly allowed to join the personal
-      // 20% welcome reward even if the existing CRM row was originally
-      // created as non-stackable. The retail ceiling still stops at 30%.
+      // welcome reward even if an existing CRM row was originally created
+      // as non-stackable. The retail ceiling still stops at 30%.
       const stackingOk = isWelcomePlusTen || (coupon.allowStacking && kept.every((k) => k.allowStacking));
       if (!stackingOk) {
         errors.push({ code, reason: "This coupon cannot be combined with another coupon" });
@@ -149,8 +149,7 @@ function flatDiscountCents(coupon: Coupon, remainingSubtotalCents: number, origi
   }
   if (coupon.type === "PERCENT") {
     const pct = coupon.percentOff ?? 0;
-    // Stacked percentage offers are additive: 20% welcome + 10% GLP is
-    // exactly 30%, not a compounded 28%. The tier ceiling below still
+    // Stacked percentage offers are additive. The tier ceiling below still
     // clamps any larger combination before an order is charged.
     return Math.round((originalSubtotalCents * pct) / 100);
   }

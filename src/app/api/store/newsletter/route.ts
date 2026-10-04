@@ -14,7 +14,7 @@ export const runtime = "nodejs";
 // Marks Contact.marketingOptIn = true (the same flag the in-house
 // Newsletter sender at /email-marketing/newsletter reads from -- that's
 // the source of truth, this DB write always happens first and
-// unconditionally), issues a personal single-use 20%-off welcome coupon
+// unconditionally), issues a personal single-use welcome coupon
 // the first time this contact ever opts in (same assignedContact
 // mechanism as Heroes Discount -- see coupon-engine.ts), pushes the
 // contact to Omnisend (best-effort, no-op until OMNISEND_API_KEY is set --
@@ -50,6 +50,7 @@ export async function POST(req: NextRequest) {
   // Account registration uses this same helper, preventing customers from
   // claiming two separate first-purchase rewards through the two flows.
   const couponCode = await ensureWelcomeCoupon(store.organizationId, contact.id, email);
+  const welcomeDiscountPercent = couponCode.toUpperCase().startsWith("WELCOME20-") ? "20" : "10";
 
   pushContactToOmnisend(email, { firstName: contact.name ?? undefined }).catch((err) =>
     console.error("Omnisend push failed", err)
@@ -57,9 +58,10 @@ export async function POST(req: NextRequest) {
 
   const unsubscribeUrl = getStorefrontUrl(store.brandDomain, `/unsubscribe?token=${signUnsubscribeToken(contact.id)}`);
 
-  await sendTemplate(store.organizationId, "newsletter_subscribed", email, {
+  await sendTemplate(store.organizationId, "newsletter_subscribed_10", email, {
     customerName: contact.name || email,
     couponCode,
+    welcomeDiscountPercent,
     unsubscribeFooterHtml: unsubscribeFooterHtml(unsubscribeUrl),
   }).catch((err) => console.error("Newsletter confirmation email failed", err));
 
