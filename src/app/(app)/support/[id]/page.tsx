@@ -6,7 +6,6 @@ import { prisma } from "@/lib/prisma";
 import { PageHeader, Card, Badge } from "@/components/ui";
 import { dateTime } from "@/lib/format";
 import { sendReply, setConversationStatus } from "../actions";
-import { LiveChatRefresher } from "@/components/LiveChatRefresher";
 
 export default async function ConversationPage({ params }: { params: { id: string } }) {
   const { organization } = await requireOrg();
@@ -18,16 +17,11 @@ export default async function ConversationPage({ params }: { params: { id: strin
   if (!conversation) notFound();
 
   const isWhatsApp = conversation.channel === "WHATSAPP";
-  const isLiveChat = conversation.channel === "LIVE_CHAT";
-  const channelLabel = isWhatsApp ? "WhatsApp" : isLiveChat ? "Live chat" : "Contact form";
-  const channelStatus = isWhatsApp ? "connected" : isLiveChat ? "info" : "pending";
 
   return (
     <div>
-      {isLiveChat && <LiveChatRefresher />}
-
       <PageHeader
-        title={conversation.contactName || conversation.contactEmail || conversation.contactPhone || "Visitor"}
+        title={conversation.contactName || conversation.contactEmail || conversation.contactPhone || "Unknown"}
         subtitle={[conversation.contactEmail, conversation.contactPhone, conversation.brand?.name].filter(Boolean).join(" · ")}
         actions={
           <>
@@ -44,17 +38,11 @@ export default async function ConversationPage({ params }: { params: { id: strin
       />
 
       <div className="flex items-center gap-2 mb-4">
-        <Badge status={channelStatus as "connected" | "pending"} />
-        <span className="text-xs text-foreground-500">{channelLabel}</span>
+        <Badge status={isWhatsApp ? "connected" : "pending"} />
+        <span className="text-xs text-foreground-500">{isWhatsApp ? "WhatsApp" : "Contact form"}</span>
         <Badge status={conversation.status} />
         {conversation.subject && <span className="text-xs text-foreground-600">— {conversation.subject}</span>}
       </div>
-
-      {conversation.pageUrl && (
-        <div className="mb-4 text-xs text-foreground-500 bg-background-100 rounded px-3 py-1.5">
-          Started on: <span className="font-mono text-foreground-700">{conversation.pageUrl}</span>
-        </div>
-      )}
 
       <Card className="p-4">
         <div className="space-y-3 mb-4 max-h-[60vh] overflow-y-auto">
@@ -75,19 +63,13 @@ export default async function ConversationPage({ params }: { params: { id: strin
           ))}
         </div>
 
-        {isWhatsApp || isLiveChat || conversation.contactEmail ? (
+        {isWhatsApp || conversation.contactEmail ? (
           <form action={sendReply.bind(null, conversation.id)} className="flex items-start gap-2 pt-3 border-t border-background-200">
             <textarea
               name="body"
               required
               rows={2}
-              placeholder={
-                isWhatsApp
-                  ? "Type a reply…"
-                  : isLiveChat
-                  ? "Type a reply — the visitor's widget will show it…"
-                  : `Reply by email to ${conversation.contactEmail}…`
-              }
+              placeholder={isWhatsApp ? "Type a reply…" : `Reply by email to ${conversation.contactEmail}…`}
               className="flex-1 text-sm border border-background-300 rounded px-2.5 py-1.5 bg-background-50 resize-none"
             />
             <button className="text-sm bg-primary-500 text-background-50 rounded-md px-3 py-1.5 font-medium hover:bg-primary-600 self-stretch">

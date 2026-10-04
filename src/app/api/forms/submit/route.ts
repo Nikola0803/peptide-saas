@@ -65,24 +65,14 @@ export async function POST(req: NextRequest) {
   // one place a lead genuinely can't be missed if nobody's watching
   // /support. Same organization.notifyEmail every other office
   // notification (new orders, supplier invoices) already goes to.
-  // replyTo is set to the contact's email so a quick email reply goes
-  // directly back to them without opening the CRM.
   if (config.brand.organization.notifyEmail) {
-    const crmUrl = process.env.NEXTAUTH_URL || "";
-    sendTemplate(
-      config.brand.organizationId,
-      "contact_form_received",
-      config.brand.organization.notifyEmail,
-      {
-        contactName: body.name || "Unknown",
-        contactEmail: body.email || "",
-        subjectLine: body.subject || "(no subject)",
-        messageHtml: escapeHtml(String(body.message)),
-        subjectSuffix: body.subject ? `: ${body.subject}` : "",
-        conversationUrl: crmUrl ? `${crmUrl}/support/${conversation.id}` : "",
-      },
-      { replyTo: body.email || undefined },
-    ).catch((err) => console.error("Contact form office email failed", err));
+    sendTemplate(config.brand.organizationId, "contact_form_received", config.brand.organization.notifyEmail, {
+      contactName: body.name || "Unknown",
+      contactEmail: body.email || "",
+      subjectLine: body.subject || "(no subject)",
+      messageHtml: escapeHtml(String(body.message)),
+      subjectSuffix: body.subject ? `: ${body.subject}` : "",
+    }).catch((err) => console.error("Contact form office email failed", err));
   }
 
   return NextResponse.json({ ok: true, conversationId: conversation.id }, { headers: CORS_HEADERS });

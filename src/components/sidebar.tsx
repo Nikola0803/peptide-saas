@@ -4,16 +4,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
 import { NAV_GROUPS } from "@/lib/nav";
-import { PushNotificationManager } from "./PushNotificationManager";
 
 export function Sidebar({
   organizationName,
   brandCount,
-  pendingChats,
 }: {
   organizationName: string;
   brandCount: number;
-  pendingChats?: number;
 }) {
   const pathname = usePathname();
 
@@ -38,8 +35,6 @@ export function Sidebar({
             <div className="space-y-0.5">
               {group.items.map((item) => {
                 const active = pathname?.startsWith(item.href);
-                const isSupport = item.href === "/support";
-                const showBadge = isSupport && pendingChats && pendingChats > 0;
                 return (
                   <Link
                     key={item.href}
@@ -52,12 +47,7 @@ export function Sidebar({
                     )}
                   >
                     <i className={clsx(item.icon, "text-base w-5 h-5 flex items-center justify-center")} />
-                    <span className="flex-1">{item.label}</span>
-                    {showBadge && (
-                      <span className="ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
-                        {pendingChats > 9 ? "9+" : pendingChats}
-                      </span>
-                    )}
+                    <span>{item.label}</span>
                   </Link>
                 );
               })}
@@ -66,8 +56,7 @@ export function Sidebar({
         ))}
       </nav>
 
-      <div className="p-3 border-t border-background-200 space-y-2">
-        <PushNotificationManager />
+      <div className="p-3 border-t border-background-200">
         <div className="flex items-center gap-2.5 px-2 py-2 rounded-md">
           <div className="w-8 h-8 rounded-full bg-secondary-200 text-secondary-900 flex items-center justify-center text-xs font-semibold">
             {organizationName.slice(0, 2).toUpperCase()}

@@ -57,6 +57,8 @@ export async function sendReply(conversationId: string, formData: FormData) {
     externalId = sent.messageId || undefined;
   } else if (conversation.channel === "CONTACT_FORM") {
     if (!conversation.contactEmail) throw new Error("This conversation has no email address on file");
+    // Body is typed as plain text in the reply box — wrap each line as its
+    // own paragraph so it doesn't collapse into one line in the email.
     const replyHtml = body
       .split(/\n+/)
       .map((line) => `<p>${line}</p>`)
@@ -65,9 +67,6 @@ export async function sendReply(conversationId: string, formData: FormData) {
       subject: conversation.subject ?? "your message",
       replyHtml,
     });
-  } else if (conversation.channel === "LIVE_CHAT") {
-    // Widget polls /api/chat/messages — just store the outbound message,
-    // no external send needed.
   } else {
     throw new Error("Replies aren't supported for this conversation's channel");
   }
