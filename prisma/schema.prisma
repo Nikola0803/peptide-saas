@@ -74,6 +74,7 @@ model Organization {
   suppliers       Supplier[]
   newsletters     Newsletter[]
   media           Media[]
+  pushSubscriptions PushSubscription[]
   coupons         Coupon[]
 }
 
@@ -1215,6 +1216,8 @@ model Conversation {
   contactName   String?
   contactEmail  String?
   contactPhone  String? // E.164, WhatsApp threads are keyed off this
+  chatToken     String?  @unique // live-chat widget session token
+  pageUrl       String?  // page the visitor was on when they started the chat
 
   subject       String? // contact-form submissions often have one
   lastMessageAt DateTime @default(now())
@@ -1229,6 +1232,7 @@ model Conversation {
 enum ConversationChannel {
   WHATSAPP
   CONTACT_FORM
+  LIVE_CHAT
 }
 
 enum ConversationStatus {
@@ -1259,7 +1263,7 @@ enum MessageDirection {
 
 // Heroes Discount (military/first-responder) applications, submitted from
 // evlv-site's /heroes-discount form. Manually reviewed like the affiliate
-// program: reviewer opens the proof-of-service file before approving.
+// program: reviewing opens the proof-of-service file before approving.
 // Approving creates a personal, single-use 20%-off Coupon (assignedContactId
 // + maxRedemptions: 1, same mechanism as any other per-customer deal) and
 // emails the code -- no separate discount system needed.
@@ -1474,3 +1478,14 @@ model Newsletter {
 }
 
 
+model PushSubscription {
+  id             String       @id @default(cuid())
+  organizationId String
+  endpoint       String       @unique
+  p256dh         String
+  auth           String
+  createdAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+}

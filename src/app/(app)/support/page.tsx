@@ -16,11 +16,11 @@ export default async function SupportPage({
 
   const config = await prisma.whatsAppConfig.findUnique({ where: { organizationId: organization.id } });
 
-  const [conversations, openCount, whatsappCount, formCount] = await Promise.all([
+  const [conversations, openCount, whatsappCount, formCount, liveChatCount] = await Promise.all([
     prisma.conversation.findMany({
       where: {
         organizationId: organization.id,
-        ...(searchParams.channel ? { channel: searchParams.channel.toUpperCase() as "WHATSAPP" | "CONTACT_FORM" } : {}),
+        ...(searchParams.channel ? { channel: searchParams.channel.toUpperCase() as "WHATSAPP" | "CONTACT_FORM" | "LIVE_CHAT" } : {}),
         ...(searchParams.status ? { status: searchParams.status.toUpperCase() as "OPEN" | "CLOSED" } : {}),
       },
       orderBy: { lastMessageAt: "desc" },
@@ -30,19 +30,20 @@ export default async function SupportPage({
     prisma.conversation.count({ where: { organizationId: organization.id, status: "OPEN" } }),
     prisma.conversation.count({ where: { organizationId: organization.id, channel: "WHATSAPP" } }),
     prisma.conversation.count({ where: { organizationId: organization.id, channel: "CONTACT_FORM" } }),
+    prisma.conversation.count({ where: { organizationId: organization.id, channel: "LIVE_CHAT" } }),
   ]);
 
   const webhookUrl = `${getBaseUrl()}/api/whatsapp/webhook`;
 
   return (
     <div>
-      <PageHeader title="Support" subtitle="WhatsApp and contact-form messages, all in one inbox" />
+      <PageHeader title="Support" subtitle="WhatsApp, contact-form, and live chat messages, all in one inbox" />
 
       {!config && (
         <Card className="p-4 mb-6 max-w-lg">
           <h2 className="text-sm font-semibold text-foreground-950 mb-1">Connect WhatsApp</h2>
           <p className="text-xs text-foreground-500 mb-3">
-            From your Meta Business app's WhatsApp settings. The webhook URL and verify token go in Meta's
+            From your Meta Business app&apos;s WhatsApp settings. The webhook URL and verify token go in Meta&apos;s
             dashboard; the phone number ID and access token go here.
           </p>
           <CopyableField label="Webhook URL (for Meta's dashboard)" value={webhookUrl} monospace />
@@ -74,7 +75,7 @@ export default async function SupportPage({
               className="w-full text-sm border border-background-300 rounded px-2.5 py-1.5 bg-background-50"
             />
             <button className="text-sm bg-primary-500 text-background-50 rounded-md px-3 py-1.5 font-medium hover:bg-primary-600">
-              Save & test connection
+              Save &amp; test connection
             </button>
           </form>
         </Card>
@@ -91,49 +92,34 @@ export default async function SupportPage({
         </div>
       )}
 
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <StatCard label="Open" value={String(openCount)} />
         <StatCard label="WhatsApp" value={String(whatsappCount)} />
         <StatCard label="Contact form" value={String(formCount)} />
+        <StatCard label="Live chat" value={String(liveChatCount)} />
       </div>
 
       <div className="flex items-center gap-2 mb-4">
-        <Link
-          href="/support"
-          className="text-xs border border-background-300 rounded-md px-2.5 py-1 text-foreground-700 hover:bg-background-100"
-        >
-          All
-        </Link>
-        <Link
-          href="/support?channel=whatsapp"
-          className="text-xs border border-background-300 rounded-md px-2.5 py-1 text-foreground-700 hover:bg-background-100"
-        >
-          WhatsApp
-        </Link>
-        <Link
-          href="/support?channel=contact_form"
-          className="text-xs border border-background-300 rounded-md px-2.5 py-1 text-foreground-700 hover:bg-background-100"
-        >
-          Contact form
-        </Link>
-        <Link
-          href="/support?status=closed"
-          className="text-xs border border-background-300 rounded-md px-2.5 py-1 text-foreground-700 hover:bg-background-100"
-        >
-          Closed
-        </Link>
+        <Link href="/support" className="text-xs border border-background-300 rounded-md px-2.5 py-1 text-foreground-700 hover:bg-background-100">All</Link>
+        <Link href="/support?channel=whatsapp" className="text-xs border border-background-300 rounded-md px-2.5 py-1 text-foreground-700 hover:bg-background-100">WhatsApp</Link>
+        <Link href="/support?channel=contact_form" className="text-xs border border-background-300 rounded-md px-2.5 py-1 text-foreground-700 hover:bg-background-100">Contact form</Link>
+        <Link href="/support?channel=live_chat" className="text-xs border border-background-300 rounded-md px-2.5 py-1 text-foreground-700 hover:bg-background-100">Live chat</Link>
+        <Link href="/support?status=closed" className="text-xs border border-background-300 rounded-md px-2.5 py-1 text-foreground-700 hover:bg-background-100">Closed</Link>
       </div>
 
       {conversations.length === 0 ? (
         <EmptyState
           icon="ri-chat-3-line"
           title="No messages yet"
-          body="WhatsApp messages and contact-form submissions will show up here as they come in."
+          body="WhatsApp messages, contact-form submissions, and live chats will show up here as they come in."
         />
       ) : (
         <div className="space-y-2">
           {conversations.map((c) => {
             const preview = c.messages[0]?.body ?? "";
+            const channelLabel = c.channel === "WHATSAPP" ? "WhatsApp" : c.channel === "LIVE_CHAT" ? "Live chat" : "Contact form";
+            const channelStatus = c.channel === "WHATSAPP" ? "connected" : c.channel === "LIVE_CHAT" ? "info" : "pending";
+            const needsReply = c.channel === "LIVE_CHAT" && c.status === "OPEN" && c.messages[0]?.direction === "INBOUND";
             return (
               <Link
                 key={c.id}
@@ -143,12 +129,22 @@ export default async function SupportPage({
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 mb-0.5">
                     <span className="text-sm font-medium text-foreground-950 truncate">
-                      {c.contactName || c.contactEmail || c.contactPhone || "Unknown"}
+                      {c.contactName || c.contactEmail || c.contactPhone || "Visitor"}
                     </span>
-                    <Badge status={c.channel === "WHATSAPP" ? "connected" : "pending"} />
+                    <Badge status={channelStatus as "connected" | "pending"} />
+                    <span className="text-[11px] text-foreground-500">{channelLabel}</span>
                     {c.brand && <span className="text-[11px] text-foreground-500">{c.brand.name}</span>}
+                    {needsReply && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700">
+                        <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
+                        needs reply
+                      </span>
+                    )}
                   </div>
                   {c.subject && <div className="text-xs text-foreground-600 mb-0.5">{c.subject}</div>}
+                  {c.pageUrl && (
+                    <div className="text-[11px] text-foreground-400 mb-0.5 truncate">on: {c.pageUrl}</div>
+                  )}
                   <p className="text-xs text-foreground-500 truncate">{preview}</p>
                 </div>
                 <div className="flex flex-col items-end gap-1 shrink-0">
