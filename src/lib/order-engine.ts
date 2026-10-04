@@ -20,6 +20,11 @@ export function utcDateString(d: Date = new Date()): string {
 const MERCHANT_FEE_PERCENT = 2.9;
 const MERCHANT_FEE_FIXED_CENTS = 30;
 
+// $15 flat-rate shipping; free when the post-discount order total reaches $300.
+// Computed server-side so the browser cannot manipulate the shipping charge.
+const FLAT_SHIPPING_CENTS = 1500;
+const FREE_SHIPPING_THRESHOLD_CENTS = 30000;
+
 export interface CheckoutItemInput {
   slug: string;
   quantity: number;
@@ -54,9 +59,8 @@ export interface CheckoutInput {
   // against the payment rail.
   paymentMethod?: string;
   paymentMemo?: string;
-  // What the customer was charged for shipping at checkout -- kept out of
-  // grossCentsTotal (product-revenue-only, feeds commission/margin math)
-  // and added back on top only for customer-facing totals.
+  // Accepted from the storefront for API compatibility but ignored;
+  // shipping is computed server-side (see FLAT_SHIPPING_CENTS above).
   shippingCents?: number;
   customerNote?: string;
   // evlv-site's checkout sends the customer/shipping address as a flat
@@ -102,6 +106,7 @@ export interface CheckoutResult {
   orderId: string;
   externalOrderNumber: string;
   grossCents: number;
+  shippingCents: number;
   status: string;
 }
 
@@ -123,7 +128,7 @@ export async function runCheckout(
     throw new CheckoutError("Cart is empty", "EMPTY_CART");
   }
 
-  const { result, contactEmail, contactName, resolvedItems, grossCentsTotal } = await prisma.$transaction(async (tx) => {
+  const { result, contactEmail, contactName, resolvedItems, grossCentsTotal, shippingCents } = await prisma.$transaction(async (tx) => {
     const email = input.customerEmail.toLowerCase().trim();
 
     const contact = await tx.contact.upsert({
@@ -282,6 +287,11 @@ export async function runCheckout(
     // a second variable so every existing use below picks it up for free.
     grossCentsTotal = Math.max(0, grossCentsTotal - discountCents);
 
+    // Server-authoritative shipping: $15 flat rate, free when the
+    // post-discount product total reaches $300. Browser-submitted
+    // shippingCents is intentionally ignored to prevent manipulation.
+    const shippingCents = grossCentsTotal >= FREE_SHIPPING_THRESHOLD_CENTS ? 0 : FLAT_SHIPPING_CENTS;
+
     const merchantFeeCents = Math.round((grossCentsTotal * MERCHANT_FEE_PERCENT) / 100) + MERCHANT_FEE_FIXED_CENTS;
     const netProfitCents = grossCentsTotal - cogsCentsTotal - merchantFeeCents - commissionCents;
 
@@ -324,7 +334,7 @@ export async function runCheckout(
         couponId,
         appliedCouponCodes,
         grossCents: grossCentsTotal,
-        shippingCents: input.shippingCents ?? 0,
+        shippingCents,
         netProfitCents,
         paymentMethod: input.paymentMethod,
         paymentMemo: input.paymentMemo,
@@ -363,12 +373,14 @@ export async function runCheckout(
         orderId: order.id,
         externalOrderNumber,
         grossCents: grossCentsTotal,
+        shippingCents,
         status: order.status,
       },
       contactEmail: contact.email,
       contactName: contact.name ?? billingName,
       resolvedItems,
       grossCentsTotal,
+      shippingCents,
     };
   });
 
@@ -381,7 +393,7 @@ export async function runCheckout(
     customerName: contactName || contactEmail,
     items: resolvedItems,
     grossCents: grossCentsTotal,
-    shippingCents: input.shippingCents ?? 0,
+    shippingCents,
     paymentMethod: input.paymentMethod,
     paymentMemo: input.paymentMemo,
   }).catch((err) => console.error("Order confirmation email failed", err));
