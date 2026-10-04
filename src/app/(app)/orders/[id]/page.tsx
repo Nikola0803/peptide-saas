@@ -160,13 +160,21 @@ export default async function OrderDetailPage({ params }: { params: { id: string
                 </>
               )}
               <div className="flex justify-between">
-                <span className="text-foreground-600">Gross</span>
+                <span className="text-foreground-600">Products</span>
                 <span className="font-medium text-foreground-950">{money(order.grossCents)}</span>
+              </div>
+              <div className="flex justify-between text-foreground-600">
+                <span>Shipping</span>
+                <span>{order.shippingCents > 0 ? money(order.shippingCents) : "Free"}</span>
+              </div>
+              <div className="flex justify-between font-semibold pt-1.5 border-t border-background-200">
+                <span className="text-foreground-950">Total charged</span>
+                <span className="text-foreground-950">{money(order.grossCents + order.shippingCents)}</span>
               </div>
             </div>
             {order.netProfitCents != null && (
               <div className="flex justify-between text-sm mt-1">
-                <span className="text-foreground-600">Net profit</span>
+                <span className="text-foreground-600">Net profit (products)</span>
                 <span className="text-foreground-800">{money(order.netProfitCents)}</span>
               </div>
             )}

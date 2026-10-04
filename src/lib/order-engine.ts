@@ -471,6 +471,11 @@ async function sendOrderEmails(organizationId: string, input: OrderEmailInput): 
     await sendTemplate(organizationId, "order_confirmation_office", organization.notifyEmail, vars);
   }
 
+  // Fulfillment team notification — set FULFILLMENT_EMAIL in .env to enable
+  if (process.env.FULFILLMENT_EMAIL) {
+    await sendTemplate(organizationId, "order_confirmation_office", process.env.FULFILLMENT_EMAIL, vars);
+  }
+
   await pushNotifyNewOrder({
     orderNumber: input.orderNumber,
     customerName: input.customerName || input.customerEmail,

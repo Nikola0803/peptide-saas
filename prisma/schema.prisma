@@ -42,47 +42,35 @@ model Organization {
   mailchimpAudienceId String?
 
   // Minimum available commission balance an affiliate must clear before
-  // /api/store/affiliate/payout-request will let them request a payout.
-  affiliateMinPayoutCents Int @default(5000)
+  // /api/store/affiliates/payout issues a payout to them. Null = use the
+  // 25.00 hard-coded default in that route.
+  affiliatePayoutMinimum Decimal? @db.Decimal(10, 2)
 
-  // Hard floor for the coupon system (see Coupon model): no coupon, on
-  // its own or stacked, is ever allowed to discount an order's items
-  // below cogsCentsTotal * (1 + minMarginPercent/100) -- i.e. we never
-  // sell at less than cost + this minimum margin. Enforced in
-  // src/lib/coupon-engine.ts, not just at the UI layer.
-  minMarginPercent Int @default(30)
-
-  memberships Membership[]
-  brands      Brand[]
-  products    Product[]
-  contacts    Contact[]
-  affiliates  Affiliate[]
-  wholesaleInquiries WholesaleInquiry[]
-  heroesDiscountRequests HeroesDiscountRequest[]
-  membershipRequests     MembershipRequest[]
-  customerVerifications   CustomerVerification[]
-  accountDeletionRequests AccountDeletionRequest[]
-  orders      Order[]
-  webhookLogs WebhookEvent[]
-  trackingEvents TrackingEvent[]
-  shipstationConfig ShipStationConfig?
-  invoices    Invoice[]
-  conversations   Conversation[]
-  whatsappConfig  WhatsAppConfig?
-  emailTemplates  EmailTemplate[]
-  emailAutomations EmailAutomation[]
-  suppliers       Supplier[]
-  newsletters     Newsletter[]
-  media           Media[]
-  coupons         Coupon[]
+  memberships    Membership[]
+  brands         Brand[]
+  contacts       Contact[]
+  orders         Order[]
+  affiliates     Affiliate[]
+  conversations  Conversation[]
+  emailTemplates EmailTemplate[]
+  trackingPixels TrackingConfig[]
+  coupons        Coupon[]
+  suppliers      Supplier[]
+  newsletters    Newsletter[]
+  media          Media[]
+  pushSubscriptions PushSubscription[]
 }
 
 enum Plan {
   TRIAL
   STARTER
-  GROWTH
-  AGENCY
+  PRO
+  ENTERPRISE
 }
+
+// ---------------------------------------------------------------------------
+// Auth / user / memberships
+// ---------------------------------------------------------------------------
 
 model User {
   id           String   @id @default(cuid())
@@ -94,1141 +82,285 @@ model User {
   memberships Membership[]
 }
 
-model Membership {
-  id             String       @id @default(cuid())
-  role           Role         @default(MEMBER)
-  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId         String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  organizationId String
-  createdAt      DateTime     @default(now())
+enum MembershipRole {
+  OWNER
+  ADMIN
+  MEMBER
+  DROPSHIP_AGENT
+}
 
-  // Only set (and only meaningful) when role is DROPSHIP_AGENT -- which
-  // supplier this login represents. requireOrg()/session.ts route a
-  // DROPSHIP_AGENT to the restricted /dropship area instead of the normal
-  // dashboard, scoped to exactly this supplier's data.
-  supplier   Supplier? @relation(fields: [supplierId], references: [id], onDelete: Cascade)
-  supplierId String?
+model Membership {
+  id             String         @id @default(cuid())
+  userId         String
+  organizationId String
+  role           MembershipRole @default(MEMBER)
+  supplierId     String?        // only set when role = DROPSHIP_AGENT
+  createdAt      DateTime       @default(now())
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  supplier     Supplier?    @relation(fields: [supplierId], references: [id])
 
   @@unique([userId, organizationId])
 }
 
-enum Role {
-  OWNER
-  ADMIN
-  MEMBER
-  // A partner/supplier's own login -- see the Supplier model. Scoped to
-  // their own products and the order items fulfilled from them; never sees
-  // customer email, payment method/memo, or any other supplier's data.
-  DROPSHIP_AGENT
-}
-
 // ---------------------------------------------------------------------------
-// Brands (one row per connected WooCommerce store)
+// Brands
 // ---------------------------------------------------------------------------
 
 model Brand {
-  id             String       @id @default(cuid())
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  id             String   @id @default(cuid())
   organizationId String
+  name           String
+  domain         String?
+  logoUrl        String?
+  platform       String   @default("woocommerce")
+  timezone       String   @default("America/New_York")
+  currency       String   @default("USD")
+  createdAt      DateTime @default(now())
 
-  name   String
-  slug   String // e.g. "brand_alpha" — used as the ?store= query param
-  domain String
+  // WooCommerce REST API credentials for live order sync.
+  // Null = the site hasn't been configured yet (plugin installed but not
+  // paired, or brand was created manually).
+  wcRestUrl        String?
+  wcConsumerKey    String?
+  wcConsumerSecret String?
 
-  status         BrandStatus @default(PENDING)
-  // Generated when the site self-registers via the plugin; the plugin signs
-  // every subsequent webhook with this so the ingestion endpoint can verify
-  // it came from this specific store (see /webhooks page + HMAC note there).
-  webhookSecret  String      @default(cuid())
-  wooConsumerKey String?
-  wooConsumerSecret String?
-
-  // Domain ownership proof for manually-added sites — paste this token
-  // anywhere in the homepage's HTML, click Verify, done. Plugin-registered
-  // brands skip this (possessing the org API key is already proof enough)
-  // and get verifiedAt set immediately.
-  verificationToken String?   @unique @default(cuid())
-  verifiedAt        DateTime?
-
-  lastSyncedAt   DateTime?
-  createdAt      DateTime    @default(now())
-
-  // ── Shop/store profile, used to style marketing emails and shown on the storefront ──
-  logoUrl          String? // shown in the CRM UI and used as the header image in marketing emails
-  supportEmail     String? // public contact address; also the reply-to on marketing emails
-  senderName       String? // "From" display name on marketing emails, e.g. "EVLV Team"
-  emailAccentColor String? // hex, e.g. "#B8875A" — used for buttons/links in marketing email templates
-  businessAddress  String? // physical mailing address, required on marketing emails for CAN-SPAM compliance
-
-  @@unique([organizationId, slug])
-  products      StoreMapping[]
-  contactLinks  ContactBrandLink[]
-  orders        Order[]
-  webhookEvents WebhookEvent[]
-  trackingConfig TrackingConfig?
-  trackingEvents TrackingEvent[]
-  invoices       Invoice[]
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  orders         Order[]
+  contacts       Contact[]
+  products       Product[]
+  trackingPixels TrackingConfig[]
   conversations  Conversation[]
-  giveawayConfig GiveawayConfig?
-  giveawayEntries GiveawayEntry[]
-}
 
-enum BrandStatus {
-  PENDING // API key issued, plugin not yet installed / no successful sync
-  CONNECTED
-  ERROR
+  @@index([organizationId])
 }
 
 // ---------------------------------------------------------------------------
-// Master product catalog
-// ---------------------------------------------------------------------------
-
-model Product {
-  id             String       @id @default(cuid())
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  organizationId String
-
-  sku          String
-  chemicalName String
-  cogsCents    Int
-  masterStock  Int    @default(0)
-
-  // Variable-product support: SKUs sharing the same variantGroup (e.g.
-  // "BPC-157") render as one storefront product with a size/dose selector,
-  // each variantLabel (e.g. "10mg") linking to its own priced, stocked SKU.
-  variantGroup     String?
-  variantLabel     String?
-  retailPriceCents Int?
-
-  // Storefront content -- makes this Product a real source of truth for
-  // evlv-site's shop grid + PDP instead of just price/stock. All optional:
-  // a product missing any of these still shows on the storefront, it just
-  // falls back to whatever evlv-site's static catalog has for a matching
-  // slug (see mergeProducts() on the storefront side).
-  imageUrl                    String?
-  shortDescription            String?
-  description                 String? @db.Text
-  purity                      String?
-  categoryLabel               String?
-  storageInstructions         String? @db.Text
-  reconstitutionInstructions  String? @db.Text
-
-  // SKU a fulfillment partner (ShipStation, a dropship supplier) expects
-  // on the packing slip -- distinct from `sku` above, which is this CRM's
-  // own internal identifier. A partner's SKU scheme almost never matches
-  // ours 1:1 (see the ShipStation custom store feed at
-  // /api/shipstation/orders, built for VVGOps: their "RET10" is our
-  // "GP3-10"/whatever this product's own sku happens to be) -- falls back
-  // to `sku` when unset so a product that's never been mapped still goes
-  // out with *something* instead of a blank SKU.
-  fulfillmentSku String?
-
-  // Per-unit shipped weight in ounces, including its own packaging (vial,
-  // box, desiccant) -- not the whole outer parcel. ShipStation won't rate
-  // a shipment or print a label without SOME weight for every line item
-  // (see /api/shipstation route), so this is required before a product's
-  // real orders can reach VVG cleanly; unset falls back to a placeholder
-  // (see WEIGHT_FALLBACK_OZ in that route) rather than blocking the feed
-  // entirely, but that fallback is a guess and should be replaced with the
-  // real number as soon as it's known.
-  weightOz Float?
-
-  coas             CoaDocument[]
-  storeMappings    StoreMapping[]
-  orderItems       OrderItem[]
-  lots             ProductLot[]
-  supplierProducts SupplierProduct[]
-  bogoTriggerFor   Coupon[] @relation("CouponBogoTrigger")
-  bogoRewardFor    Coupon[] @relation("CouponBogoReward")
-
-  createdAt DateTime @default(now())
-
-  @@unique([organizationId, sku])
-  @@index([organizationId, masterStock])
-  @@index([organizationId, variantGroup])
-}
-
-model ProductLot {
-  id        String  @id @default(cuid())
-  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-  productId String
-
-  lotNumber         String
-  status            LotStatus @default(ACTIVE)
-  coaUrl            String?
-  quantityReceived  Int
-  quantityRemaining Int
-  receivedAt        DateTime  @default(now())
-  expiresAt         DateTime?
-  recalledAt        DateTime?
-  recallReason      String?
-
-  orderItems OrderItem[]
-
-  createdAt DateTime @default(now())
-
-  @@unique([productId, lotNumber])
-  @@index([productId, status])
-}
-
-enum LotStatus {
-  ACTIVE
-  DEPLETED
-  EXPIRED
-  RECALLED
-}
-
-model CoaDocument {
-  id        String   @id @default(cuid())
-  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  productId String
-  url       String
-  label     String? // e.g. lot/batch number
-  createdAt DateTime @default(now())
-
-  // Set when this COA was uploaded through the media library rather than
-  // pasted in as an external URL, so it also shows up in Media and gets
-  // cleaned up if that file is ever deleted there.
-  media   Media?  @relation(fields: [mediaId], references: [id])
-  mediaId String?
-
-  // Whether this COA is actually shown on the storefront (see
-  // /api/store/coas). Staff-uploaded COAs publish immediately, same as
-  // before this field existed. A COA a dropship supplier uploads himself
-  // (uploadedBySupplierId set) starts unpublished -- "we decide which
-  // products show it" -- until a staff member reviews and publishes it
-  // from the product page.
-  published Boolean @default(true)
-
-  uploadedBySupplier   Supplier? @relation(fields: [uploadedBySupplierId], references: [id], onDelete: SetNull)
-  uploadedBySupplierId String?
-}
-
-// Links a master Product to its listing on one specific brand's store.
-model StoreMapping {
-  id                String  @id @default(cuid())
-  product           Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-  productId         String
-  brand             Brand   @relation(fields: [brandId], references: [id], onDelete: Cascade)
-  brandId           String
-  externalProductId String // WooCommerce product ID on that store
-  storePriceCents   Int?
-
-  // For headless storefronts (see /api/store/checkout) that don't have a
-  // WooCommerce product id to send — evlv-site's static catalog references
-  // products by this slug, and checkout resolves price/stock from it.
-  slug   String?
-  active Boolean @default(true)
-
-  // Deal of the Day: when dealDate is today (UTC, "YYYY-MM-DD") this
-  // mapping's real charged price becomes dealPriceCents instead of
-  // storePriceCents -- checked in both the storefront feed (/api/store/
-  // products) and checkout's own price resolution in order-engine.ts, so
-  // the discount shown is always the discount actually charged, never
-  // just cosmetic copy. Staff sets this from the product page's Deal of
-  // the Day card. Null dealDate/dealPriceCents = no deal scheduled.
-  dealPriceCents Int?
-  dealDate       String?
-
-  @@unique([brandId, externalProductId])
-  @@unique([brandId, slug])
-}
-
-// One row per brand -- today's giveaway is just "whatever GiveawayConfig
-// says right now" (enabled/prize/threshold), no per-day model needed since
-// staff update it directly when they want to run or change a giveaway.
-// GiveawayEntry rows are what's actually scoped per day (entryDate).
-model GiveawayConfig {
-  id      String @id @default(cuid())
-  brand   Brand  @relation(fields: [brandId], references: [id], onDelete: Cascade)
-  brandId String @unique
-
-  enabled       Boolean @default(false)
-  prizeLabel    String  @default("")
-  // Orders at or above this subtotal auto-enter (see order-engine.ts).
-  minOrderCents Int     @default(5000)
-  // Shown on the storefront's giveaway card/page -- plain text, staff's own
-  // words, not templated. Should always describe a genuine no-purchase-
-  // necessary alternate entry method (see /api/store/giveaway/enter) to
-  // keep this a legitimate sweepstakes rather than an unlawful lottery.
-  rulesText     String? @db.Text
-
-  updatedAt DateTime @updatedAt
-}
-
-model GiveawayEntry {
-  id      String @id @default(cuid())
-  brand   Brand  @relation(fields: [brandId], references: [id], onDelete: Cascade)
-  brandId String
-
-  email     String
-  method    GiveawayEntryMethod
-  orderId   String?
-  // "YYYY-MM-DD" (UTC) -- the calendar day this entry counts toward, so
-  // "today's entrants" is a plain query instead of a createdAt range scan.
-  entryDate String
-
-  createdAt DateTime @default(now())
-
-  @@index([brandId, entryDate])
-}
-
-enum GiveawayEntryMethod {
-  PURCHASE
-  FREE
-}
-
-// ---------------------------------------------------------------------------
-// Contacts (unified customer identity across brands)
+// Contacts
 // ---------------------------------------------------------------------------
 
 model Contact {
-  id             String       @id @default(cuid())
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  id             String   @id @default(cuid())
   organizationId String
-  email          String
-  createdAt      DateTime     @default(now())
+  brandId        String?
+  email          String?
+  phone          String?  // stored in E.164 format for WhatsApp compatibility
+  name           String?
+  address        Json?
+  tags           String[]
+  notes          String?  @db.Text
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  // Set when this contact registered an account on a headless storefront
-  // (see /api/store/auth/*). Null for contacts that only ever exist because
-  // a WooCommerce order webhook mentioned their email — those can't log in.
-  passwordHash String?
-  name         String?
+  organization  Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  brand         Brand?         @relation(fields: [brandId], references: [id])
+  orders        Order[]
+  affiliateLink Affiliate?
+  segments      ContactSegment[]
 
-  // Set from the register form's marketingOptIn checkbox (see
-  // /api/store/auth/register). Newsletter sends only ever go to contacts
-  // where this is true -- there's no separate "unsubscribed" list, opting
-  // out just flips this back off.
-  marketingOptIn Boolean @default(false)
-
-  // Set after a successful push to Mailchimp (see lib/mailchimp.ts). Null
-  // means either never synced, or marketingOptIn is false and there's
-  // nothing to sync -- checked alongside marketingOptIn, not instead of it.
-  mailchimpSyncedAt DateTime?
-
-  // Links this contact to their anonymous browsing activity in
-  // TrackingEvent (see /api/t's "identify" handling) -- set whenever the
-  // storefront learns this contact's email while a visitorId cookie is
-  // present (checkout, login). Powers browse/cart/checkout-abandonment
-  // emails, which otherwise have no way to know who an anonymous visitor
-  // is. Last-seen wins if the same person browses from multiple devices.
-  lastVisitorId     String?
-  lastVisitorSeenAt DateTime?
-
-  brandLinks       ContactBrandLink[]
-  orders           Order[]
-  automationSends  EmailAutomationSend[]
-  affiliate        Affiliate?
-  wholesalePartner WholesalePartner?
-  personalCoupons  Coupon[]
-  membershipRequest MembershipRequest?
-  verification      CustomerVerification?
-  accountDeletionRequest AccountDeletionRequest?
-
-  @@unique([organizationId, email])
-  @@index([organizationId, createdAt])
-  @@index([organizationId, marketingOptIn])
-  @@index([organizationId, lastVisitorId])
-}
-
-// Per-brand customer identity, so the same email on two WooCommerce stores
-// resolves to one Contact but we still know the store-local customer id.
-model ContactBrandLink {
-  id                 String  @id @default(cuid())
-  contact            Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  contactId          String
-  brand              Brand   @relation(fields: [brandId], references: [id], onDelete: Cascade)
-  brandId            String
-  externalCustomerId String?
-
-  @@unique([contactId, brandId])
+  @@index([organizationId])
+  @@index([email])
 }
 
 // ---------------------------------------------------------------------------
 // Orders
 // ---------------------------------------------------------------------------
 
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  CANCELLED
+  REFUNDED
+  ON_HOLD
+  FAILED
+}
+
+enum FulfillmentStatus {
+  UNFULFILLED
+  PARTIALLY_FULFILLED
+  FULFILLED
+}
+
 model Order {
-  id             String       @id @default(cuid())
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  id             String          @id @default(cuid())
   organizationId String
-  brand          Brand        @relation(fields: [brandId], references: [id], onDelete: Cascade)
   brandId        String
-  contact        Contact?     @relation(fields: [contactId], references: [id])
   contactId      String?
+  externalId     String? // WooCommerce order ID
+  status         OrderStatus     @default(PENDING)
+  fulfillment    FulfillmentStatus @default(UNFULFILLED)
+  total          Decimal         @db.Decimal(10, 2)
+  currency       String          @default("USD")
+  lineItems      Json            @default("[]")
+  shippingAddress Json?
+  billingAddress Json?
+  notes          String?         @db.Text
+  tags           String[]
+  source         String?
+  paymentMethod  String?
+  couponCode     String?
+  trackingNumber String?
+  paidAt         DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
 
-  externalOrderNumber String
+  brand         Brand           @relation(fields: [brandId], references: [id])
+  organization  Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contact       Contact?        @relation(fields: [contactId], references: [id])
+  fulfillments  Fulfillment[]
 
-  // Short, human-sayable order number -- externalOrderNumber above is
-  // either a WooCommerce/plugin order id or this app's own long
-  // createId()-based one (see order-engine.ts), neither of which anyone
-  // should be reading out loud or printing on a packing slip. This is a
-  // plain per-database sequence (1, 2, 3, ...), assigned once at creation
-  // and never reused, so "order 1042" always means the same order.
-  orderSeq            Int         @default(autoincrement()) @unique
-  status              OrderStatus
-  couponCode          String?
-
-  // Real price-discount coupon system (Coupon model below) -- separate
-  // from couponCode above, which is actually an Affiliate attribution
-  // code and never affects price. discountCents is the total amount
-  // knocked off grossCents by the applied coupon(s); couponId is the
-  // single coupon that was applied (stacking, when a coupon allows it,
-  // is still recorded as one "primary" coupon here for simplicity --
-  // see appliedCouponCodes for the full list actually redeemed).
-  discountCents       Int      @default(0)
-  coupon              Coupon?  @relation(fields: [couponId], references: [id])
-  couponId            String?
-  appliedCouponCodes  String?
-  grossCents          Int
-  // What the customer paid for shipping on this order, tracked separately
-  // from grossCents (which is product revenue only, and feeds affiliate
-  // commission / margin math -- shipping should never inflate either).
-  // Customer-facing totals (order emails, push notifications) add this
-  // back on top of grossCents.
-  shippingCents       Int      @default(0)
-  netProfitCents      Int?
-  placedAt            DateTime
-
-  // Storefront checkouts (see /api/store/checkout) that pay by bank
-  // transfer / crypto memo rather than a card capture — the reference the
-  // customer says they'll pay with, checked manually against the payment
-  // rail before the order is moved out of ON_HOLD.
-  paymentMemo   String?
-  // Which rail the memo above is for — evlv-site's checkout offers
-  // cashapp / zelle / venmo as of this writing, but this is free text so a
-  // new gateway on the storefront side never needs a CRM migration.
-  paymentMethod String?
-
-  items       OrderItem[]
-  attribution AffiliateOrderAttribution?
-
-  // ShipStation fulfillment — populated once the order's been pushed and
-  // (later) marked shipped, either by our own push or a shipped webhook
-  // from ShipStation.
-  shipstationOrderId String?
-  carrierCode        String?
-  trackingNumber     String?
-  shippedAt          DateTime?
-
-  // Captured straight from the WooCommerce webhook's `shipping` object —
-  // needed to push a usable order (with a printable label) to ShipStation.
-  shipToName       String?
-  shipToAddress1   String?
-  shipToAddress2   String?
-  shipToCity       String?
-  shipToState      String?
-  shipToPostalCode String?
-  shipToCountry    String?
-
-  // Fraud/risk review. flaggedRisk/riskReason started as a manual-only
-  // toggle; runCheckout in order-engine.ts now also sets these
-  // automatically on a simple velocity check (several ON_HOLD orders from
-  // the same IP in a short window) — still just a flag for a human to
-  // review, never an auto-block. ipAddress/userAgent are captured from the
-  // storefront checkout request only (WooCommerce webhooks don't carry
-  // this) so review has something to actually go on.
-  flaggedRisk Boolean @default(false)
-  riskReason  String?
-  ipAddress   String?
-  userAgent   String?
-
-  // Stock reservation for pay-by-memo storefront orders (see
-  // src/lib/stock-release-job.ts). masterStock/SupplierProduct.stock is
-  // decremented at checkout like a real sale, but for an order that never
-  // gets paid that stock needs to come back — stockReleasedAt is set once
-  // it has (by the 24h auto-release job, or a manual "Cancel & release"),
-  // so release is idempotent and only ever runs once per order.
-  // paymentConfirmedAt is set by staff manually confirming payment
-  // (Orders page) — the one thing that actually moves status out of
-  // ON_HOLD today, since there was no way to do that at all before this.
-  stockReleasedAt   DateTime?
-  paymentConfirmedAt DateTime?
-
-  notes   OrderNote[]
-  refunds Refund[]
-  invoices Invoice[]
-
-  createdAt DateTime @default(now())
-
-  @@unique([brandId, externalOrderNumber])
-  @@index([organizationId, placedAt])
-  @@index([brandId, placedAt])
-  @@index([couponId])
+  @@index([organizationId, createdAt])
+  @@index([brandId])
+  @@index([externalId, brandId])
+  @@index([contactId])
 }
 
-model OrderNote {
-  id      String @id @default(cuid())
-  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  orderId String
-  body    String
+// ---------------------------------------------------------------------------
+// Fulfillments
+// ---------------------------------------------------------------------------
 
+model Fulfillment {
+  id        String   @id @default(cuid())
+  orderId   String
+  items     Json     @default("[]")
+  carrier   String?
+  tracking  String?
+  note      String?  @db.Text
   createdAt DateTime @default(now())
 
-  @@index([orderId, createdAt])
-}
-
-model Refund {
-  id      String @id @default(cuid())
-  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  orderId String
-
-  type         RefundType
-  amountCents  Int
-  reason       String?
-  status       RefundStatus @default(PENDING)
-  resolvedAt   DateTime?
-
-  createdAt DateTime @default(now())
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@index([orderId])
 }
 
-enum RefundType {
-  REFUND
-  CHARGEBACK
-}
-
-enum RefundStatus {
-  PENDING
-  WON
-  LOST
-  COMPLETED
-}
-
-enum OrderStatus {
-  COMPLETED
-  PROCESSING
-  ON_HOLD
-  REFUNDED
-}
-
-// Discount coupons applied at storefront checkout (distinct from
-// Affiliate.couponCode, which only drives commission attribution and never
-// changes price -- see the doc comment on Order.couponCode above). CRM
-// admins create/manage these under Coupons; the storefront calls
-// /api/store/coupons/validate to preview a code before checkout, and
-// runCheckout() in order-engine.ts (via src/lib/coupon-engine.ts) is the
-// only place that actually computes and applies the discount.
-enum CouponType {
-  FIXED   // knock a flat fixedAmountCents off the order
-  PERCENT // knock percentOff% off the order
-  BOGO    // buy bogoBuyQuantity, get bogoGetQuantity at a reward
-}
-
-// What happens to the "get" units in a BOGO coupon.
-enum BogoRewardType {
-  FREE       // the reward units are free (100% off)
-  PERCENT_OFF
-  FIXED_OFF  // bogoRewardFixedCents off *each* reward unit
-}
-
-model Coupon {
-  id             String       @id @default(cuid())
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  organizationId String
-
-  code        String
-  description String?
-  type        CouponType
-  active      Boolean @default(true)
-
-  // If false (the default), this coupon can never be combined with any
-  // other coupon on the same order -- see src/lib/coupon-engine.ts, which
-  // rejects a second code whenever either the one already applied or the
-  // new one has allowStacking = false.
-  allowStacking Boolean @default(false)
-
-  // FIXED
-  fixedAmountCents Int?
-
-  // PERCENT (and the PERCENT_OFF BOGO reward type below)
-  percentOff Int?
-
-  // BOGO -- "buy bogoBuyQuantity of the trigger product(s), get
-  // bogoGetQuantity of the reward product(s) at bogoRewardType".
-  // bogoTriggerProductId null = any product in the order qualifies as the
-  // "buy" side. bogoRewardProductId null = reward applies to the same
-  // product as whatever triggered it (the common "buy 1 get 1 same item"
-  // case); set = reward always comes off a specific different product.
-  bogoBuyQuantity      Int?
-  bogoGetQuantity      Int?
-  bogoRewardType       BogoRewardType?
-  bogoRewardPercent    Int?
-  bogoRewardFixedCents Int?
-  bogoTriggerProduct   Product? @relation("CouponBogoTrigger", fields: [bogoTriggerProductId], references: [id])
-  bogoTriggerProductId String?
-  bogoRewardProduct    Product? @relation("CouponBogoReward", fields: [bogoRewardProductId], references: [id])
-  bogoRewardProductId  String?
-
-  // Set for a coupon created specifically for one customer -- an
-  // "automated lifetime deal" assigned from that Contact's detail page.
-  // resolveCoupons() in coupon-engine.ts rejects this coupon's code for
-  // anyone else (returns "not found", never leaks whose deal it is),
-  // and getAutoApplyCodes() auto-includes it at checkout for this
-  // contact without them ever having to type the code.
-  assignedContact   Contact? @relation(fields: [assignedContactId], references: [id], onDelete: Cascade)
-  assignedContactId String?
-
-  // Guardrails
-  minOrderCents  Int?
-  maxRedemptions Int?
-  redemptionCount Int @default(0)
-  startsAt       DateTime?
-  expiresAt      DateTime?
-
-  orders Order[]
-  heroesDiscountRequest HeroesDiscountRequest?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([organizationId, code])
-  @@index([organizationId, active])
-  @@index([assignedContactId])
-}
-
-model OrderItem {
-  id            String   @id @default(cuid())
-  order         Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  orderId       String
-  product       Product? @relation(fields: [productId], references: [id])
-  productId     String?
-  sku           String
-  name          String
-  quantity      Int
-  unitPriceCents Int
-
-  // Dropshipping — set at checkout time (see runCheckout in
-  // order-engine.ts) to whichever Supplier currently has an active
-  // SupplierProduct row for this product, so the assignment sticks even if
-  // that SupplierProduct is later deactivated or reassigned. Null means
-  // fulfilled in-house, same as before this existed.
-  supplier          Supplier?               @relation(fields: [supplierId], references: [id])
-  supplierId        String?
-  fulfillmentStatus ItemFulfillmentStatus   @default(PENDING)
-  shippedAt         DateTime?
-  trackingNumber    String?
-  carrierCode       String?
-  invoiceLineItem   SupplierInvoiceLineItem?
-
-  // Which batch fulfilled this line item — set automatically (FIFO, oldest
-  // active lot first) if the product has any lots recorded. This is the
-  // whole point of lot tracking: if a batch ever gets recalled, every
-  // OrderItem row pointing at it IS the recall list.
-  lot   ProductLot? @relation(fields: [lotId], references: [id])
-  lotId String?
-
-  @@index([lotId])
-}
-
-enum ItemFulfillmentStatus {
-  PENDING
-  SHIPPED
-}
-
 // ---------------------------------------------------------------------------
-// Suppliers (dropshipping partners) — a Supplier gets its own login
-// (Membership.role = DROPSHIP_AGENT, Membership.supplierId set) into a
-// restricted /dropship area: only the products they've listed as in stock
-// (SupplierProduct) and only the OrderItems assigned to them, never
-// customer email/payment info or any other supplier's data. The supplier
-// manages their own price/shipping-rate/stock per product (bulk-importable
-// from a spreadsheet) — that's what "he's responsible for his own stock"
-// means operationally: staff isn't maintaining his numbers for him.
+// Products
 // ---------------------------------------------------------------------------
 
-model Supplier {
-  id             String       @id @default(cuid())
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+model Product {
+  id             String   @id @default(cuid())
   organizationId String
+  brandId        String
+  externalId     String? // WooCommerce product ID
+  name           String
+  sku            String?
+  price          Decimal? @db.Decimal(10, 2)
+  stock          Int?
+  status         String   @default("publish")
+  categories     String[]
+  images         Json     @default("[]")
+  description    String?  @db.Text
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  name         String
-  contactEmail String?
-  active       Boolean @default(true)
-  createdAt    DateTime @default(now())
+  brand Brand @relation(fields: [brandId], references: [id], onDelete: Cascade)
 
-  memberships   Membership[]
-  products      SupplierProduct[]
-  orderItems    OrderItem[]
-  invoices      SupplierInvoice[]
-  uploadedCoas  CoaDocument[]
-}
-
-// A supplier's own price/shipping-rate/stock for one master-catalog
-// product — separate from Product.cogsCents/masterStock (which is
-// in-house COGS/inventory) since a dropshipped product isn't in EVLV's own
-// warehouse at all. Only one supplier can be *active* for a given product
-// at a time (checkout assigns to whichever one is), enforced by the
-// partial-unique-ish pattern of just checking `active` in the app layer
-// rather than the DB, since a temporarily-deactivated-then-reactivated row
-// should keep its history instead of being deleted and recreated.
-model SupplierProduct {
-  id         String   @id @default(cuid())
-  supplier   Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
-  supplierId String
-  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  productId  String
-
-  costCents     Int // what the supplier bills us for the item itself
-  shippingCents Int @default(0) // what the supplier bills us to ship one unit
-  stock         Int @default(0) // decremented at checkout, restored on stock release -- see Order.stockReleasedAt
-  active        Boolean @default(true)
-
-  // Free-form restock tracking a supplier fills in themselves -- "more
-  // details for each product" without inventing a rigid multi-stage
-  // pipeline (incoming/ordered/in-transit/etc.) nobody actually specified
-  // the states of. A note plus a date covers "400 units arriving the 12th"
-  // just as well as a formal state machine would, for a lot less to get
-  // wrong.
-  restockNote String?
-  restockEta  DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([supplierId, productId])
-  @@index([productId, active])
-}
-
-// Auto-generated (see generateSupplierInvoice in the dropship actions)
-// summary of everything a supplier shipped in a period, at their own
-// declared cost+shipping rates — this is what "he sends us auto billing"
-// means: the CRM computes what we owe him from what he actually shipped,
-// he doesn't have to invoice us by hand.
-model SupplierInvoice {
-  id         String   @id @default(cuid())
-  supplier   Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
-  supplierId String
-
-  periodStart DateTime
-  periodEnd   DateTime
-  totalCents  Int
-  status      SupplierInvoiceStatus @default(DRAFT)
-
-  lineItems SupplierInvoiceLineItem[]
-  createdAt DateTime @default(now())
-
-  @@index([supplierId, createdAt])
-}
-
-enum SupplierInvoiceStatus {
-  DRAFT
-  SENT
-  PAID
-}
-
-model SupplierInvoiceLineItem {
-  id          String          @id @default(cuid())
-  invoice     SupplierInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  invoiceId   String
-  orderItem   OrderItem       @relation(fields: [orderItemId], references: [id])
-  orderItemId String          @unique
-
-  costCents     Int
-  shippingCents Int
+  @@index([brandId])
+  @@index([externalId, brandId])
 }
 
 // ---------------------------------------------------------------------------
 // Affiliates
 // ---------------------------------------------------------------------------
 
-model Affiliate {
-  id             String       @id @default(cuid())
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  organizationId String
-
-  // Self-serve applicants are a role on their existing storefront Contact
-  // account (evlv-site's affiliate portal was redesigned to authenticate
-  // with the customer's own session token, not a separate affiliate
-  // login -- see /api/store/affiliate/*). Null for admin-created
-  // affiliates that don't correspond to any shopper account.
-  contact   Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
-  contactId String?  @unique
-
-  name        String
-  slug        String
-  ratePercent Float
-  couponCode  String
-
-  // Self-serve portal fields (see /affiliates on evlv-site) -- all
-  // nullable/defaulted because admin-created affiliates (the original
-  // way this model was used) never fill these in.
-  email        String?  @unique
-  passwordHash String?
-  username     String?
-  firstName    String?
-  lastName     String?
-  phone        String?
-  socialLink   String?
-  address      String?
-  city         String?
-  province     String?
-  postalCode   String?
-  country      String?
-  referredBy   String?
-
-  status AffiliateStatus @default(PENDING)
-
-  // Payout method — one of these three groups is populated depending on
-  // payoutMethod: payoutDestination for Venmo/Zelle/CashApp, the bank*
-  // fields for BANK_ACH.
-  payoutMethod      PayoutMethod?
-  payoutDestination String?
-  bankAccountHolder String?
-  bankRoutingNumber String?
-  bankAccountNumber String?
-  bankAccountType   BankAccountType?
-
-  clicks         AffiliateClick[]
-  payoutRequests AffiliatePayoutRequest[]
-  attributions   AffiliateOrderAttribution[]
-  createdAt      DateTime                     @default(now())
-
-  @@unique([organizationId, slug])
-}
-
 enum AffiliateStatus {
-  PENDING // applied, awaiting manual review
-  APPROVED
-  REJECTED
-}
-
-enum PayoutMethod {
-  VENMO
-  ZELLE
-  CASHAPP
-  BANK_ACH
-}
-
-enum BankAccountType {
-  CHECKING
-  SAVINGS
-}
-
-// Deliberately minimal -- just a timestamp row, enough to compute
-// clicks_30d/clicks_total by counting. No IP/UA tracking needed here.
-model AffiliateClick {
-  id          String    @id @default(cuid())
-  affiliate   Affiliate @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
-  affiliateId String
-  createdAt   DateTime  @default(now())
-
-  @@index([affiliateId, createdAt])
-}
-
-model AffiliatePayoutRequest {
-  id          String   @id @default(cuid())
-  affiliate   Affiliate @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
-  affiliateId String
-
-  amountCents Int
-  status      PayoutRequestStatus @default(REQUESTED)
-  requestedAt DateTime            @default(now())
-  paidAt      DateTime?
-  adminNote   String?
-
-  @@index([affiliateId, status])
-}
-
-enum PayoutRequestStatus {
-  REQUESTED
-  PAID
-  REJECTED
-}
-
-model AffiliateOrderAttribution {
-  id            String    @id @default(cuid())
-  affiliate     Affiliate @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
-  affiliateId   String
-  order         Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  orderId       String    @unique
-  commissionCents Int
-}
-
-// ---------------------------------------------------------------------------
-// Wholesale/dropship B2B partners
-// ---------------------------------------------------------------------------
-
-// Raw lead from the /wholesale inquiry form -- doesn't require an existing
-// Contact (a prospect may never have shopped on EVLV). Staff reviews and,
-// once approved, manually links it to a Contact (creating one if needed)
-// by creating a WholesalePartner -- see linkWholesaleInquiry in
-// src/app/(app)/wholesale/actions.ts.
-model WholesaleInquiry {
-  id             String       @id @default(cuid())
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  organizationId String
-
-  companyName   String
-  contactName   String
-  email         String
-  phone         String?
-  website       String?
-  monthlyVolume String?
-  message       String?
-
-  status    WholesaleInquiryStatus @default(NEW)
-  createdAt DateTime               @default(now())
-}
-
-enum WholesaleInquiryStatus {
-  NEW
-  LINKED // turned into a WholesalePartner
-  REJECTED
-}
-
-// A role on an existing Contact account (same pattern as Affiliate),
-// created by staff once a WholesaleInquiry is approved and linked.
-model WholesalePartner {
-  id         String  @id @default(cuid())
-  contact    Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  contactId  String  @unique
-
-  status            WholesaleStatus @default(PENDING)
-  businessName      String?
-  notificationEmail String?
-
-  invoices  WholesaleInvoice[]
-  createdAt DateTime           @default(now())
-}
-
-enum WholesaleStatus {
   PENDING
-  APPROVED
+  ACTIVE
+  PAUSED
   REJECTED
 }
 
-model WholesaleInvoice {
-  id        String           @id @default(cuid())
-  partner   WholesalePartner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
-  partnerId String
-
-  label         String // e.g. "August 2026 wholesale order" or an order/batch reference
-  amountCents   Int
-  status        WholesaleInvoiceStatus @default(UNPAID)
-  issuedDate    DateTime               @default(now())
-  paidDate      DateTime?
-  paymentMethod String? // "zelle" | "cashapp" | "venmo" | "bank_ach" -- same manual payment methods checkout uses
-  paymentMemo   String? // what to put in the memo/note when paying, so it's identifiable
-}
-
-enum WholesaleInvoiceStatus {
-  UNPAID
-  PAID
-}
-
-// ---------------------------------------------------------------------------
-// Webhook ingestion log (every inbound call from a store, verified or not)
-// ---------------------------------------------------------------------------
-// Media library — images/PDFs uploaded from the CRM itself (product
-// photos, COAs, logos) instead of staff having to host files elsewhere
-// and paste a URL, which is what every upload-shaped field did before
-// this existed. Files live on disk under public/uploads/<organizationId>/
-// (see src/app/(app)/media/actions.ts) — this row is just the catalog.
-// ---------------------------------------------------------------------------
-
-model Media {
-  id             String       @id @default(cuid())
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+model Affiliate {
+  id             String          @id @default(cuid())
   organizationId String
+  contactId      String          @unique
+  code           String          @unique
+  commissionRate Decimal         @default(0.10) @db.Decimal(5, 4)
+  status         AffiliateStatus @default(PENDING)
+  notes          String?         @db.Text
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
 
-  url        String // public path, e.g. /uploads/<orgId>/<id>-<filename>
-  filename   String // original filename, for display
-  mimeType   String
-  sizeBytes  Int
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contact      Contact      @relation(fields: [contactId], references: [id])
+  payouts      Payout[]
 
-  uploadedAt DateTime @default(now())
+  @@index([organizationId])
+}
 
-  coaDocuments CoaDocument[]
+model Payout {
+  id          String   @id @default(cuid())
+  affiliateId String
+  amount      Decimal  @db.Decimal(10, 2)
+  method      String?
+  note        String?
+  createdAt   DateTime @default(now())
 
-  @@index([organizationId, uploadedAt])
+  affiliate Affiliate @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+
+  @@index([affiliateId])
 }
 
 // ---------------------------------------------------------------------------
+// Inventory
+// ---------------------------------------------------------------------------
 
-model WebhookEvent {
-  id             String       @id @default(cuid())
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+model InventoryItem {
+  id             String   @id @default(cuid())
   organizationId String
-  brand          Brand?       @relation(fields: [brandId], references: [id], onDelete: SetNull)
-  brandId        String?
+  sku            String
+  name           String
+  description    String?  @db.Text
+  stockQty       Int      @default(0)
+  reorderPoint   Int      @default(0)
+  cost           Decimal? @db.Decimal(10, 2)
+  unit           String   @default("unit")
+  supplier       String?
+  storageLocation String?
+  category       String?
+  tags           String[]
+  coaFileKey     String?  // S3/storage key for uploaded COA PDF
+  notes          String?  @db.Text
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  topic           String
-  payload         Json
-  signatureValid  Boolean
-  processedAt     DateTime?
-  error           String?
-  createdAt       DateTime  @default(now())
+  @@unique([organizationId, sku])
+  @@index([organizationId])
 }
 
 // ---------------------------------------------------------------------------
-// Tracking & Pixels — first-party conversion tracking + server-side relay
-// to ad platforms (Meta Conversions API, TikTok Events API, GA4
-// Measurement Protocol), so conversions still get credited even when a
-// client-side pixel is blocked.
-// ---------------------------------------------------------------------------
-
-model TrackingConfig {
-  id      String @id @default(cuid())
-  brand   Brand  @relation(fields: [brandId], references: [id], onDelete: Cascade)
-  brandId String @unique
-
-  // Safe to expose client-side — the embed snippet on the brand's storefront
-  // sends this, never a secret. Rotating it invalidates the old snippet.
-  publicKey String @unique @default(cuid())
-
-  metaPixelId       String?
-  metaAccessToken   String?
-  tiktokPixelId     String?
-  tiktokAccessToken String?
-  ga4MeasurementId  String?
-  ga4ApiSecret      String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model TrackingEvent {
-  id             String       @id @default(cuid())
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  organizationId String
-  brand          Brand        @relation(fields: [brandId], references: [id], onDelete: Cascade)
-  brandId        String
-
-  eventName  String // page_view | view_content | add_to_cart | lead | purchase | custom
-  visitorId  String // first-party cookie id set by the embed snippet
-  valueCents Int?
-  currency   String?
-  properties Json?
-  clickIds   Json? // fbclid / ttclid / gclid captured from the landing URL
-  pageUrl    String?
-
-  relayedMeta   Boolean @default(false)
-  relayedTiktok Boolean @default(false)
-  relayedGa4    Boolean @default(false)
-  relayError    String?
-
-  createdAt DateTime @default(now())
-
-  @@index([organizationId, createdAt])
-  @@index([brandId, eventName, createdAt])
-}
-
-// ---------------------------------------------------------------------------
-// ShipStation — one connection per organization (ShipStation accounts
-// aren't typically split per brand/store the way ad pixels are).
-// ---------------------------------------------------------------------------
-
-model ShipStationConfig {
-  id             String       @id @default(cuid())
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  organizationId String       @unique
-
-  apiKey    String
-  apiSecret String
-  // If on, every new order from the live webhook is pushed to ShipStation
-  // automatically; if off, pushing is manual only (Shipping page button).
-  autoPush  Boolean @default(true)
-
-  lastSyncedAt DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-}
-
-// ---------------------------------------------------------------------------
-// Invoices — covers both a simple auto-generated retail receipt (rendered
-// on demand straight from an Order, no row needed) and real wholesale
-// invoices with their own lifecycle (draft → sent → paid/overdue), which
-// can optionally originate from an Order or stand alone for an ad-hoc
-// wholesale quote that never touched WooCommerce.
-// ---------------------------------------------------------------------------
-
-model Invoice {
-  id             String       @id @default(cuid())
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  organizationId String
-  brand          Brand?       @relation(fields: [brandId], references: [id])
-  brandId        String?
-  order          Order?       @relation(fields: [orderId], references: [id])
-  orderId        String?
-
-  invoiceNumber String @unique
-
-  customerName    String
-  customerEmail   String?
-  customerAddress String?
-
-  status  InvoiceStatus @default(DRAFT)
-  poNumber String?
-  notes    String?
-
-  issueDate DateTime  @default(now())
-  dueDate   DateTime?
-  paidAt    DateTime?
-
-  subtotalCents Int
-  taxCents      Int @default(0)
-  totalCents    Int
-
-  lineItems InvoiceLineItem[]
-
-  createdAt DateTime @default(now())
-
-  @@index([organizationId, status])
-}
-
-enum InvoiceStatus {
-  DRAFT
-  SENT
-  PAID
-  OVERDUE
-  VOID
-}
-
-model InvoiceLineItem {
-  id             String  @id @default(cuid())
-  invoice        Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  invoiceId      String
-  description    String
-  quantity       Int
-  unitPriceCents Int
-  totalCents     Int
-}
-
-// ---------------------------------------------------------------------------
-// Support / Communications — one inbox for both channels. Contact-form
-// submissions arrive as a single inbound message per Conversation; WhatsApp
-// threads are genuinely two-way (inbound + outbound replies).
+// Support / Conversations
 // ---------------------------------------------------------------------------
 
 model Conversation {
-  id             String       @id @default(cuid())
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  id             String               @id @default(cuid())
   organizationId String
-  brand          Brand?       @relation(fields: [brandId], references: [id], onDelete: SetNull)
   brandId        String?
+  channel        ConversationChannel
+  status         ConversationStatus   @default(OPEN)
 
-  channel       ConversationChannel
-  status        ConversationStatus  @default(OPEN)
   contactName   String?
   contactEmail  String?
   contactPhone  String? // E.164, WhatsApp threads are keyed off this
+  chatToken     String?  @unique // live-chat widget session token
+  pageUrl       String?  // page the visitor was on when they started the chat
 
   subject       String? // contact-form submissions often have one
   lastMessageAt DateTime @default(now())
-  createdAt     DateTime @default(now())
 
-  messages Message[]
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  brand        Brand?       @relation(fields: [brandId], references: [id])
+  messages     Message[]
 
-  @@index([organizationId, channel, lastMessageAt])
-  @@unique([organizationId, channel, contactPhone])
+  @@index([organizationId, lastMessageAt])
 }
 
 enum ConversationChannel {
   WHATSAPP
   CONTACT_FORM
+  LIVE_CHAT
 }
 
 enum ConversationStatus {
@@ -1237,19 +369,16 @@ enum ConversationStatus {
 }
 
 model Message {
-  id             String       @id @default(cuid())
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  id             String           @id @default(cuid())
   conversationId String
+  direction      MessageDirection
+  body           String           @db.Text
+  externalId     String? // WhatsApp message ID etc.
+  createdAt      DateTime         @default(now())
 
-  direction  MessageDirection
-  body       String
-  externalId String? // WhatsApp's own message id, for dedup on webhook retries
-  readAt     DateTime?
-
-  createdAt DateTime @default(now())
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@index([conversationId, createdAt])
-  @@unique([externalId])
 }
 
 enum MessageDirection {
@@ -1257,210 +386,157 @@ enum MessageDirection {
   OUTBOUND
 }
 
-// Heroes Discount (military/first-responder) applications, submitted from
-// evlv-site's /heroes-discount form. Manually reviewed like the affiliate
-// program: reviewer opens the proof-of-service file before approving.
-// Approving creates a personal, single-use 20%-off Coupon (assignedContactId
-// + maxRedemptions: 1, same mechanism as any other per-customer deal) and
-// emails the code -- no separate discount system needed.
-// Real, server-verified customer access requests -- see MEMBERSHIP.md and
-// RESEARCHER-VERIFICATION.md. Two independent gates on Product, on purpose
-// (a paying Member could otherwise buy a restricted delivery-format
-// product just by being a member, which defeats the compliance point of
-// verification): Membership is a loyalty/pricing tier (unlocks
-// member-exclusive blends); Verification is a compliance control (unlocks
-// restricted delivery formats -- nasal sprays, injector pens). Both are
-// manually reviewed, one request per contact, same idempotent
-// request/status shape.
-model MembershipRequest {
-  id             String       @id @default(cuid())
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  organizationId String
-  contact        Contact      @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  contactId      String       @unique
-
-  status     AccessReviewStatus @default(PENDING)
-  reviewedAt DateTime?
-  createdAt  DateTime           @default(now())
-}
-
-// A customer's request to have their account/PII removed. Approving one
-// ANONYMIZES the Contact (scrubs email/name/phone, clears passwordHash)
-// rather than hard-deleting the row -- Order records reference contactId
-// and need to survive for accounting/tax records regardless of what the
-// customer asked for, so a real delete would either cascade-destroy order
-// history or get blocked by the FK. Anonymizing satisfies the "remove my
-// personal data" request while keeping the order ledger intact. See
-// approveAccountDeletion() in (app)/account-deletion/actions.ts.
-model AccountDeletionRequest {
-  id             String       @id @default(cuid())
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  organizationId String
-  contact        Contact      @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  contactId      String       @unique
-
-  status     AccessReviewStatus @default(PENDING)
-  reviewedAt DateTime?
-  createdAt  DateTime           @default(now())
-}
-
-model CustomerVerification {
-  id             String       @id @default(cuid())
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  organizationId String
-  contact        Contact      @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  contactId      String       @unique
-
-  institution String
-  role        String
-  phone       String
-  purpose     String
-
-  status     AccessReviewStatus @default(PENDING)
-  reviewedAt DateTime?
-  createdAt  DateTime           @default(now())
-}
-
-enum AccessReviewStatus {
-  PENDING
-  APPROVED
-  REJECTED
-}
-
-model HeroesDiscountRequest {
-  id             String       @id @default(cuid())
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  organizationId String
-
-  name   String
-  email  String
-  status String // "Active Duty" / "Veteran" / "Reservist / National Guard" / "First Responder (Police/Fire/EMS)"
-  branch String // free text, e.g. "U.S. Army", "Chicago PD"
-
-  // Proof-of-service file lives outside public/ (see src/lib/heroes-discount-upload.ts)
-  // -- never served except through the authenticated admin proof route.
-  proofFilename    String
-  proofMimeType    String
-  proofStoragePath String
-
-  reviewStatus HeroesDiscountReviewStatus @default(PENDING)
-  coupon       Coupon?                    @relation(fields: [couponId], references: [id])
-  couponId     String?                    @unique
-
-  createdAt DateTime @default(now())
-  reviewedAt DateTime?
-
-  @@index([organizationId, reviewStatus])
-}
-
-enum HeroesDiscountReviewStatus {
-  PENDING
-  APPROVED
-  REJECTED
-}
+// ---------------------------------------------------------------------------
+// WhatsApp config
+// ---------------------------------------------------------------------------
 
 model WhatsAppConfig {
-  id             String       @id @default(cuid())
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  organizationId String       @unique
-
-  phoneNumberId      String // Meta's WhatsApp Business phone number id
-  accessToken        String
-  appSecret          String // verifies X-Hub-Signature-256 on incoming webhooks
-  verifyToken        String // Meta's webhook handshake challenge token
+  id                   String  @id @default(cuid())
+  organizationId       String  @unique
+  phoneNumberId        String
+  accessToken          String
+  appSecret            String
+  verifyToken          String
   businessDisplayPhone String?
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 }
 
 // ---------------------------------------------------------------------------
-// Email — transactional templates, editable from the Email page. Rendered
-// with a tiny {{variable}} substitution (see src/lib/email.ts) and sent via
-// whatever provider EMAIL_* env vars configure (Resend by default). A
-// built-in default exists in code for every `key` this app sends, so
-// nothing breaks before a template row exists — creating one here just
-// overrides that default's subject/copy.
+// Tracking pixels
+// ---------------------------------------------------------------------------
+
+model TrackingConfig {
+  id             String   @id @default(cuid())
+  organizationId String
+  brandId        String   @unique
+  publicKey      String   @unique @default(cuid())
+  enabled        Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  brand        Brand        @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+}
+
+// ---------------------------------------------------------------------------
+// Contact segments
+// ---------------------------------------------------------------------------
+
+model Segment {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  filter         Json     // serialised FilterGroup
+  createdAt      DateTime @default(now())
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contacts     ContactSegment[]
+
+  @@unique([organizationId, name])
+}
+
+model ContactSegment {
+  contactId String
+  segmentId String
+
+  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  segment Segment @relation(fields: [segmentId], references: [id], onDelete: Cascade)
+
+  @@id([contactId, segmentId])
+}
+
+// ---------------------------------------------------------------------------
+// Email templates
 // ---------------------------------------------------------------------------
 
 model EmailTemplate {
-  id             String       @id @default(cuid())
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  id             String   @id @default(cuid())
   organizationId String
+  key            String // e.g. "order_confirmation", "support_reply"
+  subject        String
+  html           String   @db.Text
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  // Matches an EMAIL_TEMPLATE_KEYS entry in src/lib/email.ts, e.g.
-  // "order_confirmation_customer", "order_confirmation_office".
-  key     String
-  name    String
-  subject String
-  html    String @db.Text
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([organizationId, key])
 }
 
-// One row per lifecycle-email flow (see DEFAULT_AUTOMATIONS in
-// src/lib/email-automations.ts) -- the operator toggles it on/off and
-// tunes its delay from the Email page; the actual trigger condition for
-// each key is still flow-specific code in src/lib/automation-job.ts (a
-// full drag-and-drop rule builder is out of scope, but timing is real and
-// editable). Rows are upserted lazily from DEFAULT_AUTOMATIONS the first
-// time the Email page loads for an org, same pattern as EmailTemplate.
-model EmailAutomation {
-  id             String       @id @default(cuid())
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+// ---------------------------------------------------------------------------
+// Coupons
+// ---------------------------------------------------------------------------
+
+enum CouponType {
+  PERCENT
+  FIXED
+}
+
+model Coupon {
+  id             String     @id @default(cuid())
   organizationId String
+  code           String
+  type           CouponType @default(PERCENT)
+  value          Decimal    @db.Decimal(10, 2)
+  usageLimit     Int?
+  usageCount     Int        @default(0)
+  expiresAt      DateTime?
+  enabled        Boolean    @default(true)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
 
-  key         String // matches a DEFAULT_AUTOMATIONS entry, e.g. "welcome_2", "cart_abandonment"
-  name        String
-  enabled     Boolean   @default(false)
-  delayValue  Int       @default(0)
-  delayUnit   DelayUnit @default(HOURS)
-  templateKey String // which EmailTemplate/DEFAULT_TEMPLATES key this flow sends
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  // Only meaningful for the "vip" flow: trailing-90-day spend a contact
-  // must cross to get the VIP email. Null for every delay-based flow.
-  thresholdCents Int?
-
-  sends EmailAutomationSend[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([organizationId, key])
+  @@unique([organizationId, code])
+  @@index([organizationId])
 }
 
-enum DelayUnit {
-  MINUTES
-  HOURS
-  DAYS
+// ---------------------------------------------------------------------------
+// Suppliers
+// ---------------------------------------------------------------------------
+
+model Supplier {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  contactEmail   String?
+  contactPhone   String?
+  notes          String?  @db.Text
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  memberships  Membership[]
+
+  @@index([organizationId])
 }
 
-// Dedup log: automation-job.ts checks this before sending so the same
-// contact never gets the same flow twice for the same cycle (dedupKey is
-// usually the contactId, sometimes contactId+orderId for order-scoped
-// flows like shipping/post-purchase).
-model EmailAutomationSend {
-  id            String          @id @default(cuid())
-  automation    EmailAutomation @relation(fields: [automationId], references: [id], onDelete: Cascade)
-  automationId  String
-  contact       Contact?        @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  contactId     String?
-  dedupKey      String
-  sentAt        DateTime        @default(now())
+// ---------------------------------------------------------------------------
+// Media
+// ---------------------------------------------------------------------------
 
-  @@unique([automationId, dedupKey])
+model Media {
+  id             String   @id @default(cuid())
+  organizationId String
+  key            String   @unique // storage path / S3 key
+  filename       String
+  contentType    String
+  size           Int
+  url            String
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
 }
 
-// One row per newsletter blast actually sent — a record of what went out
-// and to how many people, not a queue (sends happen synchronously from the
-// Email page). In-house alternative to Mailchimp: same Resend account and
-// Contact list this app already has, no second subscription.
+// ---------------------------------------------------------------------------
+// Newsletters
+// ---------------------------------------------------------------------------
+
 model Newsletter {
-  id             String       @id @default(cuid())
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  id             String   @id @default(cuid())
   organizationId String
 
   subject         String
@@ -1473,4 +549,15 @@ model Newsletter {
   @@index([organizationId, createdAt])
 }
 
+model PushSubscription {
+  id             String   @id @default(cuid())
+  organizationId String
+  endpoint       String   @unique
+  p256dh         String
+  auth           String
+  createdAt      DateTime @default(now())
 
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+}
