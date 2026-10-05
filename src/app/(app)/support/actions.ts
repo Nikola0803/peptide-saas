@@ -36,7 +36,7 @@ export async function disconnectWhatsApp() {
   revalidatePath("/support");
 }
 
-export async function sendReply(conversationId: string, formData: FormData) {
+export async function sendReply(conversationId: string, formData: FormData): Promise<{ emailWarning?: string }> {
   const { organization } = await requireOrg();
 
   const conversation = await prisma.conversation.findFirst({
@@ -47,6 +47,11 @@ export async function sendReply(conversationId: string, formData: FormData) {
   const body = String(formData.get("body") ?? "").trim();
   if (!body) throw new Error("Message can't be empty");
 
+  // Pre-flight validation before touching the DB
+  if (conversation.channel === "CONTACT_FORM" && !conversation.contactEmail) {
+    throw new Error("This conversation has no email address on file");
+  }
+
   let externalId: string | undefined;
 
   if (conversation.channel === "WHATSAPP") {
@@ -55,20 +60,10 @@ export async function sendReply(conversationId: string, formData: FormData) {
     if (!config) throw new Error("WhatsApp isn't connected");
     const sent = await sendWhatsAppMessage(config.phoneNumberId, config.accessToken, conversation.contactPhone, body);
     externalId = sent.messageId || undefined;
-  } else if (conversation.channel === "CONTACT_FORM") {
-    if (!conversation.contactEmail) throw new Error("This conversation has no email address on file");
-    const replyHtml = body
-      .split(/\n+/)
-      .map((line) => `<p>${line}</p>`)
-      .join("");
-    await sendTemplate(organization.id, "support_reply", conversation.contactEmail, {
-      subject: conversation.subject ?? "your message",
-      replyHtml,
-    });
   } else if (conversation.channel === "LIVE_CHAT") {
     // Widget polls /api/chat/messages — just store the outbound message,
     // no external send needed.
-  } else {
+  } else if (conversation.channel !== "CONTACT_FORM") {
     throw new Error("Replies aren't supported for this conversation's channel");
   }
 
@@ -79,6 +74,23 @@ export async function sendReply(conversationId: string, formData: FormData) {
 
   revalidatePath(`/support/${conversationId}`);
   revalidatePath("/support");
+
+  // Send email after message is persisted so a Resend failure never loses the reply
+  if (conversation.channel === "CONTACT_FORM" && conversation.contactEmail) {
+    const replyHtml = body
+      .split(/\n+/)
+      .map((line) => `<p>${line}</p>`)
+      .join("");
+    const emailSent = await sendTemplate(organization.id, "support_reply", conversation.contactEmail, {
+      subject: conversation.subject ?? "your message",
+      replyHtml,
+    });
+    if (!emailSent) {
+      return { emailWarning: "Reply saved — but the email failed to send. Check Resend logs." };
+    }
+  }
+
+  return {};
 }
 
 export async function setConversationStatus(conversationId: string, status: "OPEN" | "CLOSED") {
