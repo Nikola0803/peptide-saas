@@ -96,7 +96,9 @@ function polishEmailBody(body: string): string {
     );
 }
 
-const LAYOUT = (body: string, image = "https://www.evlvpeptides.com/images/certified/evlv-science-wide.png") => `
+const EVLV_VIAL_HERO = "https://www.evlvpeptides.com/images/certified/evlv-hero-multi-vials.png";
+
+const LAYOUT = (body: string, image = EVLV_VIAL_HERO) => `
 <!doctype html>
 <html lang="en">
 <head>
@@ -324,7 +326,7 @@ export const DEFAULT_TEMPLATES: EmailTemplateDefault[] = [
         </tr>
       </table>
       <p>Once payment is confirmed, your order moves into preparation. Reply directly to this email if you need assistance.</p>
-    `, "https://www.evlvpeptides.com/images/certified/evlv-dispatch-card.png"),
+    `, EVLV_VIAL_HERO),
   },
   {
     key: "order_confirmation_office",
@@ -414,7 +416,7 @@ export const DEFAULT_TEMPLATES: EmailTemplateDefault[] = [
       <h1>Welcome to the EVLV affiliate program, {{affiliateName}}</h1>
       <p>Your application has been approved. Log in to your affiliate dashboard to grab your referral link, track clicks and commission, and set up how you'd like to get paid.</p>
       <p><a href="https://www.evlvpeptides.com/account" style="display:inline-block;background:#0e1113;color:#ffffff;padding:14px 22px;text-decoration:none;border-radius:5px;font-weight:650;letter-spacing:0.8px;">OPEN AFFILIATE DASHBOARD</a></p>
-    `, "https://www.evlvpeptides.com/images/affiliate-banner.png"),
+    `, EVLV_VIAL_HERO),
   },
   {
     key: "affiliate_rejected",
@@ -437,7 +439,7 @@ export const DEFAULT_TEMPLATES: EmailTemplateDefault[] = [
     html: LAYOUT(`
       <h1>Welcome as an EVLV wholesale partner, {{contactName}}</h1>
       <p>{{companyName}}'s wholesale inquiry has been approved. We'll be in touch with next steps, or reply to this email with any questions in the meantime.</p>
-    `, "https://www.evlvpeptides.com/images/wholesale/evlv-b2b-fulfillment.png"),
+    `, EVLV_VIAL_HERO),
   },
   {
     key: "wholesale_rejected",
@@ -474,7 +476,7 @@ export const DEFAULT_TEMPLATES: EmailTemplateDefault[] = [
       <p>We carry both single-compound peptides and pre-combined research blends -- browse the full catalog any time from the Shop page.</p>
       <p>Questions about a specific compound or protocol? Just reply to this email.</p>
       <p><a href="https://www.evlvpeptides.com/coas" style="display:inline-block;background:#0e1113;color:#ffffff;padding:14px 22px;text-decoration:none;border-radius:5px;font-weight:650;letter-spacing:0.8px;">EXPLORE BATCH DOCUMENTATION</a></p>
-    `, "https://www.evlvpeptides.com/images/certified/evlv-quality-transparency-v2.png"),
+    `, EVLV_VIAL_HERO),
   },
   {
     key: "browse_abandonment",
@@ -511,7 +513,7 @@ export const DEFAULT_TEMPLATES: EmailTemplateDefault[] = [
       <h1>You're almost there, {{customerName}}</h1>
       <p>Your order is still saved in your cart -- it only takes a minute to finish checking out.</p>
       <p><a href="{{checkoutUrl}}" style="display:inline-block;background:#0e1113;color:#ffffff;padding:14px 22px;text-decoration:none;border-radius:5px;font-weight:650;letter-spacing:0.8px;">FINISH CHECKOUT</a></p>
-    `, "https://www.evlvpeptides.com/images/certified/evlv-dispatch-card.png"),
+    `, EVLV_VIAL_HERO),
   },
   {
     key: "payment_pending_reminder",
@@ -535,7 +537,7 @@ export const DEFAULT_TEMPLATES: EmailTemplateDefault[] = [
     html: LAYOUT(`
       <h1>Payment confirmed</h1>
       <p>Hi {{customerName}}, we've confirmed payment on order <strong>{{orderNumber}}</strong>. It's now being prepared for shipment -- we'll email you tracking as soon as it ships.</p>
-    `, "https://www.evlvpeptides.com/images/certified/evlv-dispatch-card.png"),
+    `, EVLV_VIAL_HERO),
   },
   {
     key: "shipping_confirmation",
@@ -547,7 +549,7 @@ export const DEFAULT_TEMPLATES: EmailTemplateDefault[] = [
       <h1>Your order is on its way</h1>
       <p>Hi {{customerName}}, order <strong>{{orderNumber}}</strong> has shipped via {{carrierCode}}.</p>
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 22px 0;background:#ffffff;border:1px solid #d8d3c7;border-radius:8px;"><tr><td style="padding:20px;text-align:center;"><p style="margin:0 0 7px 0;font-size:10px;letter-spacing:1.8px;color:#a56f43;text-transform:uppercase;font-weight:700;">Tracking number</p><p style="margin:0;font-size:18px;color:#203a37;font-weight:700;letter-spacing:0.8px;">{{trackingNumber}}</p></td></tr></table>
-    `, "https://www.evlvpeptides.com/images/certified/evlv-shipping-page.png"),
+    `, EVLV_VIAL_HERO),
   },
   {
     key: "post_purchase",
@@ -560,7 +562,7 @@ export const DEFAULT_TEMPLATES: EmailTemplateDefault[] = [
       <p>Just checking in on order <strong>{{orderNumber}}</strong>. A reminder that every batch's Certificate of Analysis is available any time from your account page.</p>
       <p>Questions about storage, reconstitution, or anything else? Just reply to this email.</p>
       <p><a href="https://www.evlvpeptides.com/coas" style="display:inline-block;background:#0e1113;color:#ffffff;padding:14px 22px;text-decoration:none;border-radius:5px;font-weight:650;letter-spacing:0.8px;">VIEW COA LIBRARY</a></p>
-    `, "https://www.evlvpeptides.com/images/science/coa-vial-banner.png"),
+    `, EVLV_VIAL_HERO),
   },
   {
     key: "win_back",
