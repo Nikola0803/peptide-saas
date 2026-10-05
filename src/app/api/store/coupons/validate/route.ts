@@ -5,6 +5,13 @@ import { prisma } from "@/lib/prisma";
 import { utcDateString } from "@/lib/order-engine";
 import { resolveCoupons, evaluateCoupons, getAutoApplyCodes, type CouponCartItem } from "@/lib/coupon-engine";
 import { getQuantityUnitPriceCents } from "@/lib/quantity-pricing";
+import {
+  evaluateGlpPairPromotion,
+  GLP_PAIR_PROMOTION_CODE,
+  GLP_PAIR_PROMOTION_ID,
+  GLP_PAIR_PROMOTION_LABEL,
+  type GlpPairPromotionItem,
+} from "@/lib/glp-pair-promotion";
 
 const bodySchema = z.object({
   items: z.array(z.object({ slug: z.string().min(1), quantity: z.number().int().positive() })).min(1),
@@ -43,17 +50,8 @@ export async function POST(req: NextRequest) {
     contactId = contact?.id;
   }
 
-  const autoApplyCodes = await getAutoApplyCodes(store.organizationId, contactId);
-  const codes = [
-    ...autoApplyCodes,
-    ...(parsed.data.code ? [parsed.data.code] : []),
-    ...(parsed.data.codes ?? []),
-  ];
-  if (codes.length === 0) {
-    return NextResponse.json({ valid: false, discountCents: 0, appliedCoupons: [], errors: [] });
-  }
-
   const couponCartItems: CouponCartItem[] = [];
+  const promotionItems: GlpPairPromotionItem[] = [];
   let subtotalCents = 0;
 
   for (const item of parsed.data.items) {
@@ -75,10 +73,66 @@ export async function POST(req: NextRequest) {
       unitPriceCents,
       cogsCents: mapping.product.cogsCents,
     });
+    promotionItems.push({
+      slug: item.slug,
+      quantity,
+      productId: mapping.product.id,
+      regularUnitPriceCents: mapping.storePriceCents,
+      cogsCents: mapping.product.cogsCents,
+    });
   }
 
   if (couponCartItems.length === 0) {
     return NextResponse.json({ error: "No valid items in cart" }, { status: 422 });
+  }
+
+  const org = await prisma.organization.findUnique({ where: { id: store.organizationId } });
+  const wholesale = contactId
+    ? await prisma.wholesalePartner.findUnique({ where: { contactId }, select: { status: true } })
+    : null;
+  const alreadyRedeemed = contactId
+    ? Boolean(await prisma.order.findFirst({
+        where: {
+          organizationId: store.organizationId,
+          contactId,
+          appliedCouponCodes: { contains: GLP_PAIR_PROMOTION_CODE },
+          status: { not: "REFUNDED" },
+        },
+        select: { id: true },
+      }))
+    : false;
+  const promotion = evaluateGlpPairPromotion(promotionItems, {
+    alreadyRedeemed,
+    isWholesale: wholesale?.status === "APPROVED",
+    minimumMarginPercent: org?.minMarginPercent ?? 30,
+  });
+
+  if (promotion.applies) {
+    return NextResponse.json({
+      valid: true,
+      discountCents: promotion.discountCents,
+      subtotalCents: promotion.subtotalCents,
+      totalCents: promotion.totalCents,
+      appliedCoupons: [{ code: GLP_PAIR_PROMOTION_CODE, label: GLP_PAIR_PROMOTION_LABEL }],
+      automaticPromotion: GLP_PAIR_PROMOTION_ID,
+      promotionLabel: GLP_PAIR_PROMOTION_LABEL,
+      flooredByMargin: promotion.flooredByMargin,
+      maximumDiscountPercent: 40,
+      // A previously stored welcome/affiliate code is simply ignored while
+      // the exclusive event is active; surfacing it as an error would make a
+      // valid automatic discount look broken in the cart.
+      errors: [],
+    });
+  }
+
+  const autoApplyCodes = await getAutoApplyCodes(store.organizationId, contactId);
+  const codes = [
+    ...autoApplyCodes,
+    ...(parsed.data.code ? [parsed.data.code] : []),
+    ...(parsed.data.codes ?? []),
+  ];
+  if (codes.length === 0) {
+    return NextResponse.json({ valid: false, discountCents: 0, subtotalCents, totalCents: subtotalCents, appliedCoupons: [], errors: [] });
   }
 
   const { coupons, errors: resolveErrors } = await resolveCoupons(store.organizationId, codes, subtotalCents, contactId);
@@ -103,10 +157,6 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  const org = await prisma.organization.findUnique({ where: { id: store.organizationId } });
-  const wholesale = contactId
-    ? await prisma.wholesalePartner.findUnique({ where: { contactId }, select: { status: true } })
-    : null;
   const maximumDiscountPercent = wholesale?.status === "APPROVED" ? 40 : 30;
   const evaluation = evaluateCoupons(coupons, couponCartItems, org?.minMarginPercent ?? 30, maximumDiscountPercent);
 

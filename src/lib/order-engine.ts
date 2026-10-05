@@ -4,6 +4,11 @@ import { sendTemplate, escapeHtml } from "@/lib/email";
 import { pushNotifyNewOrder } from "@/lib/push-notify";
 import { resolveCoupons, evaluateCoupons, getAutoApplyCodes, type CouponCartItem } from "@/lib/coupon-engine";
 import { getQuantityUnitPriceCents } from "@/lib/quantity-pricing";
+import {
+  evaluateGlpPairPromotion,
+  GLP_PAIR_PROMOTION_CODE,
+  type GlpPairPromotionItem,
+} from "@/lib/glp-pair-promotion";
 
 // "YYYY-MM-DD" in UTC -- the calendar day used to decide whether a
 // StoreMapping's Deal of the Day is currently active and to bucket
@@ -139,6 +144,20 @@ export async function runCheckout(
       create: { contactId: contact.id, brandId },
     });
 
+    const [org, wholesale, priorPromotionOrder] = await Promise.all([
+      tx.organization.findUnique({ where: { id: organizationId } }),
+      tx.wholesalePartner.findUnique({ where: { contactId: contact.id }, select: { status: true } }),
+      tx.order.findFirst({
+        where: {
+          organizationId,
+          contactId: contact.id,
+          appliedCouponCodes: { contains: GLP_PAIR_PROMOTION_CODE },
+          status: { not: "REFUNDED" },
+        },
+        select: { id: true },
+      }),
+    ]);
+
     let grossCentsTotal = 0;
     let cogsCentsTotal = 0;
     const resolvedItems: {
@@ -151,6 +170,7 @@ export async function runCheckout(
       supplierId?: string;
     }[] = [];
     const couponCartItems: CouponCartItem[] = [];
+    const promotionItems: GlpPairPromotionItem[] = [];
 
     for (const item of input.items) {
       const quantity = Math.max(1, Math.floor(item.quantity));
@@ -232,10 +252,34 @@ export async function runCheckout(
         supplierId: supplierProduct?.supplierId,
       });
       couponCartItems.push({ productId: product.id, quantity, unitPriceCents, cogsCents: product.cogsCents });
+      promotionItems.push({
+        slug: item.slug,
+        quantity,
+        productId: product.id,
+        regularUnitPriceCents: mapping.storePriceCents,
+        cogsCents: product.cogsCents,
+      });
+    }
+
+    const promotion = evaluateGlpPairPromotion(promotionItems, {
+      alreadyRedeemed: Boolean(priorPromotionOrder),
+      isWholesale: wholesale?.status === "APPROVED",
+      minimumMarginPercent: org?.minMarginPercent ?? 30,
+    });
+
+    // This event is exclusive: regular unit prices replace Deal of the Day
+    // and quantity-tier prices, so the third and later units stay full price.
+    // The discount is then applied to exactly one unit in one same-SKU pair.
+    if (promotion.applies) {
+      grossCentsTotal = promotion.subtotalCents;
+      for (let i = 0; i < resolvedItems.length; i += 1) {
+        resolvedItems[i].unitPriceCents = promotionItems[i].regularUnitPriceCents;
+        couponCartItems[i].unitPriceCents = promotionItems[i].regularUnitPriceCents;
+      }
     }
 
     let commissionCents = 0;
-    if (input.couponCode) {
+    if (input.couponCode && !promotion.applies) {
       const affiliate = await tx.affiliate.findFirst({
         where: { organizationId, couponCode: { equals: input.couponCode, mode: "insensitive" } },
       });
@@ -252,18 +296,16 @@ export async function runCheckout(
     // combined with another one just doesn't apply (checkout never fails
     // over a bad promo code) -- evlv-site's checkout should call
     // /api/store/coupons/validate first so the customer sees why.
-    let discountCents = 0;
+    let discountCents = promotion.applies ? promotion.discountCents : 0;
     let couponId: string | undefined;
-    let appliedCouponCodes: string | undefined;
+    let appliedCouponCodes: string | undefined = promotion.applies ? GLP_PAIR_PROMOTION_CODE : undefined;
     // Auto-apply codes (a personal/lifetime deal assigned to this exact
     // contact -- see Coupon.assignedContactId) go first, so a non-stackable
     // personal deal wins over a generic code the customer happens to also
     // type in, and is applied even if they never enter anything at all.
-    const autoApplyCodes = await getAutoApplyCodes(organizationId, contact.id);
-    const requestedCodes = [...autoApplyCodes, ...(input.discountCodes?.filter(Boolean) ?? [])];
-    if (requestedCodes.length > 0) {
-      const org = await tx.organization.findUnique({ where: { id: organizationId } });
-      const wholesale = await tx.wholesalePartner.findUnique({ where: { contactId: contact.id }, select: { status: true } });
+    const autoApplyCodes = promotion.applies ? [] : await getAutoApplyCodes(organizationId, contact.id);
+    const requestedCodes = promotion.applies ? [] : [...autoApplyCodes, ...(input.discountCodes?.filter(Boolean) ?? [])];
+    if (!promotion.applies && requestedCodes.length > 0) {
       const maximumDiscountPercent = wholesale?.status === "APPROVED" ? 40 : 30;
       const { coupons } = await resolveCoupons(organizationId, requestedCodes, grossCentsTotal, contact.id);
       if (coupons.length > 0) {
@@ -351,7 +393,7 @@ export async function runCheckout(
       },
     });
 
-    if (input.couponCode && commissionCents > 0) {
+    if (input.couponCode && commissionCents > 0 && !promotion.applies) {
       const affiliate = await tx.affiliate.findFirst({
         where: { organizationId, couponCode: { equals: input.couponCode, mode: "insensitive" } },
       });
