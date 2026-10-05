@@ -150,9 +150,15 @@ plugin's "Command Center URL" field and the `/pixel.js` embed snippets
 git pull   # or re-upload
 npm install
 npx prisma generate
+npm run email:sync-defaults   # refresh saved CRM email templates with current EVLV branding
 npm run build
 pm2 restart peptides-command-center
 ```
+
+The deploy webhook runs `npm run email:sync-defaults` automatically after
+schema updates, so saved `EmailTemplate` rows in the database do not keep
+old branding after an email design refresh. Set `SYNC_EMAIL_TEMPLATES=0`
+only when you intentionally want to preserve hand-edited CRM templates.
 
 **Backups** — this is on you now that Postgres isn't managed for you:
 ```bash

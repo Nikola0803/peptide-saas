@@ -12,7 +12,8 @@
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
     "db:seed:evlv": "tsx prisma/seed-evlv.ts",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "email:sync-defaults": "tsx scripts/sync-email-templates.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.20.0",

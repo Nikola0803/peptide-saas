@@ -63,7 +63,7 @@ export function renderTemplate(template: string, vars: Record<string, string>): 
 // storefront URL (src/lib/storefront-url.ts) since the page it lands on
 // lives on evlv-site, not this app.
 export function unsubscribeFooterHtml(unsubscribeUrl: string): string {
-  return `<p style="margin-top: 24px; font-size: 12px; color: #999;">Don't want these emails? <a href="${unsubscribeUrl}" style="color: #999;">Unsubscribe</a>.</p>`;
+  return `<p style="margin:24px 0 0 0;padding-top:16px;border-top:1px solid #d8d3c7;font-size:12px;line-height:1.6;color:#6b7370;">Don't want these emails? <a href="${unsubscribeUrl}" style="color:#203a37;text-decoration:underline;">Unsubscribe</a>.</p>`;
 }
 
 export interface EmailTemplateDefault {
@@ -76,12 +76,52 @@ export interface EmailTemplateDefault {
 }
 
 const LAYOUT = (body: string) => `
-<div style="font-family: -apple-system, Helvetica, Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #1c1c1c;">
-  ${body}
-  <p style="margin-top: 32px; padding-top: 16px; border-top: 1px solid #e5e5e5; font-size: 12px; color: #888;">
-    EVLV Peptides · For research use only.
-  </p>
-</div>`;
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0;padding:0;background:#e7e3da;">
+  <tr>
+    <td align="center" style="padding:28px 12px;">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;max-width:620px;background:#f1eee7;border:1px solid #d8d3c7;border-radius:8px;overflow:hidden;">
+        <tr>
+          <td style="background:#0e1113;padding:24px 28px;text-align:center;">
+            <img src="https://www.evlvpeptides.com/logo/evlv-logo-light.png" width="132" alt="EVLV" style="display:block;width:132px;max-width:132px;height:auto;margin:0 auto;border:0;outline:none;text-decoration:none;">
+            <p style="margin:16px 0 0 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:10px;line-height:1.4;color:#d8d3c7;letter-spacing:2.8px;text-transform:uppercase;">
+              Research Use Only
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="height:3px;background:#b8875a;font-size:1px;line-height:1px;">&nbsp;</td>
+        </tr>
+        <tr>
+          <td style="padding:34px 34px 28px 34px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;line-height:1.65;color:#314743;">
+            ${body}
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#203a37;padding:18px 34px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+            <p style="margin:0;font-size:12px;line-height:1.7;color:#f1eee7;">
+              EVLV products are sold strictly for laboratory and analytical research use only. Not for human or veterinary use.
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:22px 34px 26px 34px;background:#0e1113;text-align:center;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+            <p style="margin:0 0 8px 0;font-size:12px;line-height:1.5;color:#d8d3c7;letter-spacing:1.6px;text-transform:uppercase;">EVLV Peptides</p>
+            <p style="margin:0 0 12px 0;font-size:12px;line-height:1.6;color:#8f9693;">
+              <a href="https://www.evlvpeptides.com/account" style="color:#d8d3c7;text-decoration:none;">Account</a>
+              <span style="color:#6b7370;"> | </span>
+              <a href="https://www.evlvpeptides.com/coas" style="color:#d8d3c7;text-decoration:none;">COA Library</a>
+              <span style="color:#6b7370;"> | </span>
+              <a href="https://www.evlvpeptides.com/shop" style="color:#d8d3c7;text-decoration:none;">Shop</a>
+            </p>
+            <p style="margin:0;font-size:11px;line-height:1.6;color:#6b7370;">
+              Research use only. Not for human or veterinary use.
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>`;
 
 // Built-in fallback for every template this app sends — used whenever no
 // EmailTemplate row exists yet for that key/org, so real emails go out
@@ -92,12 +132,117 @@ export const DEFAULT_TEMPLATES: EmailTemplateDefault[] = [
     name: "Welcome (new account)",
     description: "Sent right after someone creates an account on evlv-site.",
     subject: "Welcome to EVLV, {{customerName}}",
-    sampleVars: { customerName: "Jordan" },
-    html: LAYOUT(`
-      <h1 style="font-size: 20px;">Welcome to EVLV, {{customerName}}</h1>
-      <p>Your account is set up. You can track orders, view COAs, and manage your addresses any time from your account page.</p>
-      <p>Questions before your first order? Just reply to this email.</p>
-    `),
+    sampleVars: { customerName: "Jordan", couponCode: "WELCOME10-AB12CD34", welcomeDiscountPercent: "10" },
+    html: `
+      <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;color:transparent;line-height:1px;opacity:0;">
+        Your EVLV research account is ready. Your personal first-order code is inside.
+      </div>
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0;padding:0;background:#e7e3da;">
+        <tr>
+          <td align="center" style="padding:28px 12px;">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;max-width:640px;background:#f1eee7;border:1px solid #d8d3c7;border-radius:8px;overflow:hidden;">
+              <tr>
+                <td style="background:#0e1113;padding:30px 28px 24px 28px;text-align:center;">
+                  <img src="https://www.evlvpeptides.com/logo/evlv-logo-light.png" width="150" alt="EVLV" style="display:block;width:150px;max-width:150px;height:auto;margin:0 auto;border:0;outline:none;text-decoration:none;">
+                  <p style="margin:18px 0 0 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:11px;line-height:1.4;color:#d8d3c7;letter-spacing:3px;text-transform:uppercase;">
+                    Research Use Only
+                  </p>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <img src="https://www.evlvpeptides.com/images/certified/evlv-hero-multi-vials.png" width="640" alt="EVLV research collection" style="display:block;width:100%;max-width:640px;height:auto;border:0;outline:none;text-decoration:none;">
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:38px 34px 18px 34px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#0e1113;">
+                  <p style="margin:0 0 12px 0;font-size:11px;line-height:1.4;color:#b8875a;letter-spacing:2.4px;text-transform:uppercase;font-weight:600;">
+                    Account Approved
+                  </p>
+                  <h1 style="margin:0 0 16px 0;font-size:30px;line-height:1.12;font-weight:600;color:#0e1113;letter-spacing:0;">
+                    Welcome to EVLV, {{customerName}}
+                  </h1>
+                  <p style="margin:0 0 18px 0;font-size:16px;line-height:1.65;color:#314743;">
+                    Your research account is ready. You can now review current availability, verify batch documentation, track orders, and manage account details from one place.
+                  </p>
+                  <p style="margin:0 0 26px 0;font-size:15px;line-height:1.65;color:#6b7370;">
+                    As a first-order welcome, use your personal single-use code below at checkout.
+                  </p>
+                  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 28px 0;background:#ffffff;border:1px solid #d8d3c7;border-radius:6px;">
+                    <tr>
+                      <td style="padding:22px 20px;text-align:center;">
+                        <p style="margin:0 0 8px 0;font-size:12px;line-height:1.4;color:#6b7370;letter-spacing:1.8px;text-transform:uppercase;font-weight:600;">
+                          {{welcomeDiscountPercent}}% off first order
+                        </p>
+                        <p style="margin:0;font-size:24px;line-height:1.2;color:#203a37;letter-spacing:2.5px;font-weight:700;">
+                          {{couponCode}}
+                        </p>
+                      </td>
+                    </tr>
+                  </table>
+                  <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 32px 0;">
+                    <tr>
+                      <td style="background:#0e1113;border-radius:4px;">
+                        <a href="https://www.evlvpeptides.com/shop" target="_blank" style="display:inline-block;padding:15px 24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:13px;line-height:1;color:#f1eee7;text-decoration:none;letter-spacing:1.7px;text-transform:uppercase;font-weight:600;">
+                          Explore Current Collection
+                        </a>
+                      </td>
+                    </tr>
+                  </table>
+                  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 24px 0;">
+                    <tr>
+                      <td style="padding:16px 0;border-top:1px solid #d8d3c7;border-bottom:1px solid #d8d3c7;">
+                        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                          <tr>
+                            <td width="33.33%" style="padding:0 8px 0 0;vertical-align:top;">
+                              <p style="margin:0 0 6px 0;font-size:11px;line-height:1.4;color:#b8875a;letter-spacing:1.5px;text-transform:uppercase;font-weight:600;">01</p>
+                              <p style="margin:0;font-size:13px;line-height:1.5;color:#203a37;font-weight:600;">Batch-backed documentation</p>
+                            </td>
+                            <td width="33.33%" style="padding:0 8px;vertical-align:top;">
+                              <p style="margin:0 0 6px 0;font-size:11px;line-height:1.4;color:#b8875a;letter-spacing:1.5px;text-transform:uppercase;font-weight:600;">02</p>
+                              <p style="margin:0;font-size:13px;line-height:1.5;color:#203a37;font-weight:600;">COA visibility before checkout</p>
+                            </td>
+                            <td width="33.33%" style="padding:0 0 0 8px;vertical-align:top;">
+                              <p style="margin:0 0 6px 0;font-size:11px;line-height:1.4;color:#b8875a;letter-spacing:1.5px;text-transform:uppercase;font-weight:600;">03</p>
+                              <p style="margin:0;font-size:13px;line-height:1.5;color:#203a37;font-weight:600;">Priority U.S. shipping over $300</p>
+                            </td>
+                          </tr>
+                        </table>
+                      </td>
+                    </tr>
+                  </table>
+                  <p style="margin:0 0 10px 0;font-size:14px;line-height:1.7;color:#6b7370;">
+                    Questions before your first order? Reply to this email and the EVLV team will help.
+                  </p>
+                </td>
+              </tr>
+              <tr>
+                <td style="background:#203a37;padding:22px 34px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+                  <p style="margin:0;font-size:12px;line-height:1.7;color:#f1eee7;">
+                    EVLV products are sold strictly for laboratory and analytical research use only. Not for human or veterinary use.
+                  </p>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:22px 34px 28px 34px;background:#0e1113;text-align:center;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+                  <p style="margin:0 0 8px 0;font-size:12px;line-height:1.5;color:#d8d3c7;letter-spacing:1.6px;text-transform:uppercase;">EVLV Peptides</p>
+                  <p style="margin:0 0 12px 0;font-size:12px;line-height:1.6;color:#8f9693;">
+                    <a href="https://www.evlvpeptides.com/account" style="color:#d8d3c7;text-decoration:none;">Account</a>
+                    <span style="color:#6b7370;"> | </span>
+                    <a href="https://www.evlvpeptides.com/coas" style="color:#d8d3c7;text-decoration:none;">COA Library</a>
+                    <span style="color:#6b7370;"> | </span>
+                    <a href="https://www.evlvpeptides.com/shop" style="color:#d8d3c7;text-decoration:none;">Shop</a>
+                  </p>
+                  <p style="margin:0;font-size:11px;line-height:1.6;color:#6b7370;">
+                    <a href="{{unsubscribeUrl}}" style="color:#8f9693;text-decoration:underline;">Unsubscribe</a>
+                  </p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    `,
   },
   {
     key: "order_confirmation_customer",
@@ -409,11 +554,18 @@ export const DEFAULT_TEMPLATES: EmailTemplateDefault[] = [
     subject: "You're subscribed -- here's {{welcomeDiscountPercent}}% off",
     sampleVars: { customerName: "Jordan", couponCode: "WELCOME10-AB12CD34", welcomeDiscountPercent: "10", unsubscribeFooterHtml: "" },
     html: LAYOUT(`
-      <h1 style="font-size: 20px;">You're on the list</h1>
-      <p>Thanks, {{customerName}} -- we'll email you when there's something worth sharing.</p>
-      <p>Here's {{welcomeDiscountPercent}}% off your first purchase:</p>
-      <p style="font-size: 18px; font-weight: 700; letter-spacing: 0.05em;">{{couponCode}}</p>
-      <p>It's single-use and tied to your email. GLP series offers may stack with it up to the 30% retail maximum.</p>
+      <p style="margin:0 0 12px 0;font-size:11px;line-height:1.4;color:#b8875a;letter-spacing:2.2px;text-transform:uppercase;font-weight:600;">Research List Confirmed</p>
+      <h1 style="margin:0 0 16px 0;font-size:26px;line-height:1.18;font-weight:600;color:#0e1113;letter-spacing:0;">You're on the EVLV list, {{customerName}}</h1>
+      <p style="margin:0 0 20px 0;">We'll email you when there is something worth sharing: batch availability, product updates, COA notes, and occasional research-only offers.</p>
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 22px 0;background:#ffffff;border:1px solid #d8d3c7;border-radius:6px;">
+        <tr>
+          <td style="padding:20px;text-align:center;">
+            <p style="margin:0 0 8px 0;font-size:12px;line-height:1.4;color:#6b7370;letter-spacing:1.8px;text-transform:uppercase;font-weight:600;">{{welcomeDiscountPercent}}% off first order</p>
+            <p style="margin:0;font-size:23px;line-height:1.2;color:#203a37;letter-spacing:2.2px;font-weight:700;">{{couponCode}}</p>
+          </td>
+        </tr>
+      </table>
+      <p style="margin:0;">This code is single-use and tied to your email. GLP series offers may stack with it up to the 30% retail maximum.</p>
       {{{unsubscribeFooterHtml}}}
     `),
   },

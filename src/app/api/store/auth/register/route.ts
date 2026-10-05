@@ -51,9 +51,11 @@ export async function POST(req: NextRequest) {
   const couponCode = await ensureWelcomeCoupon(store.organizationId, contact.id, email);
   const welcomeDiscountPercent = couponCode.toUpperCase().startsWith("WELCOME20-") ? 20 : 10;
 
-  sendTemplate(store.organizationId, "welcome_customer", email, { customerName: contact.name || email }).catch((err) =>
-    console.error("Welcome email failed", err)
-  );
+  sendTemplate(store.organizationId, "welcome_customer", email, {
+    customerName: contact.name || email,
+    couponCode,
+    welcomeDiscountPercent: String(welcomeDiscountPercent),
+  }).catch((err) => console.error("Welcome email failed", err));
 
   const token = signCustomerToken({
     contactId: contact.id,
