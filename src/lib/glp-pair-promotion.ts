@@ -1,6 +1,6 @@
-export const GLP_PAIR_PROMOTION_CODE = "GLPPAIR80";
+export const GLP_PAIR_PROMOTION_CODE = "GLPPAIR70";
 export const GLP_PAIR_PROMOTION_ID = "GLP_PAIR_OCT_2026";
-export const GLP_PAIR_PROMOTION_LABEL = "GLP Pair Event — second item 80% off";
+export const GLP_PAIR_PROMOTION_LABEL = "GLP Pair Event — second item 70% off";
 
 const STARTS_AT = Date.parse("2026-10-06T04:00:00.000Z");
 const ENDS_AT_EXCLUSIVE = Date.parse("2026-10-13T04:00:00.000Z");
@@ -59,7 +59,7 @@ export function evaluateGlpPairPromotion(
     .sort((a, b) => a.regularUnitPriceCents - b.regularUnitPriceCents)[0];
   if (!qualifying) return empty("Add two of the same eligible GLP item and strength");
 
-  const requestedDiscountCents = Math.round(qualifying.regularUnitPriceCents * 0.8);
+  const requestedDiscountCents = Math.round(qualifying.regularUnitPriceCents * 0.7);
   if (subtotalCents - requestedDiscountCents < MINIMUM_POST_DISCOUNT_SUBTOTAL_CENTS) {
     return empty("Qualifying product subtotal must be at least $80 after the promotion");
   }

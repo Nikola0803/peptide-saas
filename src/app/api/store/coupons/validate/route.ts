@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
       automaticPromotion: GLP_PAIR_PROMOTION_ID,
       promotionLabel: GLP_PAIR_PROMOTION_LABEL,
       flooredByMargin: promotion.flooredByMargin,
-      maximumDiscountPercent: 40,
+      maximumDiscountPercent: 35,
       // A previously stored welcome/affiliate code is simply ignored while
       // the exclusive event is active; surfacing it as an error would make a
       // valid automatic discount look broken in the cart.
