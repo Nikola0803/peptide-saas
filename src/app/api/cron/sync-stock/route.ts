@@ -32,22 +32,26 @@ function parseCsv(text: string): string[][] {
 function sheetRows(csv: string): SheetRow[] {
   const matrix = parseCsv(csv).filter((row) => row.some(Boolean));
   if (matrix.length < 2) throw new Error("Sheet appears empty");
-  const headers = matrix[0].map((header) => header.toLowerCase().replace(/[^a-z0-9_]/g, ""));
-  const column = (name: string) => headers.indexOf(name);
+  // The current Stockroom export includes two title/blank rows before its
+  // actual header. Find the SKU row instead of assuming row 1 is the header.
+  const headerIndex = matrix.findIndex((row) => row.some((value) => value.trim().toLowerCase() === "sku"));
+  if (headerIndex < 0) throw new Error("Could not find the SKU header row");
+  const headers = matrix[headerIndex].map((header) => header.toLowerCase().replace(/[^a-z0-9]/g, ""));
+  const column = (...names: string[]) => names.map((name) => headers.indexOf(name.replace(/[^a-z0-9]/g, ""))).find((index) => index >= 0) ?? -1;
   const skuColumn = column("sku");
-  const statusColumn = column("status");
-  const stockStatusColumn = column("stock_status");
-  const quantityColumn = column("stock_qty");
-  if ([skuColumn, statusColumn, stockStatusColumn, quantityColumn].some((index) => index < 0)) {
+  const publicationColumn = column("publication_status", "publish_status", "catalog_status");
+  const stockStatusColumn = column("stock_status", "availability", "status");
+  const quantityColumn = column("stock_qty", "in_stock_vials", "in_stock", "quantity", "qty");
+  if ([skuColumn, stockStatusColumn, quantityColumn].some((index) => index < 0)) {
     throw new Error(`Required columns missing. Found: ${headers.join(", ")}`);
   }
 
   const seen = new Set<string>();
-  return matrix.slice(1).flatMap((columns, rowIndex) => {
+  return matrix.slice(headerIndex + 1).flatMap((columns, rowIndex) => {
     const sku = columns[skuColumn]?.trim();
     if (!sku) return [];
     const key = normalizedSku(sku);
-    if (seen.has(key)) throw new Error(`Duplicate SKU ${sku} on row ${rowIndex + 2}`);
+    if (seen.has(key)) throw new Error(`Duplicate SKU ${sku} on row ${rowIndex + headerIndex + 2}`);
     seen.add(key);
     const rawQuantity = columns[quantityColumn]?.trim();
     if (!/^\d+$/.test(rawQuantity || "")) {
@@ -55,16 +59,17 @@ function sheetRows(csv: string): SheetRow[] {
     }
     return [{
       sku,
-      status: columns[statusColumn]?.trim().toLowerCase(),
-      stockStatus: columns[stockStatusColumn]?.trim().toLowerCase(),
+      status: publicationColumn >= 0 ? columns[publicationColumn]?.trim().toLowerCase().replace(/[^a-z0-9]/g, "") : "publish",
+      stockStatus: columns[stockStatusColumn]?.trim().toLowerCase().replace(/[^a-z0-9]/g, ""),
       stockQty: Number(rawQuantity),
     }];
   });
 }
 
-// The CRM is the stock ledger. The sheet may lower availability, but an
-// hourly import must never increase masterStock and undo checkout deductions.
-// Restocks are entered explicitly in the CRM.
+// Stockroom is the inventory authority. A row's quantity and availability are
+// applied exactly, and any mapped product missing from the export is disabled.
+// This prevents stale CRM products (for example discontinued SKUs) from
+// remaining purchasable indefinitely.
 export async function GET(req: NextRequest) {
   const suppliedSecret = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "")
     || req.nextUrl.searchParams.get("secret");
@@ -93,12 +98,24 @@ export async function GET(req: NextRequest) {
     const productsBySku = new Map(products.map((product) => [normalizedSku(product.sku), product]));
     const notFound = rows.filter((row) => !productsBySku.has(normalizedSku(row.sku))).map((row) => row.sku);
 
+    const sheetSkuKeys = new Set(rows.map((row) => normalizedSku(row.sku)));
     const applied = await prisma.$transaction(async (tx) => {
       const changes: string[] = [];
+      for (const product of products) {
+        if (sheetSkuKeys.has(normalizedSku(product.sku))) continue;
+        if (product.masterStock !== 0) {
+          await tx.product.update({ where: { id: product.id }, data: { masterStock: 0 } });
+        }
+        await tx.storeMapping.updateMany({
+          where: { productId: product.id, brandId: brand.id },
+          data: { active: false },
+        });
+        changes.push(`${product.sku}(qty=0,active=false,reason=missing-from-sheet)`);
+      }
       for (const row of rows) {
         const product = productsBySku.get(normalizedSku(row.sku));
         if (!product) continue;
-        const nextStock = Math.min(product.masterStock, row.stockQty);
+        const nextStock = row.stockQty;
         const active = row.status === "publish" && row.stockStatus === "instock" && nextStock > 0;
         if (nextStock !== product.masterStock) {
           await tx.product.update({ where: { id: product.id }, data: { masterStock: nextStock } });
