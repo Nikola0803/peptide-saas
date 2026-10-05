@@ -75,37 +75,86 @@ export interface EmailTemplateDefault {
   sampleVars: Record<string, string>;
 }
 
-const LAYOUT = (body: string) => `
+const EMAIL_FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif";
+
+// These templates are edited as HTML in the CRM, but the defaults should
+// already look finished. Keep the typography inline because Gmail and Outlook
+// strip or partially ignore stylesheet blocks.
+function polishEmailBody(body: string): string {
+  return body
+    .replace(
+      /<h1(?:\s+style="[^"]*")?>/g,
+      `<h1 style="margin:0 0 18px 0;font-family:${EMAIL_FONT};font-size:30px;line-height:1.14;font-weight:650;letter-spacing:-0.5px;color:#0e1113;">`,
+    )
+    .replace(
+      /<p>/g,
+      `<p style="margin:0 0 17px 0;font-family:${EMAIL_FONT};font-size:15px;line-height:1.72;color:#40514e;">`,
+    )
+    .replace(
+      /<ul style="padding-left:\s*18px;">/g,
+      `<ul style="margin:4px 0 22px 0;padding:18px 22px 18px 40px;background:#ffffff;border:1px solid #d8d3c7;border-radius:8px;font-family:${EMAIL_FONT};font-size:14px;line-height:1.8;color:#314743;">`,
+    );
+}
+
+const LAYOUT = (body: string, image = "https://www.evlvpeptides.com/images/certified/evlv-science-wide.png") => `
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="x-apple-disable-message-reformatting">
+  <title>EVLV</title>
+</head>
+<body style="margin:0;padding:0;background:#e7e3da;">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0;padding:0;background:#e7e3da;">
   <tr>
-    <td align="center" style="padding:28px 12px;">
-      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;max-width:620px;background:#f1eee7;border:1px solid #d8d3c7;border-radius:8px;overflow:hidden;">
+    <td align="center" style="padding:30px 12px;">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;max-width:640px;background:#f4f1ea;border:1px solid #d8d3c7;border-radius:12px;overflow:hidden;box-shadow:0 12px 36px rgba(14,17,19,0.10);">
         <tr>
-          <td style="background:#0e1113;padding:24px 28px;text-align:center;">
-            <img src="https://www.evlvpeptides.com/logo/evlv-logo-light.png" width="132" alt="EVLV" style="display:block;width:132px;max-width:132px;height:auto;margin:0 auto;border:0;outline:none;text-decoration:none;">
-            <p style="margin:16px 0 0 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:10px;line-height:1.4;color:#d8d3c7;letter-spacing:2.8px;text-transform:uppercase;">
-              Research Use Only
-            </p>
+          <td style="background:#0e1113;padding:25px 30px;">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+              <tr>
+                <td align="left" style="vertical-align:middle;">
+                  <img src="https://www.evlvpeptides.com/logo/evlv-logo-light.png" width="126" alt="EVLV" style="display:block;width:126px;max-width:126px;height:auto;border:0;outline:none;text-decoration:none;">
+                </td>
+                <td align="right" style="vertical-align:middle;font-family:${EMAIL_FONT};font-size:9px;line-height:1.4;color:#d8d3c7;letter-spacing:2.2px;text-transform:uppercase;white-space:nowrap;">
+                  Research Use Only
+                </td>
+              </tr>
+            </table>
           </td>
         </tr>
         <tr>
           <td style="height:3px;background:#b8875a;font-size:1px;line-height:1px;">&nbsp;</td>
         </tr>
         <tr>
-          <td style="padding:34px 34px 28px 34px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;line-height:1.65;color:#314743;">
-            ${body}
+          <td style="background:#203a37;">
+            <img src="${image}" width="640" alt="EVLV research standards" style="display:block;width:100%;max-width:640px;height:auto;border:0;outline:none;text-decoration:none;">
           </td>
         </tr>
         <tr>
-          <td style="background:#203a37;padding:18px 34px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
-            <p style="margin:0;font-size:12px;line-height:1.7;color:#f1eee7;">
-              EVLV products are sold strictly for laboratory and analytical research use only. Not for human or veterinary use.
-            </p>
+          <td style="padding:38px 38px 30px 38px;font-family:${EMAIL_FONT};font-size:15px;line-height:1.7;color:#314743;">
+            <p style="margin:0 0 11px 0;font-family:${EMAIL_FONT};font-size:10px;line-height:1.4;color:#a56f43;letter-spacing:2.2px;text-transform:uppercase;font-weight:700;">EVLV Client Services</p>
+            ${polishEmailBody(body)}
           </td>
         </tr>
         <tr>
-          <td style="padding:22px 34px 26px 34px;background:#0e1113;text-align:center;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
-            <p style="margin:0 0 8px 0;font-size:12px;line-height:1.5;color:#d8d3c7;letter-spacing:1.6px;text-transform:uppercase;">EVLV Peptides</p>
+          <td style="padding:0 38px 30px 38px;background:#f4f1ea;">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#203a37;border-radius:8px;">
+              <tr>
+                <td style="padding:18px 20px;font-family:${EMAIL_FONT};">
+                  <p style="margin:0;font-size:11px;line-height:1.7;color:#f1eee7;letter-spacing:0.15px;">
+                    <strong style="color:#ffffff;">RESEARCH USE ONLY</strong><br>
+                    Products are sold strictly for laboratory and analytical research. Not for human or veterinary use.
+                  </p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:24px 34px 28px 34px;background:#0e1113;text-align:center;font-family:${EMAIL_FONT};">
+            <p style="margin:0 0 9px 0;font-size:11px;line-height:1.5;color:#f1eee7;letter-spacing:2px;text-transform:uppercase;font-weight:650;">EVLV Research</p>
             <p style="margin:0 0 12px 0;font-size:12px;line-height:1.6;color:#8f9693;">
               <a href="https://www.evlvpeptides.com/account" style="color:#d8d3c7;text-decoration:none;">Account</a>
               <span style="color:#6b7370;"> | </span>
@@ -121,7 +170,9 @@ const LAYOUT = (body: string) => `
       </table>
     </td>
   </tr>
-</table>`;
+</table>
+</body>
+</html>`;
 
 // Built-in fallback for every template this app sends — used whenever no
 // EmailTemplate row exists yet for that key/org, so real emails go out
@@ -251,14 +302,29 @@ export const DEFAULT_TEMPLATES: EmailTemplateDefault[] = [
     subject: "Your EVLV order {{orderNumber}} is confirmed",
     sampleVars: { customerName: "Jordan", orderNumber: "STORE-ABC123", itemsHtml: "<li>BPC-157 10MG x1 — $70.00</li>", shippingFormatted: "$15.00", totalFormatted: "$85.00", paymentMethod: "zelle", paymentMemo: "EVLV-JORDAN" },
     html: LAYOUT(`
-      <h1 style="font-size: 20px;">Thanks for your order, {{customerName}}!</h1>
-      <p>We've received order <strong>{{orderNumber}}</strong> and it's on hold pending payment confirmation.</p>
+      <h1>Order received, {{customerName}}</h1>
+      <p>Your EVLV order <strong>{{orderNumber}}</strong> is reserved and awaiting payment confirmation. A second email will arrive as soon as payment is matched.</p>
       <ul style="padding-left: 18px;">{{{itemsHtml}}}</ul>
-      <p>Shipping: {{shippingFormatted}}</p>
-      <p><strong>Total: {{totalFormatted}}</strong></p>
-      <p>Payment method: {{paymentMethod}}<br/>Memo/reference: {{paymentMemo}}</p>
-      <p>Once we confirm your payment, we'll get your order shipped out. Reply to this email if you have any questions.</p>
-    `),
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 24px 0;background:#ffffff;border:1px solid #d8d3c7;border-radius:8px;">
+        <tr>
+          <td style="padding:18px 20px;border-bottom:1px solid #e7e3da;font-family:${EMAIL_FONT};font-size:13px;color:#6b7370;">Shipping</td>
+          <td align="right" style="padding:18px 20px;border-bottom:1px solid #e7e3da;font-family:${EMAIL_FONT};font-size:14px;color:#203a37;font-weight:650;">{{shippingFormatted}}</td>
+        </tr>
+        <tr>
+          <td style="padding:18px 20px;font-family:${EMAIL_FONT};font-size:13px;color:#6b7370;">Order total</td>
+          <td align="right" style="padding:18px 20px;font-family:${EMAIL_FONT};font-size:21px;color:#0e1113;font-weight:700;">{{totalFormatted}}</td>
+        </tr>
+      </table>
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 24px 0;background:#ece8df;border-left:3px solid #b8875a;">
+        <tr>
+          <td style="padding:16px 18px;font-family:${EMAIL_FONT};font-size:13px;line-height:1.75;color:#314743;">
+            <strong>Payment method:</strong> {{paymentMethod}}<br>
+            <strong>Memo / reference:</strong> {{paymentMemo}}
+          </td>
+        </tr>
+      </table>
+      <p>Once payment is confirmed, your order moves into preparation. Reply directly to this email if you need assistance.</p>
+    `, "https://www.evlvpeptides.com/images/certified/evlv-dispatch-card.png"),
   },
   {
     key: "order_confirmation_office",
@@ -267,12 +333,14 @@ export const DEFAULT_TEMPLATES: EmailTemplateDefault[] = [
     subject: "New order {{orderNumber}} — {{totalFormatted}}",
     sampleVars: { customerName: "Jordan", customerEmail: "jordan@lab.edu", orderNumber: "STORE-ABC123", itemsHtml: "<li>BPC-157 10MG x1 — $70.00</li>", shippingFormatted: "$15.00", totalFormatted: "$85.00", paymentMethod: "zelle", paymentMemo: "EVLV-JORDAN" },
     html: LAYOUT(`
-      <h1 style="font-size: 20px;">New order: {{orderNumber}}</h1>
+      <h1>New order: {{orderNumber}}</h1>
       <p>{{customerName}} ({{customerEmail}})</p>
       <ul style="padding-left: 18px;">{{{itemsHtml}}}</ul>
-      <p>Shipping: {{shippingFormatted}}</p>
-      <p><strong>Total: {{totalFormatted}}</strong></p>
-      <p>Payment method: {{paymentMethod}}<br/>Memo/reference to reconcile: {{paymentMemo}}</p>
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 20px 0;background:#ffffff;border:1px solid #d8d3c7;border-radius:8px;">
+        <tr><td style="padding:12px 16px;color:#6b7370;">Shipping</td><td align="right" style="padding:12px 16px;font-weight:650;">{{shippingFormatted}}</td></tr>
+        <tr><td style="padding:12px 16px;border-top:1px solid #e7e3da;color:#6b7370;">Total</td><td align="right" style="padding:12px 16px;border-top:1px solid #e7e3da;font-size:18px;font-weight:700;">{{totalFormatted}}</td></tr>
+      </table>
+      <p><strong>Payment:</strong> {{paymentMethod}}<br><strong>Reconcile using:</strong> {{paymentMemo}}</p>
     `),
   },
   {
@@ -343,9 +411,10 @@ export const DEFAULT_TEMPLATES: EmailTemplateDefault[] = [
     subject: "You're approved as an EVLV affiliate!",
     sampleVars: { affiliateName: "Jordan" },
     html: LAYOUT(`
-      <h1 style="font-size: 20px;">Welcome to the EVLV affiliate program, {{affiliateName}}!</h1>
+      <h1>Welcome to the EVLV affiliate program, {{affiliateName}}</h1>
       <p>Your application has been approved. Log in to your affiliate dashboard to grab your referral link, track clicks and commission, and set up how you'd like to get paid.</p>
-    `),
+      <p><a href="https://www.evlvpeptides.com/account" style="display:inline-block;background:#0e1113;color:#ffffff;padding:14px 22px;text-decoration:none;border-radius:5px;font-weight:650;letter-spacing:0.8px;">OPEN AFFILIATE DASHBOARD</a></p>
+    `, "https://www.evlvpeptides.com/images/affiliate-banner.png"),
   },
   {
     key: "affiliate_rejected",
@@ -366,9 +435,9 @@ export const DEFAULT_TEMPLATES: EmailTemplateDefault[] = [
     subject: "You're approved as an EVLV wholesale partner",
     sampleVars: { contactName: "Jordan", companyName: "Acme Labs" },
     html: LAYOUT(`
-      <h1 style="font-size: 20px;">Welcome as an EVLV wholesale partner, {{contactName}}!</h1>
+      <h1>Welcome as an EVLV wholesale partner, {{contactName}}</h1>
       <p>{{companyName}}'s wholesale inquiry has been approved. We'll be in touch with next steps, or reply to this email with any questions in the meantime.</p>
-    `),
+    `, "https://www.evlvpeptides.com/images/wholesale/evlv-b2b-fulfillment.png"),
   },
   {
     key: "wholesale_rejected",
@@ -400,11 +469,12 @@ export const DEFAULT_TEMPLATES: EmailTemplateDefault[] = [
     subject: "Why researchers choose EVLV",
     sampleVars: { customerName: "Jordan" },
     html: LAYOUT(`
-      <h1 style="font-size: 20px;">A bit more about EVLV, {{customerName}}</h1>
+      <h1>A bit more about EVLV, {{customerName}}</h1>
       <p>Every batch we sell is independently tested for identity and purity, with a published Certificate of Analysis (COA) you can check any time from your account.</p>
       <p>We carry both single-compound peptides and pre-combined research blends -- browse the full catalog any time from the Shop page.</p>
       <p>Questions about a specific compound or protocol? Just reply to this email.</p>
-    `),
+      <p><a href="https://www.evlvpeptides.com/coas" style="display:inline-block;background:#0e1113;color:#ffffff;padding:14px 22px;text-decoration:none;border-radius:5px;font-weight:650;letter-spacing:0.8px;">EXPLORE BATCH DOCUMENTATION</a></p>
+    `, "https://www.evlvpeptides.com/images/certified/evlv-quality-transparency-v2.png"),
   },
   {
     key: "browse_abandonment",
@@ -413,10 +483,10 @@ export const DEFAULT_TEMPLATES: EmailTemplateDefault[] = [
     subject: "Still researching {{productName}}?",
     sampleVars: { customerName: "Jordan", productName: "BPC-157 10MG", productUrl: "https://evlvpeptides.com/shop/bpc-157-10mg" },
     html: LAYOUT(`
-      <h1 style="font-size: 20px;">Still deciding on {{productName}}?</h1>
+      <h1>Still researching {{productName}}?</h1>
       <p>Hi {{customerName}}, we noticed you checked out {{productName}} recently. It's independently tested and ready to ship whenever you are.</p>
-      <p><a href="{{productUrl}}" style="color: #b5804a;">Take another look</a></p>
-    `),
+      <p><a href="{{productUrl}}" style="display:inline-block;background:#0e1113;color:#ffffff;padding:14px 22px;text-decoration:none;border-radius:5px;font-weight:650;letter-spacing:0.8px;">VIEW PRODUCT &amp; COA</a></p>
+    `, "https://www.evlvpeptides.com/images/certified/evlv-hero-multi-vials.png"),
   },
   {
     key: "cart_abandonment",
@@ -425,10 +495,11 @@ export const DEFAULT_TEMPLATES: EmailTemplateDefault[] = [
     subject: "You left something in your cart",
     sampleVars: { customerName: "Jordan", itemsHtml: "<li>BPC-157 10MG</li>", checkoutUrl: "https://evlvpeptides.com/checkout" },
     html: LAYOUT(`
-      <h1 style="font-size: 20px;">Your cart is waiting, {{customerName}}</h1>
+      <h1>Your research cart is saved, {{customerName}}</h1>
       <ul style="padding-left: 18px;">{{{itemsHtml}}}</ul>
-      <p><a href="{{checkoutUrl}}" style="color: #b5804a; font-weight: 600;">Complete your order</a></p>
-    `),
+      <p>Availability can change between batches. Your selections are ready when you are.</p>
+      <p><a href="{{checkoutUrl}}" style="display:inline-block;background:#0e1113;color:#ffffff;padding:14px 22px;text-decoration:none;border-radius:5px;font-weight:650;letter-spacing:0.8px;">RETURN TO CHECKOUT</a></p>
+    `, "https://www.evlvpeptides.com/images/certified/evlv-hero-multi-vials.png"),
   },
   {
     key: "checkout_abandonment",
@@ -437,10 +508,10 @@ export const DEFAULT_TEMPLATES: EmailTemplateDefault[] = [
     subject: "Complete your EVLV order",
     sampleVars: { customerName: "Jordan", checkoutUrl: "https://evlvpeptides.com/checkout" },
     html: LAYOUT(`
-      <h1 style="font-size: 20px;">You're almost there, {{customerName}}</h1>
+      <h1>You're almost there, {{customerName}}</h1>
       <p>Your order is still saved in your cart -- it only takes a minute to finish checking out.</p>
-      <p><a href="{{checkoutUrl}}" style="color: #b5804a; font-weight: 600;">Finish checkout</a></p>
-    `),
+      <p><a href="{{checkoutUrl}}" style="display:inline-block;background:#0e1113;color:#ffffff;padding:14px 22px;text-decoration:none;border-radius:5px;font-weight:650;letter-spacing:0.8px;">FINISH CHECKOUT</a></p>
+    `, "https://www.evlvpeptides.com/images/certified/evlv-dispatch-card.png"),
   },
   {
     key: "payment_pending_reminder",
@@ -462,9 +533,9 @@ export const DEFAULT_TEMPLATES: EmailTemplateDefault[] = [
     subject: "Your EVLV order {{orderNumber}} is confirmed",
     sampleVars: { customerName: "Jordan", orderNumber: "STORE-ABC123" },
     html: LAYOUT(`
-      <h1 style="font-size: 20px;">Payment confirmed!</h1>
+      <h1>Payment confirmed</h1>
       <p>Hi {{customerName}}, we've confirmed payment on order <strong>{{orderNumber}}</strong>. It's now being prepared for shipment -- we'll email you tracking as soon as it ships.</p>
-    `),
+    `, "https://www.evlvpeptides.com/images/certified/evlv-dispatch-card.png"),
   },
   {
     key: "shipping_confirmation",
@@ -473,10 +544,10 @@ export const DEFAULT_TEMPLATES: EmailTemplateDefault[] = [
     subject: "Your EVLV order {{orderNumber}} has shipped",
     sampleVars: { customerName: "Jordan", orderNumber: "STORE-ABC123", trackingNumber: "1Z999AA10123456784", carrierCode: "ups" },
     html: LAYOUT(`
-      <h1 style="font-size: 20px;">Your order is on its way</h1>
+      <h1>Your order is on its way</h1>
       <p>Hi {{customerName}}, order <strong>{{orderNumber}}</strong> has shipped via {{carrierCode}}.</p>
-      <p>Tracking number: <strong>{{trackingNumber}}</strong></p>
-    `),
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 22px 0;background:#ffffff;border:1px solid #d8d3c7;border-radius:8px;"><tr><td style="padding:20px;text-align:center;"><p style="margin:0 0 7px 0;font-size:10px;letter-spacing:1.8px;color:#a56f43;text-transform:uppercase;font-weight:700;">Tracking number</p><p style="margin:0;font-size:18px;color:#203a37;font-weight:700;letter-spacing:0.8px;">{{trackingNumber}}</p></td></tr></table>
+    `, "https://www.evlvpeptides.com/images/certified/evlv-shipping-page.png"),
   },
   {
     key: "post_purchase",
@@ -485,10 +556,11 @@ export const DEFAULT_TEMPLATES: EmailTemplateDefault[] = [
     subject: "How's your EVLV order treating you?",
     sampleVars: { customerName: "Jordan", orderNumber: "STORE-ABC123" },
     html: LAYOUT(`
-      <h1 style="font-size: 20px;">Hope research is going well, {{customerName}}</h1>
+      <h1>Documentation for your EVLV order</h1>
       <p>Just checking in on order <strong>{{orderNumber}}</strong>. A reminder that every batch's Certificate of Analysis is available any time from your account page.</p>
       <p>Questions about storage, reconstitution, or anything else? Just reply to this email.</p>
-    `),
+      <p><a href="https://www.evlvpeptides.com/coas" style="display:inline-block;background:#0e1113;color:#ffffff;padding:14px 22px;text-decoration:none;border-radius:5px;font-weight:650;letter-spacing:0.8px;">VIEW COA LIBRARY</a></p>
+    `, "https://www.evlvpeptides.com/images/science/coa-vial-banner.png"),
   },
   {
     key: "win_back",
@@ -497,9 +569,10 @@ export const DEFAULT_TEMPLATES: EmailTemplateDefault[] = [
     subject: "We miss you at EVLV",
     sampleVars: { customerName: "Jordan" },
     html: LAYOUT(`
-      <h1 style="font-size: 20px;">It's been a while, {{customerName}}</h1>
+      <h1>See what's new at EVLV, {{customerName}}</h1>
       <p>We've added new products and every batch is still independently tested with a published COA. Come take a look at what's new.</p>
-    `),
+      <p><a href="https://www.evlvpeptides.com/shop" style="display:inline-block;background:#0e1113;color:#ffffff;padding:14px 22px;text-decoration:none;border-radius:5px;font-weight:650;letter-spacing:0.8px;">EXPLORE CURRENT AVAILABILITY</a></p>
+    `, "https://www.evlvpeptides.com/images/certified/evlv-hero-multi-vials.png"),
   },
   {
     key: "vip_thank_you",
