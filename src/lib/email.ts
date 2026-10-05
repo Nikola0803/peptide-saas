@@ -763,11 +763,11 @@ export async function getTemplate(organizationId: string, key: string): Promise<
   return row ? { subject: row.subject, html: row.html } : { subject: fallback.subject, html: fallback.html };
 }
 
-export async function sendTemplate(organizationId: string, key: string, to: string, vars: Record<string, string>, options?: { replyTo?: string }): Promise<void> {
+export async function sendTemplate(organizationId: string, key: string, to: string, vars: Record<string, string>, options?: { replyTo?: string }): Promise<boolean> {
   const { subject, html } = await getTemplate(organizationId, key);
   const unsubscribeUrl = await buildUnsubscribeUrl(organizationId, to);
   const mergedVars = { unsubscribeUrl, preferenceCenterUrl: unsubscribeUrl, ...vars };
-  await sendEmail(to, renderTemplate(subject, mergedVars), renderTemplate(html, mergedVars), options);
+  return sendEmail(to, renderTemplate(subject, mergedVars), renderTemplate(html, mergedVars), options);
 }
 
 async function buildUnsubscribeUrl(organizationId: string, to: string): Promise<string> {
