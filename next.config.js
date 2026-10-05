@@ -14,7 +14,7 @@ const nextConfig = {
   },
   experimental: {
     serverActions: {
-      allowedOrigins: ["localhost:3000"],
+      allowedOrigins: ["localhost:3000", "crm.evlvpeptides.com", "dxxs3.com"],
       // Next's default is 1MB for the whole multipart body a Server
       // Action receives -- fine for text fields, but every file upload
       // in this app (Media library, product photos, COA PDFs) goes
