@@ -89,8 +89,7 @@ export default function LoginPage() {
           </button>
 
           <p className="text-[11px] text-foreground-500 text-center">
-            Seeded demo login: <span className="font-mono">operator@example.com</span> /{" "}
-            <span className="font-mono">password123</span>
+            Authorized EVLV operations access only. Contact an administrator if you need access.
           </p>
         </form>
       </div>
