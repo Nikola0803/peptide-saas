@@ -12,6 +12,7 @@ import {
   GLP_PAIR_PROMOTION_LABEL,
   type GlpPairPromotionItem,
 } from "@/lib/glp-pair-promotion";
+import { affiliateDiscountCents } from "@/lib/affiliate-program";
 
 const bodySchema = z.object({
   items: z.array(z.object({ slug: z.string().min(1), quantity: z.number().int().positive() })).min(1),
@@ -123,6 +124,41 @@ export async function POST(req: NextRequest) {
       // valid automatic discount look broken in the cart.
       errors: [],
     });
+  }
+
+  const typedCode = parsed.data.code?.trim();
+  if (typedCode) {
+    const affiliate = await prisma.affiliate.findFirst({
+      where: {
+        organizationId: store.organizationId,
+        status: "APPROVED",
+        OR: [
+          { couponCode: { equals: typedCode, mode: "insensitive" } },
+          { slug: { equals: typedCode, mode: "insensitive" } },
+        ],
+      },
+      select: { couponCode: true, customerDiscountPercent: true },
+    });
+    if (affiliate) {
+      const cogsCents = couponCartItems.reduce((sum, item) => sum + item.cogsCents * item.quantity, 0);
+      const result = affiliateDiscountCents(
+        subtotalCents,
+        cogsCents,
+        affiliate.customerDiscountPercent,
+        org?.minMarginPercent ?? 30,
+      );
+      return NextResponse.json({
+        valid: true,
+        discountCents: result.discountCents,
+        subtotalCents,
+        totalCents: Math.max(0, subtotalCents - result.discountCents),
+        appliedCoupons: [{ code: affiliate.couponCode, label: "Partner reward" }],
+        promotionLabel: affiliate.customerDiscountPercent > 0 ? `${affiliate.customerDiscountPercent}% partner reward` : "Partner code applied",
+        flooredByMargin: result.flooredByMargin,
+        maximumDiscountPercent: 30,
+        errors: [],
+      });
+    }
   }
 
   const autoApplyCodes = await getAutoApplyCodes(store.organizationId, contactId);

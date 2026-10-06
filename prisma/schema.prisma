@@ -852,6 +852,11 @@ model Affiliate {
   slug        String
   ratePercent Float
   couponCode  String
+  // The partner chooses how much of their admin-assigned rate becomes a
+  // public customer discount. Their effective commission is the remainder.
+  // Checkout enforces this split, non-stacking, the retail 30% cap, and the
+  // organization's minimum-margin floor server-side.
+  customerDiscountPercent Int @default(0)
 
   // Self-serve portal fields (see /affiliates on evlv-site) -- all
   // nullable/defaulted because admin-created affiliates (the original
@@ -888,6 +893,8 @@ model Affiliate {
   createdAt      DateTime                     @default(now())
 
   @@unique([organizationId, slug])
+  @@unique([organizationId, couponCode])
+  @@index([organizationId, status])
 }
 
 enum AffiliateStatus {

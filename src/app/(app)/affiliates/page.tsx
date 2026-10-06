@@ -5,35 +5,61 @@ import { PageHeader, StatCard, Card, Badge, EmptyState } from "@/components/ui";
 import { money, dateTime } from "@/lib/format";
 import { approveAffiliate, rejectAffiliate, markPayoutPaid, rejectPayout } from "./actions";
 
-export default async function AffiliatesPage() {
-  const { organization } = await requireOrg();
+const PAGE_SIZE = 50;
 
-  const [affiliates, storeBrand, pendingPayouts] = await Promise.all([
+export default async function AffiliatesPage({ searchParams }: { searchParams?: { page?: string; q?: string } }) {
+  const { organization } = await requireOrg();
+  const page = Math.max(1, Number(searchParams?.page) || 1);
+  const query = searchParams?.q?.trim() || "";
+  const activeWhere = {
+    organizationId: organization.id,
+    status: { not: "PENDING" as const },
+    ...(query ? { OR: [
+      { name: { contains: query, mode: "insensitive" as const } },
+      { email: { contains: query, mode: "insensitive" as const } },
+      { couponCode: { contains: query, mode: "insensitive" as const } },
+    ] } : {}),
+  };
+
+  const [activeAffiliates, activeCount, pendingApplications, storeBrand, pendingPayouts, globalAttributions] = await Promise.all([
     prisma.affiliate.findMany({
-      where: { organizationId: organization.id },
-      include: { attributions: { include: { order: true } } },
+      where: activeWhere,
       orderBy: { name: "asc" },
+      skip: (page - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
     }),
+    prisma.affiliate.count({ where: activeWhere }),
+    prisma.affiliate.findMany({ where: { organizationId: organization.id, status: "PENDING" }, orderBy: { createdAt: "asc" } }),
     prisma.brand.findFirst({ where: { organizationId: organization.id, verifiedAt: { not: null } } }),
     prisma.affiliatePayoutRequest.findMany({
       where: { affiliate: { organizationId: organization.id }, status: "REQUESTED" },
       include: { affiliate: true },
       orderBy: { requestedAt: "asc" },
     }),
+    prisma.affiliateOrderAttribution.findMany({
+      where: { affiliate: { organizationId: organization.id }, order: { status: "COMPLETED" } },
+      select: { affiliateId: true, commissionCents: true, order: { select: { grossCents: true } } },
+    }),
   ]);
 
-  const pendingApplications = affiliates.filter((a) => a.status === "PENDING");
-  const activeAffiliates = affiliates.filter((a) => a.status !== "PENDING");
+  const pageAttributions = activeAffiliates.length
+    ? await prisma.affiliateOrderAttribution.findMany({
+        where: { affiliateId: { in: activeAffiliates.map((affiliate) => affiliate.id) } },
+        select: { affiliateId: true, commissionCents: true, order: { select: { grossCents: true } } },
+      })
+    : [];
 
   const rows = activeAffiliates.map((a) => {
-    const revenue = a.attributions.reduce((s, at) => s + at.order.grossCents, 0);
-    const commission = a.attributions.reduce((s, at) => s + at.commissionCents, 0);
-    return { affiliate: a, revenue, commission, orderCount: a.attributions.length };
+    const attributions = pageAttributions.filter((row) => row.affiliateId === a.id);
+    const revenue = attributions.reduce((s, at) => s + at.order.grossCents, 0);
+    const commission = attributions.reduce((s, at) => s + at.commissionCents, 0);
+    return { affiliate: a, revenue, commission, orderCount: attributions.length };
   });
 
-  const totalCommission = rows.reduce((s, r) => s + r.commission, 0);
-  const totalRevenue = rows.reduce((s, r) => s + r.revenue, 0);
-  const withRecentActivity = rows.filter((r) => r.orderCount > 0).length;
+  const totalCommission = globalAttributions.reduce((s, r) => s + r.commissionCents, 0);
+  const totalRevenue = globalAttributions.reduce((s, r) => s + r.order.grossCents, 0);
+  const withRecentActivity = new Set(globalAttributions.map((row) => row.affiliateId)).size;
+  const totalPages = Math.max(1, Math.ceil(activeCount / PAGE_SIZE));
 
   return (
     <div>
@@ -50,12 +76,18 @@ export default async function AffiliatesPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <StatCard
           label="Total affiliates"
-          value={String(rows.length)}
+          value={String(activeCount)}
           hint={`${withRecentActivity} with recent activity`}
         />
         <StatCard label="Commission owed" value={money(totalCommission)} hint="Across all attributed orders" />
         <StatCard label="Attributed revenue" value={money(totalRevenue)} hint="Driven by affiliate coupons" />
       </div>
+
+      <form className="mb-6 flex max-w-xl gap-2" action="/affiliates">
+        <input name="q" defaultValue={query} placeholder="Search name, email, or public code" className="min-w-0 flex-1 rounded-md border border-background-300 bg-background-50 px-3 py-2 text-sm" />
+        <button className="rounded-md bg-foreground-900 px-4 py-2 text-sm text-background-50">Search</button>
+        {query && <Link href="/affiliates" className="rounded-md border border-background-300 px-4 py-2 text-sm text-foreground-600">Clear</Link>}
+      </form>
 
       {pendingApplications.length > 0 && (
         <Card className="p-4 mb-6">
@@ -66,7 +98,7 @@ export default async function AffiliatesPage() {
             {pendingApplications.map((a) => (
               <li key={a.id} className="py-2.5 flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <div className="text-foreground-800 truncate">{a.name}</div>
+                  <Link href={`/affiliates/${a.id}`} className="text-foreground-800 truncate hover:text-primary-700 hover:underline">{a.name}</Link>
                   <div className="text-xs text-foreground-500 truncate">{a.email}</div>
                   <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-foreground-500">
                     {a.phone && <span><i className="ri-phone-line mr-1" />{a.phone}</span>}
@@ -140,7 +172,7 @@ export default async function AffiliatesPage() {
                   {affiliate.name.slice(0, 2).toUpperCase()}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="text-sm font-medium text-foreground-950 truncate">{affiliate.name}</div>
+                  <Link href={`/affiliates/${affiliate.id}`} className="text-sm font-medium text-foreground-950 truncate hover:text-primary-700 hover:underline">{affiliate.name}</Link>
                   <div className="text-xs text-foreground-500 font-mono truncate">{affiliate.slug}</div>
                 </div>
                 {affiliate.status === "REJECTED" && <Badge status="rejected" />}
@@ -174,10 +206,12 @@ export default async function AffiliatesPage() {
                   <div className="text-[10px] text-foreground-500">Commission</div>
                 </div>
               </div>
+              <Link href={`/affiliates/${affiliate.id}`} className="mt-3 block rounded-md border border-background-300 px-3 py-2 text-center text-xs font-medium text-foreground-700 hover:bg-background-100">Open partner profile</Link>
             </Card>
           ))}
         </div>
       )}
+      {totalPages > 1 && <div className="mt-6 flex items-center justify-between text-sm"><span className="text-foreground-500">Page {page} of {totalPages}</span><div className="flex gap-2">{page > 1 && <Link href={`/affiliates?page=${page - 1}${query ? `&q=${encodeURIComponent(query)}` : ""}`} className="rounded-md border border-background-300 px-3 py-1.5">Previous</Link>}{page < totalPages && <Link href={`/affiliates?page=${page + 1}${query ? `&q=${encodeURIComponent(query)}` : ""}`} className="rounded-md border border-background-300 px-3 py-1.5">Next</Link>}</div></div>}
     </div>
   );
 }

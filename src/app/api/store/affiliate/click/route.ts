@@ -7,7 +7,7 @@ const bodySchema = z.object({ code: z.string().min(1) });
 
 // POST /api/store/affiliate/click { code } -- public, no auth beyond the
 // usual store header pair, since it's just a counter. Silently no-ops if
-// the code doesn't match any Affiliate.slug (most ?ref= codes will be
+// the code doesn't match an approved Affiliate public code (most ?ref= codes will be
 // customer referral codes from the separate referral program, not
 // affiliate codes -- see REFERRAL-PROGRAM.md).
 export async function POST(req: NextRequest) {
@@ -22,7 +22,14 @@ export async function POST(req: NextRequest) {
   }
 
   const affiliate = await prisma.affiliate.findFirst({
-    where: { organizationId: store.organizationId, slug: { equals: parsed.data.code, mode: "insensitive" } },
+    where: {
+      organizationId: store.organizationId,
+      status: "APPROVED",
+      OR: [
+        { couponCode: { equals: parsed.data.code, mode: "insensitive" } },
+        { slug: { equals: parsed.data.code, mode: "insensitive" } },
+      ],
+    },
   });
   if (affiliate) {
     await prisma.affiliateClick.create({ data: { affiliateId: affiliate.id } });

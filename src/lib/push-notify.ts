@@ -54,3 +54,25 @@ export async function pushNotifyContactForm(input: { name: string; email: string
     click: base ? `${base}/support/${input.conversationId}` : undefined,
   });
 }
+
+export async function pushNotifyAffiliateApplication(input: { affiliateId: string; name: string; email: string; socialLink?: string | null }): Promise<void> {
+  const base = getBaseUrl();
+  await pushNotify({
+    title: "New partner application",
+    message: `${input.name} — ${input.email}${input.socialLink ? ` — ${input.socialLink}` : ""}`,
+    tags: "handshake",
+    priority: "high",
+    click: base ? `${base}/affiliates/${input.affiliateId}` : undefined,
+  });
+}
+
+export async function pushNotifyWholesaleInquiry(input: { companyName: string; contactName: string; email: string; programType: string }): Promise<void> {
+  const base = getBaseUrl();
+  await pushNotify({
+    title: `New ${input.programType} inquiry`,
+    message: `${input.companyName} — ${input.contactName} — ${input.email}`,
+    tags: "briefcase",
+    priority: "high",
+    click: base ? `${base}/wholesale` : undefined,
+  });
+}

@@ -9,6 +9,7 @@ import {
   GLP_PAIR_PROMOTION_CODE,
   type GlpPairPromotionItem,
 } from "@/lib/glp-pair-promotion";
+import { affiliateDiscountCents } from "@/lib/affiliate-program";
 
 // "YYYY-MM-DD" in UTC -- the calendar day used to decide whether a
 // StoreMapping's Deal of the Day is currently active and to bucket
@@ -278,17 +279,20 @@ export async function runCheckout(
       }
     }
 
+    const affiliate = input.couponCode && !promotion.applies
+      ? await tx.affiliate.findFirst({
+          where: {
+            organizationId,
+            status: "APPROVED",
+            OR: [
+              { couponCode: { equals: input.couponCode, mode: "insensitive" } },
+              { slug: { equals: input.couponCode, mode: "insensitive" } },
+            ],
+          },
+        })
+      : null;
+    const eligibleAffiliate = affiliate && affiliate.contactId !== contact.id ? affiliate : null;
     let commissionCents = 0;
-    if (input.couponCode && !promotion.applies) {
-      const affiliate = await tx.affiliate.findFirst({
-        where: { organizationId, couponCode: { equals: input.couponCode, mode: "insensitive" } },
-      });
-      // Self-referral guard: an affiliate using their own code on their own
-      // order should never earn commission on themselves.
-      if (affiliate && affiliate.contactId !== contact.id) {
-        commissionCents = Math.round((grossCentsTotal * affiliate.ratePercent) / 100);
-      }
-    }
 
     // Real price-discount coupons -- distinct from the Affiliate lookup
     // above, which only computes commission attribution and never
@@ -299,13 +303,23 @@ export async function runCheckout(
     let discountCents = promotion.applies ? promotion.discountCents : 0;
     let couponId: string | undefined;
     let appliedCouponCodes: string | undefined = promotion.applies ? GLP_PAIR_PROMOTION_CODE : undefined;
+    if (eligibleAffiliate && eligibleAffiliate.customerDiscountPercent > 0) {
+      const affiliateDiscount = affiliateDiscountCents(
+        grossCentsTotal,
+        cogsCentsTotal,
+        eligibleAffiliate.customerDiscountPercent,
+        org?.minMarginPercent ?? 30,
+      );
+      discountCents = affiliateDiscount.discountCents;
+      appliedCouponCodes = eligibleAffiliate.couponCode;
+    }
     // Auto-apply codes (a personal/lifetime deal assigned to this exact
     // contact -- see Coupon.assignedContactId) go first, so a non-stackable
     // personal deal wins over a generic code the customer happens to also
     // type in, and is applied even if they never enter anything at all.
-    const autoApplyCodes = promotion.applies ? [] : await getAutoApplyCodes(organizationId, contact.id);
-    const requestedCodes = promotion.applies ? [] : [...autoApplyCodes, ...(input.discountCodes?.filter(Boolean) ?? [])];
-    if (!promotion.applies && requestedCodes.length > 0) {
+    const autoApplyCodes = promotion.applies || eligibleAffiliate ? [] : await getAutoApplyCodes(organizationId, contact.id);
+    const requestedCodes = promotion.applies || eligibleAffiliate ? [] : [...autoApplyCodes, ...(input.discountCodes?.filter(Boolean) ?? [])];
+    if (!promotion.applies && !eligibleAffiliate && requestedCodes.length > 0) {
       const maximumDiscountPercent = wholesale?.status === "APPROVED" ? 40 : 30;
       const { coupons } = await resolveCoupons(organizationId, requestedCodes, grossCentsTotal, contact.id);
       if (coupons.length > 0) {
@@ -325,6 +339,11 @@ export async function runCheckout(
     // grossCentsTotal is reassigned here rather than threaded through as
     // a second variable so every existing use below picks it up for free.
     grossCentsTotal = Math.max(0, grossCentsTotal - discountCents);
+
+    if (eligibleAffiliate) {
+      const effectiveRate = Math.max(0, eligibleAffiliate.ratePercent - eligibleAffiliate.customerDiscountPercent);
+      commissionCents = Math.round((grossCentsTotal * effectiveRate) / 100);
+    }
 
     // Calculated after discounts so the free-shipping threshold matches the
     // amount the customer actually owes for products.
@@ -393,15 +412,10 @@ export async function runCheckout(
       },
     });
 
-    if (input.couponCode && commissionCents > 0 && !promotion.applies) {
-      const affiliate = await tx.affiliate.findFirst({
-        where: { organizationId, couponCode: { equals: input.couponCode, mode: "insensitive" } },
+    if (eligibleAffiliate && !promotion.applies) {
+      await tx.affiliateOrderAttribution.create({
+        data: { orderId: order.id, affiliateId: eligibleAffiliate.id, commissionCents },
       });
-      if (affiliate) {
-        await tx.affiliateOrderAttribution.create({
-          data: { orderId: order.id, affiliateId: affiliate.id, commissionCents },
-        });
-      }
     }
 
     return {

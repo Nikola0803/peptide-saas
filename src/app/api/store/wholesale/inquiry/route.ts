@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { resolveHeaderOverride } from "@/lib/store-context";
+import { pushNotifyWholesaleInquiry } from "@/lib/push-notify";
+import { escapeHtml, sendEmail } from "@/lib/email";
 
 const bodySchema = z.object({
   programType: z.string().min(1),
@@ -42,6 +44,21 @@ export async function POST(req: NextRequest) {
       message: parsed.data.message || null,
     },
   });
+
+  pushNotifyWholesaleInquiry({
+    companyName: parsed.data.companyName,
+    contactName: parsed.data.contactName,
+    email: parsed.data.email.toLowerCase().trim(),
+    programType: parsed.data.programType,
+  }).catch((error) => console.error("Wholesale inquiry push failed", error));
+  prisma.organization.findUnique({ where: { id: store.organizationId }, select: { notifyEmail: true } }).then((organization) => {
+    if (!organization?.notifyEmail) return;
+    return sendEmail(
+      organization.notifyEmail,
+      `New ${parsed.data.programType} inquiry — ${parsed.data.companyName}`,
+      `<h1>New wholesale inquiry</h1><p><strong>${escapeHtml(parsed.data.companyName)}</strong> selected ${escapeHtml(parsed.data.programType)}.</p><p>${escapeHtml(parsed.data.contactName)} — ${escapeHtml(parsed.data.email)}</p><p><a href="${escapeHtml(process.env.NEXTAUTH_URL || "")}/wholesale">Open wholesale inquiries</a></p>`,
+    );
+  }).catch((error) => console.error("Wholesale inquiry email failed", error));
 
   return NextResponse.json({ ok: true }, { status: 201 });
 }

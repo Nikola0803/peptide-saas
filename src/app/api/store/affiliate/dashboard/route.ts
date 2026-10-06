@@ -4,6 +4,7 @@ import { resolveHeaderOverride } from "@/lib/store-context";
 import { resolveContactFromToken } from "@/lib/store-customer";
 import { getAffiliateStats, getAffiliateClickCounts } from "@/lib/affiliate-balance";
 import { payoutMethodToWire, bankAccountTypeToWire } from "@/lib/affiliate-wire";
+import { affiliateLevelForRevenue } from "@/lib/affiliate-program";
 
 // POST /api/store/affiliate/dashboard { token }
 // Resolves the Contact from the token, then looks up any linked Affiliate
@@ -91,13 +92,24 @@ export async function POST(req: NextRequest) {
     .filter((item) => item.status === "PAID")
     .reduce((sum, item) => sum + item.amountCents, 0);
   const totalConversions = attributions.length;
+  const level = affiliateLevelForRevenue(grossRevenueCents);
 
   return NextResponse.json({
     status: "APPROVED",
     affiliateName: affiliate.name,
     affiliateEmail: affiliate.email,
-    referralCode: affiliate.slug,
+    referralCode: affiliate.couponCode,
+    couponCode: affiliate.couponCode,
     ratePercent: affiliate.ratePercent,
+    customerDiscountPercent: affiliate.customerDiscountPercent,
+    effectiveCommissionPercent: Math.max(0, affiliate.ratePercent - affiliate.customerDiscountPercent),
+    level: {
+      key: level.current.key,
+      name: level.current.name,
+      nextName: level.next?.name ?? null,
+      progressPercent: level.progressPercent,
+      revenueToNextCents: level.revenueToNextCents,
+    },
     clicks30d: clicks.clicks30d,
     clicksTotal: clicks.clicksTotal,
     totalConversions,

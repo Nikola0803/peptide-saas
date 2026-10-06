@@ -258,11 +258,12 @@ async function processOrder(brandId: string, organizationId: string, payload: an
     let commissionCents = 0;
     if (couponCode) {
       const affiliate = await tx.affiliate.findFirst({
-        where: { organizationId, couponCode: { equals: couponCode, mode: "insensitive" } },
+        where: { organizationId, status: "APPROVED", couponCode: { equals: couponCode, mode: "insensitive" } },
       });
       if (affiliate) {
         affiliateId = affiliate.id;
-        commissionCents = Math.round((grossCents * affiliate.ratePercent) / 100);
+        const effectiveRate = Math.max(0, affiliate.ratePercent - affiliate.customerDiscountPercent);
+        commissionCents = Math.round((grossCents * effectiveRate) / 100);
       }
     }
 

@@ -6,15 +6,19 @@ import { requireOrg } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/slugify";
 import { sendTemplate } from "@/lib/email";
+import { AFFILIATE_CODE_RE, normalizeAffiliateCode } from "@/lib/affiliate-program";
 
 export async function createAffiliate(formData: FormData) {
   const { organization } = await requireOrg();
 
   const name = String(formData.get("name") ?? "").trim();
-  const couponCode = String(formData.get("couponCode") ?? "").trim().toUpperCase();
+  const couponCode = normalizeAffiliateCode(String(formData.get("couponCode") ?? ""));
   const ratePercent = Number(formData.get("ratePercent") ?? 0);
 
-  if (!name || !couponCode) throw new Error("Name and coupon code are both required");
+  if (!name || !AFFILIATE_CODE_RE.test(couponCode)) throw new Error("Name and a valid 4-24 character code are required");
+  if (!Number.isFinite(ratePercent) || ratePercent < 0 || ratePercent > 40) throw new Error("Rate must be between 0% and 40%");
+  const collision = await prisma.coupon.findFirst({ where: { organizationId: organization.id, code: couponCode } });
+  if (collision) throw new Error("That code is already used by a store coupon");
 
   await prisma.affiliate.create({
     data: {
@@ -32,6 +36,34 @@ export async function createAffiliate(formData: FormData) {
 
   revalidatePath("/affiliates");
   redirect("/affiliates");
+}
+
+export async function updateAffiliateProgram(affiliateId: string, formData: FormData) {
+  const { organization } = await requireOrg();
+  const ratePercent = Number(formData.get("ratePercent"));
+  const customerDiscountPercent = Number(formData.get("customerDiscountPercent"));
+  const couponCode = normalizeAffiliateCode(String(formData.get("couponCode") ?? ""));
+  const status = String(formData.get("status") ?? "APPROVED");
+
+  if (!Number.isFinite(ratePercent) || ratePercent < 0 || ratePercent > 40) throw new Error("Rate must be between 0% and 40%");
+  if (!Number.isInteger(customerDiscountPercent) || customerDiscountPercent < 0 || customerDiscountPercent > Math.min(30, Math.floor(ratePercent))) {
+    throw new Error("Customer discount must be a whole number no greater than the partner rate or 30%");
+  }
+  if (!AFFILIATE_CODE_RE.test(couponCode)) throw new Error("Use 4-24 letters, numbers, hyphens, or underscores for the code");
+  if (!["PENDING", "APPROVED", "REJECTED"].includes(status)) throw new Error("Invalid status");
+
+  const [affiliateCollision, couponCollision] = await Promise.all([
+    prisma.affiliate.findFirst({ where: { organizationId: organization.id, couponCode, id: { not: affiliateId } }, select: { id: true } }),
+    prisma.coupon.findFirst({ where: { organizationId: organization.id, code: couponCode }, select: { id: true } }),
+  ]);
+  if (affiliateCollision || couponCollision) throw new Error("That code is already in use");
+
+  await prisma.affiliate.update({
+    where: { id: affiliateId, organizationId: organization.id },
+    data: { ratePercent, customerDiscountPercent, couponCode, status: status as "PENDING" | "APPROVED" | "REJECTED" },
+  });
+  revalidatePath("/affiliates");
+  revalidatePath(`/affiliates/${affiliateId}`);
 }
 
 export async function approveAffiliate(affiliateId: string) {

@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { resolveHeaderOverride } from "@/lib/store-context";
 import { resolveContactFromToken } from "@/lib/store-customer";
 import { generateAffiliateCode } from "@/lib/affiliate-auth";
+import { pushNotifyAffiliateApplication } from "@/lib/push-notify";
+import { escapeHtml, sendEmail } from "@/lib/email";
 
 const bodySchema = z.object({
   token: z.string().optional(),
@@ -65,10 +67,15 @@ export async function POST(req: NextRequest) {
   const firstName = (contact.name ?? contact.email).split(" ")[0];
   const code = await generateAffiliateCode(
     firstName,
-    async (candidate) => Boolean(await prisma.affiliate.findFirst({ where: { organizationId: store.organizationId, slug: candidate } }))
+    async (candidate) => Boolean(await prisma.affiliate.findFirst({
+      where: {
+        organizationId: store.organizationId,
+        OR: [{ slug: candidate }, { couponCode: candidate }],
+      },
+    }))
   );
 
-  await prisma.affiliate.create({
+  const affiliate = await prisma.affiliate.create({
     data: {
       organizationId: store.organizationId,
       contactId: contact.id,
@@ -88,6 +95,21 @@ export async function POST(req: NextRequest) {
       referredBy: parsed.data.referredBy || null,
     },
   });
+
+  pushNotifyAffiliateApplication({
+    affiliateId: affiliate.id,
+    name: affiliate.name,
+    email: affiliate.email || contact.email,
+    socialLink: affiliate.socialLink,
+  }).catch((error) => console.error("Affiliate application push failed", error));
+  prisma.organization.findUnique({ where: { id: store.organizationId }, select: { notifyEmail: true } }).then((organization) => {
+    if (!organization?.notifyEmail) return;
+    return sendEmail(
+      organization.notifyEmail,
+      `New partner application — ${affiliate.name}`,
+      `<h1>New partner application</h1><p><strong>${escapeHtml(affiliate.name)}</strong> (${escapeHtml(affiliate.email || contact.email)}) submitted an application.</p><p>Channel: ${affiliate.socialLink ? escapeHtml(affiliate.socialLink) : "Not provided"}</p><p><a href="${escapeHtml(process.env.NEXTAUTH_URL || "")}/affiliates/${affiliate.id}">Open partner profile</a></p>`,
+    );
+  }).catch((error) => console.error("Affiliate application email failed", error));
 
   return NextResponse.json({ ok: true }, { status: 201 });
 }
