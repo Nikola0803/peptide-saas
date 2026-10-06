@@ -4,13 +4,18 @@ import bcrypt from "bcryptjs";
 const prisma = new PrismaClient();
 
 async function main() {
+  const demoPassword = process.env.DEMO_SEED_PASSWORD;
+  if (!demoPassword || demoPassword.length < 16) {
+    throw new Error("DEMO_SEED_PASSWORD must be set to at least 16 characters before running this seed.");
+  }
+
   const org = await prisma.organization.upsert({
     where: { slug: "demo" },
     update: {},
     create: { name: "Demo Peptide Network", slug: "demo", plan: "GROWTH" },
   });
 
-  const passwordHash = await bcrypt.hash("password123", 10);
+  const passwordHash = await bcrypt.hash(demoPassword, 10);
   const user = await prisma.user.upsert({
     where: { email: "operator@example.com" },
     update: {},
@@ -234,7 +239,7 @@ async function main() {
     void config;
   }
 
-  console.log("Seed complete. Sign in with operator@example.com / password123");
+  console.log("Seed complete. Demo operator credentials were read from the deployment environment.");
 }
 
 main()
