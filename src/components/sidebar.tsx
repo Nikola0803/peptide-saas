@@ -10,11 +10,11 @@ import { PushNotificationManager } from "./PushNotificationManager";
 export function Sidebar({
   organizationName,
   brandCount,
-  pendingChats,
+  pendingEnquiries,
 }: {
   organizationName: string;
   brandCount: number;
-  pendingChats?: number;
+  pendingEnquiries?: number;
 }) {
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -53,7 +53,7 @@ export function Sidebar({
               {group.items.map((item) => {
                 const active = pathname?.startsWith(item.href);
                 const isSupport = item.href === "/support";
-                const showBadge = isSupport && pendingChats && pendingChats > 0;
+                const showBadge = isSupport && pendingEnquiries && pendingEnquiries > 0;
                 return (
                   <Link
                     key={item.href}
@@ -68,8 +68,11 @@ export function Sidebar({
                     <i className={clsx(item.icon, "text-base w-5 h-5 flex items-center justify-center")} />
                     <span className="flex-1">{item.label}</span>
                     {showBadge && (
-                      <span className="ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
-                        {pendingChats > 9 ? "9+" : pendingChats}
+                      <span
+                        aria-label={`${pendingEnquiries} unanswered enquiries`}
+                        className="ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold leading-none text-white shadow-sm ring-2 ring-background-50"
+                      >
+                        {pendingEnquiries > 99 ? "99+" : pendingEnquiries}
                       </span>
                     )}
                   </Link>
@@ -101,11 +104,13 @@ export function Sidebar({
       <header className="md:hidden fixed top-0 left-0 right-0 z-30 h-14 bg-background-50 border-b border-background-200 flex items-center px-4 gap-3">
         <button
           onClick={() => setDrawerOpen(true)}
-          className="p-1.5 rounded-md text-foreground-700 hover:bg-background-100"
+          className="relative p-1.5 rounded-md text-foreground-700 hover:bg-background-100"
         >
           <i className="ri-menu-line text-xl" />
-          {pendingChats && pendingChats > 0 ? (
-            <span className="absolute top-2 left-2 w-2 h-2 rounded-full bg-red-500" />
+          {pendingEnquiries && pendingEnquiries > 0 ? (
+            <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold leading-none text-white ring-2 ring-background-50">
+              {pendingEnquiries > 99 ? "99+" : pendingEnquiries}
+            </span>
           ) : null}
         </button>
         <div className="flex items-center gap-2">

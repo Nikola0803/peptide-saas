@@ -119,7 +119,7 @@ export default async function SupportPage({
             const preview = c.messages[0]?.body ?? "";
             const channelLabel = c.channel === "WHATSAPP" ? "WhatsApp" : c.channel === "LIVE_CHAT" ? "Live chat" : "Contact form";
             const channelStatus = c.channel === "WHATSAPP" ? "connected" : c.channel === "LIVE_CHAT" ? "info" : "pending";
-            const needsReply = c.channel === "LIVE_CHAT" && c.status === "OPEN" && c.messages[0]?.direction === "INBOUND";
+            const needsReply = c.status === "OPEN" && c.messages[0]?.direction === "INBOUND";
             return (
               <Link
                 key={c.id}
