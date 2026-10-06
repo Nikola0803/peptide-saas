@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { createId } from "@/lib/id";
-import { sendTemplate, escapeHtml } from "@/lib/email";
+import { sendEmail, sendTemplate, escapeHtml } from "@/lib/email";
 import { pushNotifyNewOrder } from "@/lib/push-notify";
 import { resolveCoupons, evaluateCoupons, getAutoApplyCodes, type CouponCartItem } from "@/lib/coupon-engine";
 import { getQuantityUnitPriceCents } from "@/lib/quantity-pricing";
@@ -486,7 +486,7 @@ interface OrderEmailInput {
   orderNumber: string;
   customerEmail: string;
   customerName: string;
-  items: { name: string; quantity: number; unitPriceCents: number }[];
+  items: { sku: string; name: string; quantity: number; unitPriceCents: number }[];
   grossCents: number;
   shippingCents: number;
   paymentMethod?: string;
@@ -515,6 +515,36 @@ async function sendOrderEmails(organizationId: string, input: OrderEmailInput): 
   };
 
   await sendTemplate(organizationId, "order_confirmation_customer", input.customerEmail, vars);
+
+  // Conditional post-purchase supply reminder. This is intentionally sent
+  // only when the order contains a preparation-relevant research product and
+  // does not already contain BW H-Brand. Oral/tablet/capsule-only orders and
+  // supply-complete orders never receive it.
+  const hasBwHBrand = input.items.some((item) => item.sku.toUpperCase() === "BAC30" || /BW H-Brand/i.test(item.name));
+  const hasPreparationItem = input.items.some((item) =>
+    item.sku.toUpperCase() !== "BAC30" && !/ORAL|TABLET|CAPSULE/i.test(item.name)
+  );
+  if (!hasBwHBrand && hasPreparationItem) {
+    const productUrl = "https://www.evlvpeptides.com/shop/bacteriostatic-water-30ml?age_verified=1&utm_source=order_email&utm_medium=email&utm_campaign=bw_post_purchase&utm_content=reminder";
+    const safeName = escapeHtml(input.customerName);
+    const safeOrder = escapeHtml(input.orderNumber);
+    await sendEmail(
+      input.customerEmail,
+      `A laboratory supply reminder for order ${input.orderNumber}`,
+      `<div style="margin:0;padding:30px 16px;background:#eef2ef;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#17332f;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:620px;margin:0 auto;background:#ffffff;border:1px solid #d8e2dd;border-radius:14px;overflow:hidden;">
+          <tr><td style="padding:28px 30px 18px;background:#0b2f2c;color:#ffffff;"><div style="font-size:24px;font-weight:700;letter-spacing:.18em;">EVLV</div><div style="margin-top:6px;font-size:10px;letter-spacing:.16em;color:#bdd8ce;text-transform:uppercase;">Research supply reminder</div></td></tr>
+          <tr><td style="padding:30px;">
+            <h1 style="margin:0 0 16px;font-size:27px;line-height:1.18;color:#102d2a;">One laboratory supply may still be useful.</h1>
+            <p style="margin:0 0 16px;font-size:15px;line-height:1.7;color:#50625d;">Hi ${safeName}, your order <strong>${safeOrder}</strong> does not include BW H-Brand.</p>
+            <p style="margin:0 0 22px;font-size:15px;line-height:1.7;color:#50625d;">If your laboratory workflow requires a suitable sterile diluent and you do not already have one available, BW H-Brand can be ordered separately. If your workflow is already supplied, no action is needed.</p>
+            <a href="${productUrl}" style="display:inline-block;padding:14px 22px;border-radius:7px;background:#0b2f2c;color:#ffffff;text-decoration:none;font-size:13px;font-weight:700;">View BW H-Brand · $25.00</a>
+            <p style="margin:24px 0 0;padding-top:18px;border-top:1px solid #e0e7e3;font-size:11px;line-height:1.6;color:#7a8782;">For laboratory and analytical research use only. Not for human or veterinary use.</p>
+          </td></tr>
+        </table>
+      </div>`,
+    );
+  }
 
   const organization = await prisma.organization.findUnique({ where: { id: organizationId } });
   if (organization?.notifyEmail) {
