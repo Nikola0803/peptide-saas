@@ -40,6 +40,11 @@ export default async function WholesalePage() {
               <li key={inq.id} className="py-3 flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="text-foreground-900 font-medium">{inq.companyName}</div>
+                  {inq.programType && (
+                    <div className="mt-1 inline-flex rounded-full bg-primary-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-700">
+                      {inq.programType}
+                    </div>
+                  )}
                   <div className="text-xs text-foreground-600">
                     {inq.contactName} — {inq.email}
                     {inq.phone ? ` — ${inq.phone}` : ""}

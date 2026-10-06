@@ -415,7 +415,7 @@ export const DEFAULT_TEMPLATES: EmailTemplateDefault[] = [
     html: LAYOUT(`
       <h1>Welcome to the EVLV affiliate program, {{affiliateName}}</h1>
       <p>Your application has been approved. Log in to your affiliate dashboard to grab your referral link, track clicks and commission, and set up how you'd like to get paid.</p>
-      <p><a href="https://www.evlvpeptides.com/account" style="display:inline-block;background:#0e1113;color:#ffffff;padding:14px 22px;text-decoration:none;border-radius:5px;font-weight:650;letter-spacing:0.8px;">OPEN AFFILIATE DASHBOARD</a></p>
+      <p><a href="https://www.evlvpeptides.com/partner" style="display:inline-block;background:#0e1113;color:#ffffff;padding:14px 22px;text-decoration:none;border-radius:5px;font-weight:650;letter-spacing:0.8px;">OPEN PARTNER COMMAND CENTER</a></p>
     `, EVLV_VIAL_HERO),
   },
   {

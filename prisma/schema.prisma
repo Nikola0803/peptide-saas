@@ -965,6 +965,7 @@ model WholesaleInquiry {
   companyName   String
   contactName   String
   email         String
+  programType   String?
   phone         String?
   website       String?
   monthlyVolume String?

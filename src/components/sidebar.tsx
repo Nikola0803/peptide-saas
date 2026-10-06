@@ -10,11 +10,11 @@ import { PushNotificationManager } from "./PushNotificationManager";
 export function Sidebar({
   organizationName,
   brandCount,
-  pendingEnquiries,
+  notificationCounts,
 }: {
   organizationName: string;
   brandCount: number;
-  pendingEnquiries?: number;
+  notificationCounts?: Record<string, number>;
 }) {
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -52,8 +52,8 @@ export function Sidebar({
             <div className="space-y-0.5">
               {group.items.map((item) => {
                 const active = pathname?.startsWith(item.href);
-                const isSupport = item.href === "/support";
-                const showBadge = isSupport && pendingEnquiries && pendingEnquiries > 0;
+                const badgeKey = item.href.slice(1);
+                const badgeCount = notificationCounts?.[badgeKey] ?? 0;
                 return (
                   <Link
                     key={item.href}
@@ -67,12 +67,12 @@ export function Sidebar({
                   >
                     <i className={clsx(item.icon, "text-base w-5 h-5 flex items-center justify-center")} />
                     <span className="flex-1">{item.label}</span>
-                    {showBadge && (
+                    {badgeCount > 0 && (
                       <span
-                        aria-label={`${pendingEnquiries} unanswered enquiries`}
+                        aria-label={`${badgeCount} pending notifications`}
                         className="ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold leading-none text-white shadow-sm ring-2 ring-background-50"
                       >
-                        {pendingEnquiries > 99 ? "99+" : pendingEnquiries}
+                        {badgeCount > 99 ? "99+" : badgeCount}
                       </span>
                     )}
                   </Link>
@@ -107,9 +107,11 @@ export function Sidebar({
           className="relative p-1.5 rounded-md text-foreground-700 hover:bg-background-100"
         >
           <i className="ri-menu-line text-xl" />
-          {pendingEnquiries && pendingEnquiries > 0 ? (
+          {Object.values(notificationCounts ?? {}).reduce((sum, count) => sum + count, 0) > 0 ? (
             <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold leading-none text-white ring-2 ring-background-50">
-              {pendingEnquiries > 99 ? "99+" : pendingEnquiries}
+              {Object.values(notificationCounts ?? {}).reduce((sum, count) => sum + count, 0) > 99
+                ? "99+"
+                : Object.values(notificationCounts ?? {}).reduce((sum, count) => sum + count, 0)}
             </span>
           ) : null}
         </button>

@@ -68,6 +68,16 @@ export default async function AffiliatesPage() {
                 <div className="min-w-0">
                   <div className="text-foreground-800 truncate">{a.name}</div>
                   <div className="text-xs text-foreground-500 truncate">{a.email}</div>
+                  <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-foreground-500">
+                    {a.phone && <span><i className="ri-phone-line mr-1" />{a.phone}</span>}
+                    {a.socialLink && (
+                      <a href={a.socialLink} target="_blank" rel="noreferrer" className="text-primary-600 hover:underline">
+                        <i className="ri-links-line mr-1" />Primary channel
+                      </a>
+                    )}
+                    {a.referredBy && <span><i className="ri-user-shared-line mr-1" />Referred by {a.referredBy}</span>}
+                    {a.country && <span><i className="ri-map-pin-line mr-1" />{a.country}</span>}
+                  </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <form action={approveAffiliate.bind(null, a.id)}>

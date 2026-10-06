@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { resolveHeaderOverride } from "@/lib/store-context";
 
 const bodySchema = z.object({
+  programType: z.string().min(1),
   companyName: z.string().min(1),
   contactName: z.string().min(1),
   email: z.string().email(),
@@ -34,6 +35,7 @@ export async function POST(req: NextRequest) {
       companyName: parsed.data.companyName,
       contactName: parsed.data.contactName,
       email: parsed.data.email.toLowerCase().trim(),
+      programType: parsed.data.programType,
       phone: parsed.data.phone || null,
       website: parsed.data.website || null,
       monthlyVolume: parsed.data.monthlyVolume || null,
