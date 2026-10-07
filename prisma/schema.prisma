@@ -1269,7 +1269,7 @@ enum MessageDirection {
   OUTBOUND
 }
 
-// Service Discount (military/first-responder/medical staff) applications, submitted from
+// Service Discount (military/first-responder) applications, submitted from
 // evlv-site's /heroes-discount form. Manually reviewed like the affiliate
 // program: reviewing opens the proof-of-service file before approving.
 // Approval creates a personal, account-based lifetime 25%-off Coupon using
@@ -1345,8 +1345,8 @@ model HeroesDiscountRequest {
 
   name   String
   email  String
-  status String // military / first responder / medical staff category
-  branch String // branch, agency, or medical employer
+  status String // military / first responder category
+  branch String // branch or agency
 
   // Proof-of-service file lives outside public/ (see src/lib/heroes-discount-upload.ts)
   // -- never served except through the authenticated admin proof route.

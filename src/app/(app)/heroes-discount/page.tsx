@@ -24,7 +24,7 @@ export default async function HeroesDiscountPage() {
 
   return (
     <div>
-      <PageHeader title="Service Discount" subtitle="Military, first responder & medical staff applications" />
+      <PageHeader title="Service Discount" subtitle="Military and first responder applications" />
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <StatCard label="Pending review" value={String(pending.length)} hint={pending.length > 0 ? "Needs review" : undefined} />
@@ -35,7 +35,7 @@ export default async function HeroesDiscountPage() {
       <Card className="p-4 mb-6">
         <h2 className="text-sm font-semibold text-foreground-950 mb-3">Pending applications</h2>
         {pending.length === 0 ? (
-          <EmptyState icon="ri-medal-line" title="No pending applications" body="New military, first responder, and medical staff requests will show up here." />
+          <EmptyState icon="ri-medal-line" title="No pending applications" body="New military and first responder requests will show up here." />
         ) : (
           <ul className="text-sm divide-y divide-background-100">
             {pending.map((r) => (

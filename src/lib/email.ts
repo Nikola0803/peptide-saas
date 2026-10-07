@@ -590,7 +590,7 @@ export const DEFAULT_TEMPLATES: EmailTemplateDefault[] = [
   {
     key: "heroes_discount_received",
     name: "Service Discount application received",
-    description: "Sent after military, first responder, or medical staff submits a Service Discount application.",
+    description: "Sent after military or first responder personnel submit a Service Discount application.",
     subject: "We've got your EVLV Service Discount application",
     sampleVars: { name: "Jordan" },
     html: LAYOUT(`
