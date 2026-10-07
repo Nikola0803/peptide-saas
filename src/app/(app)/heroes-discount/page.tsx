@@ -24,18 +24,18 @@ export default async function HeroesDiscountPage() {
 
   return (
     <div>
-      <PageHeader title="Heroes Discount" subtitle="Military & first-responder discount applications" />
+      <PageHeader title="Service Discount" subtitle="Military, first responder & medical staff applications" />
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <StatCard label="Pending review" value={String(pending.length)} hint={pending.length > 0 ? "Needs review" : undefined} />
         <StatCard label="Approved (recent)" value={String(approvedCount)} />
-        <StatCard label="Discount issued" value="20% off, single-use" />
+        <StatCard label="Discount issued" value="25% off for life" />
       </div>
 
       <Card className="p-4 mb-6">
         <h2 className="text-sm font-semibold text-foreground-950 mb-3">Pending applications</h2>
         {pending.length === 0 ? (
-          <EmptyState icon="ri-medal-line" title="No pending applications" body="New Heroes Discount requests from evlv-site will show up here." />
+          <EmptyState icon="ri-medal-line" title="No pending applications" body="New military, first responder, and medical staff requests will show up here." />
         ) : (
           <ul className="text-sm divide-y divide-background-100">
             {pending.map((r) => (
@@ -52,14 +52,14 @@ export default async function HeroesDiscountPage() {
                     rel="noreferrer"
                     className="mt-1 inline-flex items-center gap-1 text-xs text-primary-600 hover:underline"
                   >
-                    <i className="ri-file-shield-2-line" /> View proof of service ({r.proofFilename})
+                    <i className="ri-file-shield-2-line" /> View verification document ({r.proofFilename})
                   </a>
                   <div className="text-[10px] text-foreground-400 mt-1">{shortDate(r.createdAt)}</div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <form action={approveHeroesDiscount.bind(null, r.id)}>
                     <button className="text-xs bg-primary-500 text-background-50 rounded-md px-2.5 py-1.5 font-medium hover:bg-primary-600">
-                      Approve (20% off)
+                      Approve (25% lifetime)
                     </button>
                   </form>
                   <form action={rejectHeroesDiscount.bind(null, r.id)}>

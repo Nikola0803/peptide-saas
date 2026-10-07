@@ -5,11 +5,9 @@ import { requireOrg } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { sendTemplate } from "@/lib/email";
 
-// Approving issues a personal, single-use 20%-off Coupon assigned to this
-// requester's Contact record -- reuses the same Coupon model checkout
-// already validates against (see coupon-engine.ts's assignedContact
-// handling), so it auto-applies for them at checkout with no code to type,
-// and resolveCoupons() rejects it for anyone else.
+// Approval creates or upgrades one personal lifetime 25%-off Coupon on the
+// requester's Contact. Checkout auto-applies it when the verified account
+// or email is recognized, and resolveCoupons() rejects it for anyone else.
 export async function approveHeroesDiscount(requestId: string) {
   const { organization } = await requireOrg();
 
@@ -25,22 +23,47 @@ export async function approveHeroesDiscount(requestId: string) {
     create: { organizationId: organization.id, email: request.email, name: request.name },
   });
 
-  const coupon = await prisma.coupon.create({
-    data: {
+  const existingCoupon = await prisma.coupon.findFirst({
+    where: {
       organizationId: organization.id,
-      code: `HEROES-${request.id.slice(-8).toUpperCase()}`,
-      description: `Heroes Discount -- ${request.name} (${request.status})`,
-      type: "PERCENT",
-      percentOff: 20,
-      allowStacking: false,
-      maxRedemptions: 1,
       assignedContactId: contact.id,
+      code: { startsWith: "HEROES-", mode: "insensitive" },
     },
   });
 
+  const coupon = existingCoupon
+    ? await prisma.coupon.update({
+        where: { id: existingCoupon.id },
+        data: {
+          description: `25% Lifetime Service Discount -- ${request.name} (${request.status})`,
+          type: "PERCENT",
+          percentOff: 25,
+          allowStacking: false,
+          maxRedemptions: null,
+          expiresAt: null,
+          active: true,
+        },
+      })
+    : await prisma.coupon.create({
+        data: {
+          organizationId: organization.id,
+          code: `HEROES-${request.id.slice(-8).toUpperCase()}`,
+          description: `25% Lifetime Service Discount -- ${request.name} (${request.status})`,
+          type: "PERCENT",
+          percentOff: 25,
+          allowStacking: false,
+          maxRedemptions: null,
+          assignedContactId: contact.id,
+        },
+      });
+
   await prisma.heroesDiscountRequest.update({
     where: { id: requestId },
-    data: { reviewStatus: "APPROVED", reviewedAt: new Date(), couponId: coupon.id },
+    data: {
+      reviewStatus: "APPROVED",
+      reviewedAt: new Date(),
+      ...(existingCoupon ? {} : { couponId: coupon.id }),
+    },
   });
 
   await sendTemplate(organization.id, "heroes_discount_approved", request.email, {

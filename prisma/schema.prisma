@@ -1269,12 +1269,11 @@ enum MessageDirection {
   OUTBOUND
 }
 
-// Heroes Discount (military/first-responder) applications, submitted from
+// Service Discount (military/first-responder/medical staff) applications, submitted from
 // evlv-site's /heroes-discount form. Manually reviewed like the affiliate
 // program: reviewing opens the proof-of-service file before approving.
-// Approving creates a personal, single-use 20%-off Coupon (assignedContactId
-// + maxRedemptions: 1, same mechanism as any other per-customer deal) and
-// emails the code -- no separate discount system needed.
+// Approval creates a personal, account-based lifetime 25%-off Coupon using
+// assignedContactId with no redemption cap or expiration. It is non-stackable.
 // Real, server-verified customer access requests -- see MEMBERSHIP.md and
 // RESEARCHER-VERIFICATION.md. Two independent gates on Product, on purpose
 // (a paying Member could otherwise buy a restricted delivery-format
@@ -1346,8 +1345,8 @@ model HeroesDiscountRequest {
 
   name   String
   email  String
-  status String // "Active Duty" / "Veteran" / "Reservist / National Guard" / "First Responder (Police/Fire/EMS)"
-  branch String // free text, e.g. "U.S. Army", "Chicago PD"
+  status String // military / first responder / medical staff category
+  branch String // branch, agency, or medical employer
 
   // Proof-of-service file lives outside public/ (see src/lib/heroes-discount-upload.ts)
   // -- never served except through the authenticated admin proof route.

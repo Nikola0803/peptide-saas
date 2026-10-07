@@ -589,37 +589,37 @@ export const DEFAULT_TEMPLATES: EmailTemplateDefault[] = [
   },
   {
     key: "heroes_discount_received",
-    name: "Heroes Discount application received",
-    description: "Sent right after someone submits the Heroes Discount form on evlv-site, before review.",
-    subject: "We've got your Heroes Discount application",
+    name: "Service Discount application received",
+    description: "Sent after military, first responder, or medical staff submits a Service Discount application.",
+    subject: "We've got your EVLV Service Discount application",
     sampleVars: { name: "Jordan" },
     html: LAYOUT(`
       <h1 style="font-size: 20px;">Thanks, {{name}}</h1>
-      <p>We've received your Heroes Discount application along with your proof of service. We review every application by hand -- we'll follow up by email within a couple of business days.</p>
+      <p>We've received your Service Discount application and verification document. We review every application by hand -- we'll follow up by email within a couple of business days.</p>
     `),
   },
   {
     key: "heroes_discount_approved",
-    name: "Heroes Discount approved",
-    description: "Sent when a Heroes Discount application is approved from the Heroes Discount page, with the personal coupon code.",
-    subject: "You're approved for the EVLV Heroes Discount",
+    name: "Service Discount approved",
+    description: "Sent when a Service Discount application is approved, with the permanent account benefit details.",
+    subject: "Your EVLV 25% lifetime benefit is approved",
     sampleVars: { name: "Jordan", couponCode: "HEROES-AB12CD34" },
     html: LAYOUT(`
       <h1 style="font-size: 20px;">Thank you for your service, {{name}}</h1>
-      <p>Your Heroes Discount application has been approved. Your personal 20% off code is:</p>
+      <p>Your Service Discount application has been approved. Your personal 25% lifetime benefit is now connected to your verified account email.</p>
       <p style="font-size: 18px; font-weight: 700; letter-spacing: 0.05em;">{{couponCode}}</p>
-      <p>It's single-use and tied to your account -- it'll apply automatically at checkout when you're signed in.</p>
+      <p>It has no expiration and applies automatically when your account or matching email is recognized at checkout. It cannot be combined with another coupon or promotion.</p>
     `),
   },
   {
     key: "heroes_discount_rejected",
-    name: "Heroes Discount rejected",
-    description: "Sent when a Heroes Discount application is rejected from the Heroes Discount page.",
-    subject: "Update on your Heroes Discount application",
+    name: "Service Discount rejected",
+    description: "Sent when a Service Discount application cannot be verified.",
+    subject: "Update on your EVLV Service Discount application",
     sampleVars: { name: "Jordan" },
     html: LAYOUT(`
-      <h1 style="font-size: 20px;">Your Heroes Discount application</h1>
-      <p>Hi {{name}}, we weren't able to verify your proof of service for the Heroes Discount. If you think this was a mistake, reply to this email and we're happy to take another look.</p>
+      <h1 style="font-size: 20px;">Your Service Discount application</h1>
+      <p>Hi {{name}}, we weren't able to verify the document submitted with your Service Discount application. If you think this was a mistake, reply to this email and we're happy to take another look.</p>
     `),
   },
   {

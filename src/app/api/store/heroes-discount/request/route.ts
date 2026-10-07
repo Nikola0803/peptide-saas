@@ -11,7 +11,7 @@ export const runtime = "nodejs";
 // server-only proxy (/api/heroes-discount/request), same x-store-domain/
 // x-store-api-key auth as /api/store/wholesale/inquiry. Stores the
 // submission + proof-of-service file for manual review at /heroes-discount;
-// approving it (see actions.ts) is what actually issues the 20%-off coupon.
+// approving it (see actions.ts) assigns the account-based lifetime 25% benefit.
 const schema = z.object({
   name: z.string().trim().min(1),
   email: z.string().trim().email(),

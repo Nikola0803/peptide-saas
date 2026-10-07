@@ -93,6 +93,14 @@ export async function resolveCoupons(
       errors.push({ code, reason: "Coupon not found" });
       continue;
     }
+    // Legacy HEROES coupons were originally issued at 20% with one use.
+    // The current verified service program is 25% for life. Normalize those
+    // older assigned rows at evaluation time so existing approved accounts
+    // receive the new benefit immediately, even before a database cleanup.
+    const isLifetimeServiceBenefit = /^HEROES-/i.test(coupon.code) && Boolean(coupon.assignedContactId);
+    const effectiveCoupon: Coupon = isLifetimeServiceBenefit
+      ? { ...coupon, percentOff: 25, allowStacking: false, maxRedemptions: null, expiresAt: null }
+      : coupon;
     if (coupon.assignedContactId && coupon.assignedContactId !== contactId) {
       // Deliberately the same message as a nonexistent code -- never
       // reveal that a code exists but belongs to someone else.
@@ -107,11 +115,11 @@ export async function resolveCoupons(
       errors.push({ code, reason: "Coupon is not active yet" });
       continue;
     }
-    if (coupon.expiresAt && coupon.expiresAt < now) {
+    if (!isLifetimeServiceBenefit && coupon.expiresAt && coupon.expiresAt < now) {
       errors.push({ code, reason: "Coupon has expired" });
       continue;
     }
-    if (coupon.maxRedemptions != null && coupon.redemptionCount >= coupon.maxRedemptions) {
+    if (!isLifetimeServiceBenefit && coupon.maxRedemptions != null && coupon.redemptionCount >= coupon.maxRedemptions) {
       errors.push({ code, reason: "Coupon has reached its redemption limit" });
       continue;
     }
@@ -121,21 +129,21 @@ export async function resolveCoupons(
     }
 
     if (kept.length > 0) {
-      const pair = [...kept, coupon];
+      const pair = [...kept, effectiveCoupon];
       const isWelcomePlusTen = pair.length === 2 &&
         pair.some((entry) => /^WELCOME(?:10|20)-/i.test(entry.code) && [10, 20].includes(entry.percentOff ?? 0)) &&
         pair.some((entry) => !/^WELCOME(?:10|20)-/i.test(entry.code) && entry.type === "PERCENT" && entry.percentOff === 10);
       // The active GLP 10% offer is explicitly allowed to join the personal
       // welcome reward even if an existing CRM row was originally created
       // as non-stackable. The retail ceiling still stops at 30%.
-      const stackingOk = isWelcomePlusTen || (coupon.allowStacking && kept.every((k) => k.allowStacking));
+      const stackingOk = isWelcomePlusTen || (effectiveCoupon.allowStacking && kept.every((k) => k.allowStacking));
       if (!stackingOk) {
         errors.push({ code, reason: "This coupon cannot be combined with another coupon" });
         continue;
       }
     }
 
-    kept.push(coupon);
+    kept.push(effectiveCoupon);
   }
 
   return { coupons: kept, errors };
@@ -302,8 +310,10 @@ export async function getAutoApplyCodes(organizationId: string, contactId?: stri
       assignedContactId: contactId,
       active: true,
       OR: [{ startsAt: null }, { startsAt: { lte: now } }],
-      AND: [{ OR: [{ expiresAt: null }, { expiresAt: { gte: now } }] }],
+      AND: [{ OR: [{ code: { startsWith: "HEROES-", mode: "insensitive" } }, { expiresAt: null }, { expiresAt: { gte: now } }] }],
     },
   });
-  return coupons.filter((c) => c.maxRedemptions == null || c.redemptionCount < c.maxRedemptions).map((c) => c.code);
+  return coupons
+    .filter((c) => /^HEROES-/i.test(c.code) || c.maxRedemptions == null || c.redemptionCount < c.maxRedemptions)
+    .map((c) => c.code);
 }
