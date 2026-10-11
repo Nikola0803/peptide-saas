@@ -76,6 +76,7 @@ model Organization {
   media           Media[]
   pushSubscriptions PushSubscription[]
   coupons         Coupon[]
+  bookings        Booking[]
 }
 
 enum Plan {
@@ -167,12 +168,17 @@ model Brand {
   contactLinks  ContactBrandLink[]
   orders        Order[]
   webhookEvents WebhookEvent[]
+  // Safe to expose client-side — identifies this brand for booking form submissions.
+  // Used as x-public-key in CRM_BOOKING_FORM_KEY env vars on connected storefronts.
+  bookingPublicKey String @unique @default(cuid())
+
   trackingConfig TrackingConfig?
   trackingEvents TrackingEvent[]
   invoices       Invoice[]
   conversations  Conversation[]
   giveawayConfig GiveawayConfig?
   giveawayEntries GiveawayEntry[]
+  bookings       Booking[]
 }
 
 enum BrandStatus {
@@ -1495,4 +1501,63 @@ model PushSubscription {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([organizationId])
+}
+
+// ---------------------------------------------------------------------------
+// Bookings — education/wellness calls booked from evlvtoday.com or the
+// brand hub (evlv-tiny). Auth uses Brand.bookingPublicKey, so each
+// connected site has its own key and bookings are attributed to a brand.
+// ---------------------------------------------------------------------------
+
+enum BookingStatus {
+  REQUESTED  // Form submitted, not yet confirmed
+  CONFIRMED  // Call time confirmed with the contact
+  COMPLETED  // Call happened
+  CANCELLED  // Cancelled before the call
+  NO_SHOW    // Contact did not join
+}
+
+model Booking {
+  id             String       @id @default(cuid())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+  brand          Brand?       @relation(fields: [brandId], references: [id])
+  brandId        String?
+
+  // Contact fields — firstName/lastName from evtd's 3-step flow;
+  // name from evlv-tiny's simpler single-field form.
+  email     String
+  firstName String?
+  lastName  String?
+  phone     String?
+  name      String?
+
+  // Call details
+  kind            String        @default("education_intro")
+  channel         String        @default("phone") // phone | video
+  source          String?       // evlvtoday.com | evlvtoday-hub
+  requestedDate   String        // YYYY-MM-DD
+  requestedTime   String        // HH:MM
+  timezone        String
+  durationMinutes Int           @default(15)
+  status          BookingStatus @default(REQUESTED)
+
+  // Form content
+  interests String[]
+  purpose   String?
+  notes     String?
+
+  // Consent
+  privacyAccepted Boolean @default(false)
+  marketingOptIn  Boolean @default(false)
+
+  // Attribution
+  referrer    String?
+  submittedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([organizationId, createdAt])
+  @@index([organizationId, status])
+  @@index([organizationId, requestedDate])
 }

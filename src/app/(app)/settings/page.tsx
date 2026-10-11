@@ -108,9 +108,23 @@ export default async function SettingsPage() {
 
         {brands.map((brand) => (
           <Card key={brand.id} className="p-4 lg:col-span-2">
+            <h2 className="text-sm font-semibold text-foreground-950 mb-3">{brand.name} — Booking Key</h2>
+            <p className="text-xs text-foreground-500 mb-3">
+              Set <code className="font-mono bg-background-200 px-1 rounded">CRM_BOOKING_FORM_KEY</code> on{" "}
+              <strong>{brand.name}</strong>&apos;s storefront to this value, and set{" "}
+              <code className="font-mono bg-background-200 px-1 rounded">CRM_API_URL</code> to the URL of this
+              CRM. Booking submissions from that site will flow into{" "}
+              <a href="/bookings" className="text-primary-600 hover:underline">Bookings</a>.
+            </p>
+            <CopyableField label={`${brand.name} booking public key`} value={brand.bookingPublicKey} monospace />
+          </Card>
+        ))}
+
+        {brands.map((brand) => (
+          <Card key={`profile-${brand.id}`} className="p-4 lg:col-span-2">
             <h2 className="text-sm font-semibold text-foreground-950 mb-1">{brand.name} shop profile</h2>
             <p className="text-xs text-foreground-500 mb-3">
-              Used to style this brand&apos;s marketing/transactional emails and shown on its storefront.
+              Used to style this brand&apos;s marketing emails and shown on its storefront.
             </p>
             <form action={updateBrandProfile} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <input type="hidden" name="brandId" value={brand.id} />
