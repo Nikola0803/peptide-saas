@@ -9,6 +9,10 @@ import {
   GLP_PAIR_PROMOTION_CODE,
   type GlpPairPromotionItem,
 } from "@/lib/glp-pair-promotion";
+import {
+  evaluateResearchSetPromotion,
+  RESEARCH_SET_PROMOTION_CODE,
+} from "@/lib/research-set-promotion";
 import { affiliateDiscountCents } from "@/lib/affiliate-program";
 
 // "YYYY-MM-DD" in UTC -- the calendar day used to decide whether a
@@ -145,8 +149,12 @@ export async function runCheckout(
       create: { contactId: contact.id, brandId },
     });
 
-    const [org, wholesale, priorPromotionOrder] = await Promise.all([
+    const [org, brand, wholesale, priorPromotionOrder] = await Promise.all([
       tx.organization.findUnique({ where: { id: organizationId } }),
+      tx.brand.findUnique({
+        where: { id: brandId },
+        select: { researchSetActive: true, researchSetStartsAt: true, researchSetEndsAt: true, glpPairActive: true },
+      }),
       tx.wholesalePartner.findUnique({ where: { contactId: contact.id }, select: { status: true } }),
       tx.order.findFirst({
         where: {
@@ -262,22 +270,45 @@ export async function runCheckout(
       });
     }
 
-    const promotion = evaluateGlpPairPromotion(promotionItems, {
-      alreadyRedeemed: Boolean(priorPromotionOrder),
-      isWholesale: wholesale?.status === "APPROVED",
-      minimumMarginPercent: org?.minMarginPercent ?? 30,
-    });
+    const isWholesale = wholesale?.status === "APPROVED";
+    const marginPercent = org?.minMarginPercent ?? 30;
+
+    const glpPromotion = (brand?.glpPairActive ?? true)
+      ? evaluateGlpPairPromotion(promotionItems, {
+          alreadyRedeemed: Boolean(priorPromotionOrder),
+          isWholesale,
+          minimumMarginPercent: marginPercent,
+        })
+      : { applies: false as const };
 
     // This event is exclusive: regular unit prices replace Deal of the Day
     // and quantity-tier prices, so the third and later units stay full price.
-    // The discount is then applied to exactly one unit in one same-SKU pair.
-    if (promotion.applies) {
-      grossCentsTotal = promotion.subtotalCents;
+    if (glpPromotion.applies && "subtotalCents" in glpPromotion) {
+      grossCentsTotal = glpPromotion.subtotalCents;
       for (let i = 0; i < resolvedItems.length; i += 1) {
         resolvedItems[i].unitPriceCents = promotionItems[i].regularUnitPriceCents;
         couponCartItems[i].unitPriceCents = promotionItems[i].regularUnitPriceCents;
       }
     }
+
+    // Research Set — choose 3+, save 30%. Evaluated after GLP so a qualifying
+    // GLP pair cart never also triggers the set discount.
+    const researchSetItems = couponCartItems.map((item) => ({
+      quantity: item.quantity,
+      unitPriceCents: item.unitPriceCents,
+      cogsCents: item.cogsCents,
+    }));
+    const researchSetPromotion = !glpPromotion.applies
+      ? evaluateResearchSetPromotion(researchSetItems, {
+          active: brand?.researchSetActive ?? false,
+          startsAt: brand?.researchSetStartsAt ?? null,
+          endsAt: brand?.researchSetEndsAt ?? null,
+          isWholesale,
+          minimumMarginPercent: marginPercent,
+        })
+      : { applies: false as const };
+
+    const promotion = glpPromotion.applies ? glpPromotion : researchSetPromotion;
 
     const affiliate = input.couponCode && !promotion.applies
       ? await tx.affiliate.findFirst({
@@ -300,9 +331,13 @@ export async function runCheckout(
     // combined with another one just doesn't apply (checkout never fails
     // over a bad promo code) -- evlv-site's checkout should call
     // /api/store/coupons/validate first so the customer sees why.
-    let discountCents = promotion.applies ? promotion.discountCents : 0;
+    let discountCents = promotion.applies && "discountCents" in promotion ? promotion.discountCents : 0;
     let couponId: string | undefined;
-    let appliedCouponCodes: string | undefined = promotion.applies ? GLP_PAIR_PROMOTION_CODE : undefined;
+    let appliedCouponCodes: string | undefined = glpPromotion.applies
+      ? GLP_PAIR_PROMOTION_CODE
+      : researchSetPromotion.applies
+      ? RESEARCH_SET_PROMOTION_CODE
+      : undefined;
     if (eligibleAffiliate && eligibleAffiliate.customerDiscountPercent > 0) {
       const affiliateDiscount = affiliateDiscountCents(
         grossCentsTotal,

@@ -179,6 +179,14 @@ model Brand {
   giveawayConfig GiveawayConfig?
   giveawayEntries GiveawayEntry[]
   bookings       Booking[]
+
+  // Campaign promotion toggles — set from the Promotions page.
+  // Active flag is the gate; startsAt/endsAt are optional guards.
+  researchSetActive    Boolean   @default(false)
+  researchSetStartsAt  DateTime?
+  researchSetEndsAt    DateTime?
+  // Force-disable the GLP pair event (overrides the hardcoded date window).
+  glpPairActive        Boolean   @default(true)
 }
 
 enum BrandStatus {

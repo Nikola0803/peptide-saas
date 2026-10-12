@@ -58,6 +58,29 @@ export async function clearDealOfTheDay(storeMappingId: string) {
   revalidatePath("/promotions");
 }
 
+export async function saveCampaignPromotion(brandId: string, formData: FormData) {
+  const { organization } = await requireOrg();
+  const brand = await prisma.brand.findFirst({ where: { id: brandId, organizationId: organization.id } });
+  if (!brand) throw new Error("Brand not found");
+
+  const researchSetActive = formData.get("researchSetActive") === "on";
+  const glpPairActive = formData.get("glpPairActive") === "on";
+  const researchSetStartsStr = str(formData, "researchSetStartsAt");
+  const researchSetEndsStr = str(formData, "researchSetEndsAt");
+
+  await prisma.brand.update({
+    where: { id: brandId },
+    data: {
+      researchSetActive,
+      glpPairActive,
+      researchSetStartsAt: researchSetStartsStr ? new Date(researchSetStartsStr) : null,
+      researchSetEndsAt: researchSetEndsStr ? new Date(researchSetEndsStr) : null,
+    },
+  });
+
+  revalidatePath("/promotions");
+}
+
 export async function saveGiveawayConfig(brandId: string, formData: FormData) {
   const { organization } = await requireOrg();
   const brand = await prisma.brand.findFirst({ where: { id: brandId, organizationId: organization.id } });
