@@ -12,6 +12,12 @@ import {
   GLP_PAIR_PROMOTION_LABEL,
   type GlpPairPromotionItem,
 } from "@/lib/glp-pair-promotion";
+import {
+  evaluateResearchSetPromotion,
+  RESEARCH_SET_PROMOTION_CODE,
+  RESEARCH_SET_PROMOTION_ID,
+  RESEARCH_SET_PROMOTION_LABEL,
+} from "@/lib/research-set-promotion";
 import { affiliateDiscountCents } from "@/lib/affiliate-program";
 
 const bodySchema = z.object({
@@ -87,10 +93,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "No valid items in cart" }, { status: 422 });
   }
 
-  const org = await prisma.organization.findUnique({ where: { id: store.organizationId } });
-  const wholesale = contactId
-    ? await prisma.wholesalePartner.findUnique({ where: { contactId }, select: { status: true } })
-    : null;
+  const [org, brand, wholesale] = await Promise.all([
+    prisma.organization.findUnique({ where: { id: store.organizationId } }),
+    prisma.brand.findUnique({
+      where: { id: store.brandId },
+      select: { researchSetActive: true, researchSetStartsAt: true, researchSetEndsAt: true, glpPairActive: true },
+    }),
+    contactId
+      ? prisma.wholesalePartner.findUnique({ where: { contactId }, select: { status: true } })
+      : Promise.resolve(null),
+  ]);
   const alreadyRedeemed = contactId
     ? Boolean(await prisma.order.findFirst({
         where: {
@@ -102,26 +114,58 @@ export async function POST(req: NextRequest) {
         select: { id: true },
       }))
     : false;
-  const promotion = evaluateGlpPairPromotion(promotionItems, {
-    alreadyRedeemed,
-    isWholesale: wholesale?.status === "APPROVED",
-    minimumMarginPercent: org?.minMarginPercent ?? 30,
-  });
+  const isWholesale = wholesale?.status === "APPROVED";
+  const marginPercent = org?.minMarginPercent ?? 30;
 
-  if (promotion.applies) {
+  // GLP Pair event — second same-item 70% off. Overridden by glpPairActive flag.
+  const glpPromotion = (brand?.glpPairActive ?? true)
+    ? evaluateGlpPairPromotion(promotionItems, {
+        alreadyRedeemed,
+        isWholesale,
+        minimumMarginPercent: marginPercent,
+      })
+    : { applies: false };
+
+  if (glpPromotion.applies && "discountCents" in glpPromotion) {
     return NextResponse.json({
       valid: true,
-      discountCents: promotion.discountCents,
-      subtotalCents: promotion.subtotalCents,
-      totalCents: promotion.totalCents,
+      discountCents: glpPromotion.discountCents,
+      subtotalCents: glpPromotion.subtotalCents,
+      totalCents: glpPromotion.totalCents,
       appliedCoupons: [{ code: GLP_PAIR_PROMOTION_CODE, label: GLP_PAIR_PROMOTION_LABEL }],
       automaticPromotion: GLP_PAIR_PROMOTION_ID,
       promotionLabel: GLP_PAIR_PROMOTION_LABEL,
-      flooredByMargin: promotion.flooredByMargin,
+      flooredByMargin: glpPromotion.flooredByMargin,
       maximumDiscountPercent: 35,
-      // A previously stored welcome/affiliate code is simply ignored while
-      // the exclusive event is active; surfacing it as an error would make a
-      // valid automatic discount look broken in the cart.
+      errors: [],
+    });
+  }
+
+  // Research Set — choose 3+, save 30%.
+  const researchSetItems = couponCartItems.map((item) => ({
+    quantity: item.quantity,
+    unitPriceCents: item.unitPriceCents,
+    cogsCents: item.cogsCents,
+  }));
+  const researchSetPromotion = evaluateResearchSetPromotion(researchSetItems, {
+    active: brand?.researchSetActive ?? false,
+    startsAt: brand?.researchSetStartsAt ?? null,
+    endsAt: brand?.researchSetEndsAt ?? null,
+    isWholesale,
+    minimumMarginPercent: marginPercent,
+  });
+
+  if (researchSetPromotion.applies) {
+    return NextResponse.json({
+      valid: true,
+      discountCents: researchSetPromotion.discountCents,
+      subtotalCents: researchSetPromotion.subtotalCents,
+      totalCents: researchSetPromotion.totalCents,
+      appliedCoupons: [{ code: RESEARCH_SET_PROMOTION_CODE, label: RESEARCH_SET_PROMOTION_LABEL }],
+      automaticPromotion: RESEARCH_SET_PROMOTION_ID,
+      promotionLabel: RESEARCH_SET_PROMOTION_LABEL,
+      flooredByMargin: researchSetPromotion.flooredByMargin,
+      maximumDiscountPercent: 30,
       errors: [],
     });
   }

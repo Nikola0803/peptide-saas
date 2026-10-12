@@ -2,7 +2,7 @@ import { requireOrg } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader, Card, EmptyState } from "@/components/ui";
 import { money } from "@/lib/format";
-import { setDealOfTheDay, clearDealOfTheDay, saveGiveawayConfig } from "./actions";
+import { setDealOfTheDay, clearDealOfTheDay, saveGiveawayConfig, saveCampaignPromotion } from "./actions";
 import { utcDateString } from "@/lib/order-engine";
 
 export default async function PromotionsPage() {
@@ -20,6 +20,7 @@ export default async function PromotionsPage() {
       },
     },
     orderBy: { name: "asc" },
+    // campaign fields are scalar columns on Brand — auto-included
   });
 
   if (brands.length === 0) {
@@ -58,6 +59,14 @@ export default async function PromotionsPage() {
           const saveGiveawayWithBrand = saveGiveawayConfig.bind(null, brand.id);
           const config = brand.giveawayConfig;
           const brandEntrants = todaysEntrants.filter((e) => e.brandId === brand.id);
+
+          const saveCampaignWithBrand = saveCampaignPromotion.bind(null, brand.id);
+          const rsStartsVal = brand.researchSetStartsAt
+            ? brand.researchSetStartsAt.toISOString().slice(0, 16)
+            : "";
+          const rsEndsVal = brand.researchSetEndsAt
+            ? brand.researchSetEndsAt.toISOString().slice(0, 16)
+            : "";
 
           return (
             <div key={brand.id} className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -128,6 +137,61 @@ export default async function PromotionsPage() {
                   </div>
                   <button className="text-sm bg-primary-500 text-background-50 rounded-md px-3 py-1.5 font-medium hover:bg-primary-600">
                     Set deal
+                  </button>
+                </form>
+              </Card>
+
+              <Card className="p-4 lg:col-span-2">
+                <h2 className="text-sm font-semibold text-foreground-950 mb-1">
+                  Campaign Promotions {brands.length > 1 ? `-- ${brand.name}` : ""}
+                </h2>
+                <p className="text-xs text-foreground-500 mb-3">
+                  Automatic storefront discounts — active flag is the real gate; date guards are optional. Changes
+                  take effect immediately on the next cart validation, no deploy needed.
+                </p>
+                <form action={saveCampaignWithBrand} className="space-y-4">
+                  <fieldset className="border border-background-300 rounded-md px-3 py-2.5 space-y-2">
+                    <legend className="text-xs font-semibold text-foreground-700 px-1">
+                      Build Your Research Set (30% off — choose 3+)
+                    </legend>
+                    <label className="flex items-center gap-2 text-xs font-medium text-foreground-700">
+                      <input type="checkbox" name="researchSetActive" defaultChecked={brand.researchSetActive} />
+                      Active — 30% off any cart with 3 or more items
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-xs font-medium text-foreground-600 mb-1">Starts (UTC, optional)</label>
+                        <input
+                          name="researchSetStartsAt"
+                          type="datetime-local"
+                          defaultValue={rsStartsVal}
+                          className="w-full text-xs border border-background-300 rounded px-2 py-1.5 bg-background-50"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-foreground-600 mb-1">Ends (UTC, optional)</label>
+                        <input
+                          name="researchSetEndsAt"
+                          type="datetime-local"
+                          defaultValue={rsEndsVal}
+                          className="w-full text-xs border border-background-300 rounded px-2 py-1.5 bg-background-50"
+                        />
+                      </div>
+                    </div>
+                  </fieldset>
+
+                  <fieldset className="border border-background-300 rounded-md px-3 py-2.5">
+                    <legend className="text-xs font-semibold text-foreground-700 px-1">
+                      GLP Pair Event (70% off second GLP item)
+                    </legend>
+                    <label className="flex items-center gap-2 text-xs font-medium text-foreground-700 mt-1">
+                      <input type="checkbox" name="glpPairActive" defaultChecked={brand.glpPairActive} />
+                      Enabled — uncheck to disable before the Oct 13 date window closes
+                    </label>
+                  </fieldset>
+
+                  <button className="text-sm bg-primary-500 text-background-50 rounded-md px-3 py-1.5 font-medium hover:bg-primary-600">
+                    Save campaign settings
                   </button>
                 </form>
               </Card>
