@@ -58,7 +58,6 @@ export default async function BookingsPage({
           name="status"
           defaultValue={status ?? ""}
           className="text-sm rounded-md border border-background-200 bg-background-50 px-3 py-2 text-foreground-700 focus:outline-none focus:border-primary-400"
-          onChange={(e) => (e.currentTarget.form as HTMLFormElement).requestSubmit()}
         >
           <option value="">All statuses</option>
           <option value="REQUESTED">Requested</option>
