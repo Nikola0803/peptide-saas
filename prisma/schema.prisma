@@ -52,31 +52,31 @@ model Organization {
   // src/lib/coupon-engine.ts, not just at the UI layer.
   minMarginPercent Int @default(30)
 
-  memberships Membership[]
-  brands      Brand[]
-  products    Product[]
-  contacts    Contact[]
-  affiliates  Affiliate[]
-  wholesaleInquiries WholesaleInquiry[]
-  heroesDiscountRequests HeroesDiscountRequest[]
-  membershipRequests     MembershipRequest[]
+  memberships             Membership[]
+  brands                  Brand[]
+  products                Product[]
+  contacts                Contact[]
+  affiliates              Affiliate[]
+  wholesaleInquiries      WholesaleInquiry[]
+  heroesDiscountRequests  HeroesDiscountRequest[]
+  membershipRequests      MembershipRequest[]
   customerVerifications   CustomerVerification[]
   accountDeletionRequests AccountDeletionRequest[]
-  orders      Order[]
-  webhookLogs WebhookEvent[]
-  trackingEvents TrackingEvent[]
-  shipstationConfig ShipStationConfig?
-  invoices    Invoice[]
-  conversations   Conversation[]
-  whatsappConfig  WhatsAppConfig?
-  emailTemplates  EmailTemplate[]
-  emailAutomations EmailAutomation[]
-  suppliers       Supplier[]
-  newsletters     Newsletter[]
-  media           Media[]
-  pushSubscriptions PushSubscription[]
-  coupons         Coupon[]
-  bookings        Booking[]
+  orders                  Order[]
+  webhookLogs             WebhookEvent[]
+  trackingEvents          TrackingEvent[]
+  shipstationConfig       ShipStationConfig?
+  invoices                Invoice[]
+  conversations           Conversation[]
+  whatsappConfig          WhatsAppConfig?
+  emailTemplates          EmailTemplate[]
+  emailAutomations        EmailAutomation[]
+  suppliers               Supplier[]
+  newsletters             Newsletter[]
+  media                   Media[]
+  pushSubscriptions       PushSubscription[]
+  coupons                 Coupon[]
+  bookings                Booking[]
 }
 
 enum Plan {
@@ -138,12 +138,12 @@ model Brand {
   slug   String // e.g. "brand_alpha" — used as the ?store= query param
   domain String
 
-  status         BrandStatus @default(PENDING)
+  status            BrandStatus @default(PENDING)
   // Generated when the site self-registers via the plugin; the plugin signs
   // every subsequent webhook with this so the ingestion endpoint can verify
   // it came from this specific store (see /webhooks page + HMAC note there).
-  webhookSecret  String      @default(cuid())
-  wooConsumerKey String?
+  webhookSecret     String      @default(cuid())
+  wooConsumerKey    String?
   wooConsumerSecret String?
 
   // Domain ownership proof for manually-added sites — paste this token
@@ -153,8 +153,8 @@ model Brand {
   verificationToken String?   @unique @default(cuid())
   verifiedAt        DateTime?
 
-  lastSyncedAt   DateTime?
-  createdAt      DateTime    @default(now())
+  lastSyncedAt DateTime?
+  createdAt    DateTime  @default(now())
 
   // ── Shop/store profile, used to style marketing emails and shown on the storefront ──
   logoUrl          String? // shown in the CRM UI and used as the header image in marketing emails
@@ -162,31 +162,33 @@ model Brand {
   senderName       String? // "From" display name on marketing emails, e.g. "EVLV Team"
   emailAccentColor String? // hex, e.g. "#B8875A" — used for buttons/links in marketing email templates
   businessAddress  String? // physical mailing address, required on marketing emails for CAN-SPAM compliance
-
-  @@unique([organizationId, slug])
-  products      StoreMapping[]
-  contactLinks  ContactBrandLink[]
-  orders        Order[]
-  webhookEvents WebhookEvent[]
+  products         StoreMapping[]
+  contactLinks     ContactBrandLink[]
+  orders           Order[]
+  webhookEvents    WebhookEvent[]
   // Safe to expose client-side — identifies this brand for booking form submissions.
   // Used as x-public-key in CRM_BOOKING_FORM_KEY env vars on connected storefronts.
-  bookingPublicKey String @unique @default(cuid())
+  bookingPublicKey String             @unique @default(cuid())
 
-  trackingConfig TrackingConfig?
-  trackingEvents TrackingEvent[]
-  invoices       Invoice[]
-  conversations  Conversation[]
-  giveawayConfig GiveawayConfig?
-  giveawayEntries GiveawayEntry[]
-  bookings       Booking[]
+  trackingConfig        TrackingConfig?
+  trackingEvents        TrackingEvent[]
+  invoices              Invoice[]
+  conversations         Conversation[]
+  giveawayConfig        GiveawayConfig?
+  giveawayEntries       GiveawayEntry[]
+  bookings              Booking[]
+  affiliateApplications Affiliate[]        @relation("AffiliateSourceBrand")
+  wholesaleInquiries    WholesaleInquiry[]
 
   // Campaign promotion toggles — set from the Promotions page.
   // Active flag is the gate; startsAt/endsAt are optional guards.
-  researchSetActive    Boolean   @default(false)
-  researchSetStartsAt  DateTime?
-  researchSetEndsAt    DateTime?
+  researchSetActive   Boolean   @default(false)
+  researchSetStartsAt DateTime?
+  researchSetEndsAt   DateTime?
   // Force-disable the GLP pair event (overrides the hardcoded date window).
-  glpPairActive        Boolean   @default(true)
+  glpPairActive       Boolean   @default(true)
+
+  @@unique([organizationId, slug])
 }
 
 enum BrandStatus {
@@ -221,13 +223,13 @@ model Product {
   // a product missing any of these still shows on the storefront, it just
   // falls back to whatever evlv-site's static catalog has for a matching
   // slug (see mergeProducts() on the storefront side).
-  imageUrl                    String?
-  shortDescription            String?
-  description                 String? @db.Text
-  purity                      String?
-  categoryLabel               String?
-  storageInstructions         String? @db.Text
-  reconstitutionInstructions  String? @db.Text
+  imageUrl                   String?
+  shortDescription           String?
+  description                String? @db.Text
+  purity                     String?
+  categoryLabel              String?
+  storageInstructions        String? @db.Text
+  reconstitutionInstructions String? @db.Text
 
   // SKU a fulfillment partner (ShipStation, a dropship supplier) expects
   // on the packing slip -- distinct from `sku` above, which is this CRM's
@@ -254,8 +256,8 @@ model Product {
   orderItems       OrderItem[]
   lots             ProductLot[]
   supplierProducts SupplierProduct[]
-  bogoTriggerFor   Coupon[] @relation("CouponBogoTrigger")
-  bogoRewardFor    Coupon[] @relation("CouponBogoReward")
+  bogoTriggerFor   Coupon[]          @relation("CouponBogoTrigger")
+  bogoRewardFor    Coupon[]          @relation("CouponBogoReward")
 
   createdAt DateTime @default(now())
 
@@ -431,14 +433,14 @@ model Contact {
   lastVisitorId     String?
   lastVisitorSeenAt DateTime?
 
-  brandLinks       ContactBrandLink[]
-  orders           Order[]
-  automationSends  EmailAutomationSend[]
-  affiliate        Affiliate?
-  wholesalePartner WholesalePartner?
-  personalCoupons  Coupon[]
-  membershipRequest MembershipRequest?
-  verification      CustomerVerification?
+  brandLinks             ContactBrandLink[]
+  orders                 Order[]
+  automationSends        EmailAutomationSend[]
+  affiliate              Affiliate?
+  wholesalePartner       WholesalePartner?
+  personalCoupons        Coupon[]
+  membershipRequest      MembershipRequest?
+  verification           CustomerVerification?
   accountDeletionRequest AccountDeletionRequest?
 
   @@unique([organizationId, email])
@@ -481,9 +483,9 @@ model Order {
   // should be reading out loud or printing on a packing slip. This is a
   // plain per-database sequence (1, 2, 3, ...), assigned once at creation
   // and never reused, so "order 1042" always means the same order.
-  orderSeq            Int         @default(autoincrement()) @unique
-  status              OrderStatus
-  couponCode          String?
+  orderSeq   Int         @unique @default(autoincrement())
+  status     OrderStatus
+  couponCode String?
 
   // Real price-discount coupon system (Coupon model below) -- separate
   // from couponCode above, which is actually an Affiliate attribution
@@ -492,19 +494,19 @@ model Order {
   // single coupon that was applied (stacking, when a coupon allows it,
   // is still recorded as one "primary" coupon here for simplicity --
   // see appliedCouponCodes for the full list actually redeemed).
-  discountCents       Int      @default(0)
-  coupon              Coupon?  @relation(fields: [couponId], references: [id])
-  couponId            String?
-  appliedCouponCodes  String?
-  grossCents          Int
+  discountCents      Int      @default(0)
+  coupon             Coupon?  @relation(fields: [couponId], references: [id])
+  couponId           String?
+  appliedCouponCodes String?
+  grossCents         Int
   // What the customer paid for shipping on this order, tracked separately
   // from grossCents (which is product revenue only, and feeds affiliate
   // commission / margin math -- shipping should never inflate either).
   // Customer-facing totals (order emails, push notifications) add this
   // back on top of grossCents.
-  shippingCents       Int      @default(0)
-  netProfitCents      Int?
-  placedAt            DateTime
+  shippingCents      Int      @default(0)
+  netProfitCents     Int?
+  placedAt           DateTime
 
   // Storefront checkouts (see /api/store/checkout) that pay by bank
   // transfer / crypto memo rather than a card capture — the reference the
@@ -558,11 +560,11 @@ model Order {
   // paymentConfirmedAt is set by staff manually confirming payment
   // (Orders page) — the one thing that actually moves status out of
   // ON_HOLD today, since there was no way to do that at all before this.
-  stockReleasedAt   DateTime?
+  stockReleasedAt    DateTime?
   paymentConfirmedAt DateTime?
 
-  notes   OrderNote[]
-  refunds Refund[]
+  notes    OrderNote[]
+  refunds  Refund[]
   invoices Invoice[]
 
   createdAt DateTime @default(now())
@@ -589,11 +591,11 @@ model Refund {
   order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
   orderId String
 
-  type         RefundType
-  amountCents  Int
-  reason       String?
-  status       RefundStatus @default(PENDING)
-  resolvedAt   DateTime?
+  type        RefundType
+  amountCents Int
+  reason      String?
+  status      RefundStatus @default(PENDING)
+  resolvedAt  DateTime?
 
   createdAt DateTime @default(now())
 
@@ -627,16 +629,16 @@ enum OrderStatus {
 // runCheckout() in order-engine.ts (via src/lib/coupon-engine.ts) is the
 // only place that actually computes and applies the discount.
 enum CouponType {
-  FIXED   // knock a flat fixedAmountCents off the order
+  FIXED // knock a flat fixedAmountCents off the order
   PERCENT // knock percentOff% off the order
-  BOGO    // buy bogoBuyQuantity, get bogoGetQuantity at a reward
+  BOGO // buy bogoBuyQuantity, get bogoGetQuantity at a reward
 }
 
 // What happens to the "get" units in a BOGO coupon.
 enum BogoRewardType {
-  FREE       // the reward units are free (100% off)
+  FREE // the reward units are free (100% off)
   PERCENT_OFF
-  FIXED_OFF  // bogoRewardFixedCents off *each* reward unit
+  FIXED_OFF // bogoRewardFixedCents off *each* reward unit
 }
 
 model Coupon {
@@ -647,7 +649,7 @@ model Coupon {
   code        String
   description String?
   type        CouponType
-  active      Boolean @default(true)
+  active      Boolean    @default(true)
 
   // If false (the default), this coupon can never be combined with any
   // other coupon on the same order -- see src/lib/coupon-engine.ts, which
@@ -672,9 +674,9 @@ model Coupon {
   bogoRewardType       BogoRewardType?
   bogoRewardPercent    Int?
   bogoRewardFixedCents Int?
-  bogoTriggerProduct   Product? @relation("CouponBogoTrigger", fields: [bogoTriggerProductId], references: [id])
+  bogoTriggerProduct   Product?        @relation("CouponBogoTrigger", fields: [bogoTriggerProductId], references: [id])
   bogoTriggerProductId String?
-  bogoRewardProduct    Product? @relation("CouponBogoReward", fields: [bogoRewardProductId], references: [id])
+  bogoRewardProduct    Product?        @relation("CouponBogoReward", fields: [bogoRewardProductId], references: [id])
   bogoRewardProductId  String?
 
   // Set for a coupon created specifically for one customer -- an
@@ -687,13 +689,13 @@ model Coupon {
   assignedContactId String?
 
   // Guardrails
-  minOrderCents  Int?
-  maxRedemptions Int?
-  redemptionCount Int @default(0)
-  startsAt       DateTime?
-  expiresAt      DateTime?
+  minOrderCents   Int?
+  maxRedemptions  Int?
+  redemptionCount Int       @default(0)
+  startsAt        DateTime?
+  expiresAt       DateTime?
 
-  orders Order[]
+  orders                Order[]
   heroesDiscountRequest HeroesDiscountRequest?
 
   createdAt DateTime @default(now())
@@ -705,14 +707,14 @@ model Coupon {
 }
 
 model OrderItem {
-  id            String   @id @default(cuid())
-  order         Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  orderId       String
-  product       Product? @relation(fields: [productId], references: [id])
-  productId     String?
-  sku           String
-  name          String
-  quantity      Int
+  id             String   @id @default(cuid())
+  order          Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId        String
+  product        Product? @relation(fields: [productId], references: [id])
+  productId      String?
+  sku            String
+  name           String
+  quantity       Int
   unitPriceCents Int
 
   // Dropshipping — set at checkout time (see runCheckout in
@@ -720,9 +722,9 @@ model OrderItem {
   // SupplierProduct row for this product, so the assignment sticks even if
   // that SupplierProduct is later deactivated or reassigned. Null means
   // fulfilled in-house, same as before this existed.
-  supplier          Supplier?               @relation(fields: [supplierId], references: [id])
+  supplier          Supplier?                @relation(fields: [supplierId], references: [id])
   supplierId        String?
-  fulfillmentStatus ItemFulfillmentStatus   @default(PENDING)
+  fulfillmentStatus ItemFulfillmentStatus    @default(PENDING)
   shippedAt         DateTime?
   trackingNumber    String?
   carrierCode       String?
@@ -761,14 +763,14 @@ model Supplier {
 
   name         String
   contactEmail String?
-  active       Boolean @default(true)
+  active       Boolean  @default(true)
   createdAt    DateTime @default(now())
 
-  memberships   Membership[]
-  products      SupplierProduct[]
-  orderItems    OrderItem[]
-  invoices      SupplierInvoice[]
-  uploadedCoas  CoaDocument[]
+  memberships  Membership[]
+  products     SupplierProduct[]
+  orderItems   OrderItem[]
+  invoices     SupplierInvoice[]
+  uploadedCoas CoaDocument[]
 }
 
 // A supplier's own price/shipping-rate/stock for one master-catalog
@@ -787,8 +789,8 @@ model SupplierProduct {
   productId  String
 
   costCents     Int // what the supplier bills us for the item itself
-  shippingCents Int @default(0) // what the supplier bills us to ship one unit
-  stock         Int @default(0) // decremented at checkout, restored on stock release -- see Order.stockReleasedAt
+  shippingCents Int     @default(0) // what the supplier bills us to ship one unit
+  stock         Int     @default(0) // decremented at checkout, restored on stock release -- see Order.stockReleasedAt
   active        Boolean @default(true)
 
   // Free-form restock tracking a supplier fills in themselves -- "more
@@ -823,7 +825,7 @@ model SupplierInvoice {
   status      SupplierInvoiceStatus @default(DRAFT)
 
   lineItems SupplierInvoiceLineItem[]
-  createdAt DateTime @default(now())
+  createdAt DateTime                  @default(now())
 
   @@index([supplierId, createdAt])
 }
@@ -853,6 +855,8 @@ model Affiliate {
   id             String       @id @default(cuid())
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   organizationId String
+  sourceBrand    Brand?       @relation("AffiliateSourceBrand", fields: [sourceBrandId], references: [id], onDelete: SetNull)
+  sourceBrandId  String?
 
   // Self-serve applicants are a role on their existing storefront Contact
   // account (evlv-site's affiliate portal was redesigned to authenticate
@@ -862,20 +866,20 @@ model Affiliate {
   contact   Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
   contactId String?  @unique
 
-  name        String
-  slug        String
-  ratePercent Float
-  couponCode  String
+  name                    String
+  slug                    String
+  ratePercent             Float
+  couponCode              String
   // The partner chooses how much of their admin-assigned rate becomes a
   // public customer discount. Their effective commission is the remainder.
   // Checkout enforces this split, non-stacking, the retail 30% cap, and the
   // organization's minimum-margin floor server-side.
-  customerDiscountPercent Int @default(0)
+  customerDiscountPercent Int    @default(0)
 
   // Self-serve portal fields (see /affiliates on evlv-site) -- all
   // nullable/defaulted because admin-created affiliates (the original
   // way this model was used) never fill these in.
-  email        String?  @unique
+  email        String? @unique
   passwordHash String?
   username     String?
   firstName    String?
@@ -904,11 +908,12 @@ model Affiliate {
   clicks         AffiliateClick[]
   payoutRequests AffiliatePayoutRequest[]
   attributions   AffiliateOrderAttribution[]
-  createdAt      DateTime                     @default(now())
+  createdAt      DateTime                    @default(now())
 
   @@unique([organizationId, slug])
   @@unique([organizationId, couponCode])
   @@index([organizationId, status])
+  @@index([sourceBrandId, status])
 }
 
 enum AffiliateStatus {
@@ -941,7 +946,7 @@ model AffiliateClick {
 }
 
 model AffiliatePayoutRequest {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   affiliate   Affiliate @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
   affiliateId String
 
@@ -961,11 +966,11 @@ enum PayoutRequestStatus {
 }
 
 model AffiliateOrderAttribution {
-  id            String    @id @default(cuid())
-  affiliate     Affiliate @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
-  affiliateId   String
-  order         Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  orderId       String    @unique
+  id              String    @id @default(cuid())
+  affiliate       Affiliate @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+  affiliateId     String
+  order           Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId         String    @unique
   commissionCents Int
 }
 
@@ -982,6 +987,8 @@ model WholesaleInquiry {
   id             String       @id @default(cuid())
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   organizationId String
+  brand          Brand?       @relation(fields: [brandId], references: [id], onDelete: SetNull)
+  brandId        String?
 
   companyName   String
   contactName   String
@@ -994,6 +1001,8 @@ model WholesaleInquiry {
 
   status    WholesaleInquiryStatus @default(NEW)
   createdAt DateTime               @default(now())
+
+  @@index([brandId, status])
 }
 
 enum WholesaleInquiryStatus {
@@ -1005,9 +1014,9 @@ enum WholesaleInquiryStatus {
 // A role on an existing Contact account (same pattern as Affiliate),
 // created by staff once a WholesaleInquiry is approved and linked.
 model WholesalePartner {
-  id         String  @id @default(cuid())
-  contact    Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  contactId  String  @unique
+  id        String  @id @default(cuid())
+  contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  contactId String  @unique
 
   status            WholesaleStatus @default(PENDING)
   businessName      String?
@@ -1057,10 +1066,10 @@ model Media {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   organizationId String
 
-  url        String // public path, e.g. /uploads/<orgId>/<id>-<filename>
-  filename   String // original filename, for display
-  mimeType   String
-  sizeBytes  Int
+  url       String // public path, e.g. /uploads/<orgId>/<id>-<filename>
+  filename  String // original filename, for display
+  mimeType  String
+  sizeBytes Int
 
   uploadedAt DateTime @default(now())
 
@@ -1078,12 +1087,12 @@ model WebhookEvent {
   brand          Brand?       @relation(fields: [brandId], references: [id], onDelete: SetNull)
   brandId        String?
 
-  topic           String
-  payload         Json
-  signatureValid  Boolean
-  processedAt     DateTime?
-  error           String?
-  createdAt       DateTime  @default(now())
+  topic          String
+  payload        Json
+  signatureValid Boolean
+  processedAt    DateTime?
+  error          String?
+  createdAt      DateTime  @default(now())
 }
 
 // ---------------------------------------------------------------------------
@@ -1183,7 +1192,7 @@ model Invoice {
   customerEmail   String?
   customerAddress String?
 
-  status  InvoiceStatus @default(DRAFT)
+  status   InvoiceStatus @default(DRAFT)
   poNumber String?
   notes    String?
 
@@ -1233,13 +1242,13 @@ model Conversation {
   brand          Brand?       @relation(fields: [brandId], references: [id], onDelete: SetNull)
   brandId        String?
 
-  channel       ConversationChannel
-  status        ConversationStatus  @default(OPEN)
-  contactName   String?
-  contactEmail  String?
-  contactPhone  String? // E.164, WhatsApp threads are keyed off this
-  chatToken     String?  @unique // live-chat widget session token
-  pageUrl       String?  // page the visitor was on when they started the chat
+  channel      ConversationChannel
+  status       ConversationStatus  @default(OPEN)
+  contactName  String?
+  contactEmail String?
+  contactPhone String? // E.164, WhatsApp threads are keyed off this
+  chatToken    String?             @unique // live-chat widget session token
+  pageUrl      String? // page the visitor was on when they started the chat
 
   subject       String? // contact-form submissions often have one
   lastMessageAt DateTime @default(now())
@@ -1247,8 +1256,8 @@ model Conversation {
 
   messages Message[]
 
-  @@index([organizationId, channel, lastMessageAt])
   @@unique([organizationId, channel, contactPhone])
+  @@index([organizationId, channel, lastMessageAt])
 }
 
 enum ConversationChannel {
@@ -1274,8 +1283,8 @@ model Message {
 
   createdAt DateTime @default(now())
 
-  @@index([conversationId, createdAt])
   @@unique([externalId])
+  @@index([conversationId, createdAt])
 }
 
 enum MessageDirection {
@@ -1372,7 +1381,7 @@ model HeroesDiscountRequest {
   coupon       Coupon?                    @relation(fields: [couponId], references: [id])
   couponId     String?                    @unique
 
-  createdAt DateTime @default(now())
+  createdAt  DateTime  @default(now())
   reviewedAt DateTime?
 
   @@index([organizationId, reviewStatus])
@@ -1389,10 +1398,10 @@ model WhatsAppConfig {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   organizationId String       @unique
 
-  phoneNumberId      String // Meta's WhatsApp Business phone number id
-  accessToken        String
-  appSecret          String // verifies X-Hub-Signature-256 on incoming webhooks
-  verifyToken        String // Meta's webhook handshake challenge token
+  phoneNumberId        String // Meta's WhatsApp Business phone number id
+  accessToken          String
+  appSecret            String // verifies X-Hub-Signature-256 on incoming webhooks
+  verifyToken          String // Meta's webhook handshake challenge token
   businessDisplayPhone String?
 
   createdAt DateTime @default(now())
@@ -1468,13 +1477,13 @@ enum DelayUnit {
 // usually the contactId, sometimes contactId+orderId for order-scoped
 // flows like shipping/post-purchase).
 model EmailAutomationSend {
-  id            String          @id @default(cuid())
-  automation    EmailAutomation @relation(fields: [automationId], references: [id], onDelete: Cascade)
-  automationId  String
-  contact       Contact?        @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  contactId     String?
-  dedupKey      String
-  sentAt        DateTime        @default(now())
+  id           String          @id @default(cuid())
+  automation   EmailAutomation @relation(fields: [automationId], references: [id], onDelete: Cascade)
+  automationId String
+  contact      Contact?        @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  contactId    String?
+  dedupKey     String
+  sentAt       DateTime        @default(now())
 
   @@unique([automationId, dedupKey])
 }
@@ -1488,16 +1497,15 @@ model Newsletter {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   organizationId String
 
-  subject         String
-  html            String @db.Text
-  recipientCount  Int
-  failedCount     Int @default(0)
+  subject        String
+  html           String @db.Text
+  recipientCount Int
+  failedCount    Int    @default(0)
 
   createdAt DateTime @default(now())
 
   @@index([organizationId, createdAt])
 }
-
 
 model PushSubscription {
   id             String       @id @default(cuid())
@@ -1518,11 +1526,11 @@ model PushSubscription {
 // ---------------------------------------------------------------------------
 
 enum BookingStatus {
-  REQUESTED  // Form submitted, not yet confirmed
-  CONFIRMED  // Call time confirmed with the contact
-  COMPLETED  // Call happened
-  CANCELLED  // Cancelled before the call
-  NO_SHOW    // Contact did not join
+  REQUESTED // Form submitted, not yet confirmed
+  CONFIRMED // Call time confirmed with the contact
+  COMPLETED // Call happened
+  CANCELLED // Cancelled before the call
+  NO_SHOW // Contact did not join
 }
 
 model Booking {
@@ -1543,9 +1551,9 @@ model Booking {
   // Call details
   kind            String        @default("education_intro")
   channel         String        @default("phone") // phone | video
-  source          String?       // evlvtoday.com | evlvtoday-hub
-  requestedDate   String        // YYYY-MM-DD
-  requestedTime   String        // HH:MM
+  source          String? // evlvtoday.com | evlvtoday-hub
+  requestedDate   String // YYYY-MM-DD
+  requestedTime   String // HH:MM
   timezone        String
   durationMinutes Int           @default(15)
   status          BookingStatus @default(REQUESTED)

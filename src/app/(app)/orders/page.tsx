@@ -5,6 +5,7 @@ import { PageHeader, Badge, EmptyState, StatCard } from "@/components/ui";
 import { OrdersFilters } from "@/components/orders-filters";
 import { DeleteOrderButton } from "./delete-order-button";
 import { money, dateTime } from "@/lib/format";
+import { getActiveBrand } from "@/lib/active-brand";
 
 const STATUS_MAP: Record<string, "COMPLETED" | "PROCESSING" | "ON_HOLD" | "REFUNDED"> = {
   completed: "COMPLETED",
@@ -19,21 +20,23 @@ export default async function OrdersPage({
   searchParams: { brand?: string; status?: string };
 }) {
   const { organization } = await requireOrg();
+  const activeBrand = await getActiveBrand(organization.id);
+  const selectedBrandId = searchParams.brand || activeBrand?.id;
 
   const [brands, orders, totalOrderCount, chargebackCount] = await Promise.all([
     prisma.brand.findMany({ where: { organizationId: organization.id }, orderBy: { name: "asc" } }),
     prisma.order.findMany({
       where: {
         organizationId: organization.id,
-        ...(searchParams.brand ? { brandId: searchParams.brand } : {}),
+        ...(selectedBrandId ? { brandId: selectedBrandId } : {}),
         ...(searchParams.status ? { status: STATUS_MAP[searchParams.status] } : {}),
       },
       orderBy: { placedAt: "desc" },
       include: { brand: true, contact: true },
       take: 100,
     }),
-    prisma.order.count({ where: { organizationId: organization.id } }),
-    prisma.refund.count({ where: { type: "CHARGEBACK", order: { organizationId: organization.id } } }),
+    prisma.order.count({ where: { organizationId: organization.id, ...(selectedBrandId ? { brandId: selectedBrandId } : {}) } }),
+    prisma.refund.count({ where: { type: "CHARGEBACK", order: { organizationId: organization.id, ...(selectedBrandId ? { brandId: selectedBrandId } : {}) } } }),
   ]);
 
   const chargebackRate = totalOrderCount > 0 ? ((chargebackCount / totalOrderCount) * 100).toFixed(2) : "0.00";
@@ -42,7 +45,7 @@ export default async function OrdersPage({
     <div>
       <PageHeader
         title="Orders"
-        subtitle={`${orders.length} of ${orders.length} orders`}
+        subtitle={`${orders.length} orders · ${activeBrand?.name ?? "all stores"}`}
         actions={
           <>
             <OrdersFilters brands={brands} />

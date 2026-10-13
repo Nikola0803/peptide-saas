@@ -3,9 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { Card, Badge, EmptyState } from "@/components/ui";
 import { money, dateTime } from "@/lib/format";
 
-export async function DashboardRecentOrders({ organizationId }: { organizationId: string }) {
+export async function DashboardRecentOrders({ organizationId, brandId }: { organizationId: string; brandId?: string }) {
   const recentOrders = await prisma.order.findMany({
-    where: { organizationId },
+    where: { organizationId, ...(brandId ? { brandId } : {}) },
     orderBy: { placedAt: "desc" },
     take: 6,
     include: { brand: true, contact: true },

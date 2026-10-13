@@ -7,6 +7,7 @@ import { DashboardRecentOrders, DashboardRecentOrdersSkeleton } from "./recent-o
 import { DashboardBrandsPanel, DashboardBrandsPanelSkeleton } from "./brands-panel";
 import { DashboardFunnel, DashboardFunnelSkeleton } from "./funnel";
 import { DashboardRecallAlert } from "./recall-alert";
+import { getActiveBrand } from "@/lib/active-brand";
 
 // Each section below fetches and streams independently. A slow query in
 // one card (e.g. the revenue chart scanning every order) no longer blocks
@@ -17,32 +18,34 @@ import { DashboardRecallAlert } from "./recall-alert";
 // ever be hidden behind a loading skeleton.
 export default async function DashboardPage() {
   const { organization } = await requireOrg();
+  const activeBrand = await getActiveBrand(organization.id);
+  const brandId = activeBrand?.id;
 
   return (
     <div>
-      <PageHeader title="Dashboard" subtitle={organization.name} />
+      <PageHeader title="Dashboard" subtitle={activeBrand ? `${activeBrand.name} · ${activeBrand.domain}` : `${organization.name} · all stores`} />
 
       <DashboardRecallAlert organizationId={organization.id} />
 
       <Suspense fallback={<DashboardKpisSkeleton />}>
-        <DashboardKpis organizationId={organization.id} />
+        <DashboardKpis organizationId={organization.id} brandId={brandId} />
       </Suspense>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
         <div className="lg:col-span-2">
           <Suspense fallback={<DashboardRevenueChartSkeleton />}>
-            <DashboardRevenueChart organizationId={organization.id} />
+            <DashboardRevenueChart organizationId={organization.id} brandId={brandId} />
           </Suspense>
         </div>
         <Suspense fallback={<DashboardFunnelSkeleton />}>
-          <DashboardFunnel organizationId={organization.id} />
+          <DashboardFunnel organizationId={organization.id} brandId={brandId} />
         </Suspense>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2">
           <Suspense fallback={<DashboardRecentOrdersSkeleton />}>
-            <DashboardRecentOrders organizationId={organization.id} />
+            <DashboardRecentOrders organizationId={organization.id} brandId={brandId} />
           </Suspense>
         </div>
         <Suspense fallback={<DashboardBrandsPanelSkeleton />}>

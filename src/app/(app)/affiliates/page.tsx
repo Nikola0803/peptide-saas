@@ -4,21 +4,26 @@ import { prisma } from "@/lib/prisma";
 import { PageHeader, StatCard, Card, Badge, EmptyState } from "@/components/ui";
 import { money, dateTime } from "@/lib/format";
 import { approveAffiliate, rejectAffiliate, markPayoutPaid, rejectPayout } from "./actions";
+import { getActiveBrand } from "@/lib/active-brand";
 
 const PAGE_SIZE = 50;
 
 export default async function AffiliatesPage({ searchParams }: { searchParams?: { page?: string; q?: string } }) {
   const { organization } = await requireOrg();
+  const activeBrand = await getActiveBrand(organization.id);
   const page = Math.max(1, Number(searchParams?.page) || 1);
   const query = searchParams?.q?.trim() || "";
   const activeWhere = {
     organizationId: organization.id,
     status: { not: "PENDING" as const },
-    ...(query ? { OR: [
-      { name: { contains: query, mode: "insensitive" as const } },
-      { email: { contains: query, mode: "insensitive" as const } },
-      { couponCode: { contains: query, mode: "insensitive" as const } },
-    ] } : {}),
+    AND: [
+      ...(activeBrand ? [{ OR: [{ sourceBrandId: activeBrand.id }, { attributions: { some: { order: { brandId: activeBrand.id } } } }] }] : []),
+      ...(query ? [{ OR: [
+        { name: { contains: query, mode: "insensitive" as const } },
+        { email: { contains: query, mode: "insensitive" as const } },
+        { couponCode: { contains: query, mode: "insensitive" as const } },
+      ] }] : []),
+    ],
   };
 
   const [activeAffiliates, activeCount, pendingApplications, storeBrand, pendingPayouts, globalAttributions] = await Promise.all([
@@ -29,22 +34,22 @@ export default async function AffiliatesPage({ searchParams }: { searchParams?: 
       take: PAGE_SIZE,
     }),
     prisma.affiliate.count({ where: activeWhere }),
-    prisma.affiliate.findMany({ where: { organizationId: organization.id, status: "PENDING" }, orderBy: { createdAt: "asc" } }),
-    prisma.brand.findFirst({ where: { organizationId: organization.id, verifiedAt: { not: null } } }),
+    prisma.affiliate.findMany({ where: { organizationId: organization.id, status: "PENDING", ...(activeBrand ? { sourceBrandId: activeBrand.id } : {}) }, orderBy: { createdAt: "asc" } }),
+    activeBrand ?? prisma.brand.findFirst({ where: { organizationId: organization.id, verifiedAt: { not: null } } }),
     prisma.affiliatePayoutRequest.findMany({
       where: { affiliate: { organizationId: organization.id }, status: "REQUESTED" },
       include: { affiliate: true },
       orderBy: { requestedAt: "asc" },
     }),
     prisma.affiliateOrderAttribution.findMany({
-      where: { affiliate: { organizationId: organization.id }, order: { status: "COMPLETED" } },
+      where: { affiliate: { organizationId: organization.id }, order: { status: "COMPLETED", ...(activeBrand ? { brandId: activeBrand.id } : {}) } },
       select: { affiliateId: true, commissionCents: true, order: { select: { grossCents: true } } },
     }),
   ]);
 
   const pageAttributions = activeAffiliates.length
     ? await prisma.affiliateOrderAttribution.findMany({
-        where: { affiliateId: { in: activeAffiliates.map((affiliate) => affiliate.id) } },
+        where: { affiliateId: { in: activeAffiliates.map((affiliate) => affiliate.id) }, ...(activeBrand ? { order: { brandId: activeBrand.id } } : {}) },
         select: { affiliateId: true, commissionCents: true, order: { select: { grossCents: true } } },
       })
     : [];
@@ -65,7 +70,7 @@ export default async function AffiliatesPage({ searchParams }: { searchParams?: 
     <div>
       <PageHeader
         title="Affiliates"
-        subtitle="Coupon-driven referral tracking"
+        subtitle={`Coupon-driven referral tracking · ${activeBrand?.name ?? "all stores"}`}
         actions={
           <Link href="/affiliates/new" className="text-sm border border-background-300 rounded-md px-3 py-1.5 text-foreground-800 hover:bg-background-100">
             New affiliate

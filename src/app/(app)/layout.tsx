@@ -1,14 +1,14 @@
 import { Sidebar } from "@/components/sidebar";
 import { requireOrg } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
+import { getActiveBrand } from "@/lib/active-brand";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const { organization } = await requireOrg();
 
-  const [brandCount, openConversations, pendingAffiliateApplications, pendingAffiliatePayouts, pendingWholesaleInquiries] = await Promise.all([
-    prisma.brand.count({
-      where: { organizationId: organization.id, status: "CONNECTED" },
-    }),
+  const [brands, activeBrand, openConversations, pendingAffiliateApplications, pendingAffiliatePayouts, pendingWholesaleInquiries] = await Promise.all([
+    prisma.brand.findMany({ where: { organizationId: organization.id }, orderBy: { createdAt: "asc" } }),
+    getActiveBrand(organization.id),
     prisma.conversation.findMany({
       where: { organizationId: organization.id, status: "OPEN" },
       select: { messages: { orderBy: { createdAt: "desc" }, take: 1, select: { direction: true } } },
@@ -28,7 +28,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="min-h-screen flex bg-background-100">
       <Sidebar
         organizationName={organization.name}
-        brandCount={brandCount}
+        brandCount={brands.filter((brand) => brand.status === "CONNECTED").length}
+        brands={brands}
+        activeBrandId={activeBrand?.id ?? null}
         notificationCounts={{
           support: pendingEnquiries,
           affiliates: pendingAffiliateApplications + pendingAffiliatePayouts,

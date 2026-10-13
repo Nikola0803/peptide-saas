@@ -475,6 +475,7 @@ export async function runCheckout(
   // succeeded. Sent after the transaction commits, not inside it: this is a
   // slow network call and has no business holding the DB transaction open.
   sendOrderEmails(organizationId, {
+    brandId,
     orderNumber: result.number,
     customerEmail: contactEmail,
     customerName: contactName || contactEmail,
@@ -532,6 +533,7 @@ async function notifySuppliers(
 }
 
 interface OrderEmailInput {
+  brandId: string;
   orderNumber: string;
   customerEmail: string;
   customerName: string;
@@ -543,6 +545,7 @@ interface OrderEmailInput {
 }
 
 async function sendOrderEmails(organizationId: string, input: OrderEmailInput): Promise<void> {
+  const orderBrand = await prisma.brand.findUnique({ where: { id: input.brandId }, select: { slug: true } });
   const itemsHtml = input.items
     .map((i) => `<li>${escapeHtml(i.name)} x${i.quantity} — $${((i.unitPriceCents * i.quantity) / 100).toFixed(2)}</li>`)
     .join("");
@@ -563,7 +566,7 @@ async function sendOrderEmails(organizationId: string, input: OrderEmailInput): 
     paymentMemo: input.paymentMemo ?? "",
   };
 
-  await sendTemplate(organizationId, "order_confirmation_customer", input.customerEmail, vars);
+  await sendTemplate(organizationId, "order_confirmation_customer", input.customerEmail, vars, { brandId: input.brandId });
 
   // Conditional post-purchase supply reminder. This is intentionally sent
   // only when the order contains a preparation-relevant research product and
@@ -573,7 +576,7 @@ async function sendOrderEmails(organizationId: string, input: OrderEmailInput): 
   const hasPreparationItem = input.items.some((item) =>
     item.sku.toUpperCase() !== "BAC30" && !/ORAL|TABLET|CAPSULE/i.test(item.name)
   );
-  if (!hasBwHBrand && hasPreparationItem) {
+  if (orderBrand?.slug === "evlv" && !hasBwHBrand && hasPreparationItem) {
     const productUrl = "https://www.evlvpeptides.com/shop/bacteriostatic-water-30ml?age_verified=1&utm_source=order_email&utm_medium=email&utm_campaign=bw_post_purchase&utm_content=reminder";
     const safeName = escapeHtml(input.customerName);
     const safeOrder = escapeHtml(input.orderNumber);
@@ -597,12 +600,12 @@ async function sendOrderEmails(organizationId: string, input: OrderEmailInput): 
 
   const organization = await prisma.organization.findUnique({ where: { id: organizationId } });
   if (organization?.notifyEmail) {
-    await sendTemplate(organizationId, "order_confirmation_office", organization.notifyEmail, vars);
+    await sendTemplate(organizationId, "order_confirmation_office", organization.notifyEmail, vars, { brandId: input.brandId });
   }
 
   // Fulfillment team notification — set FULFILLMENT_EMAIL in .env to enable
   if (process.env.FULFILLMENT_EMAIL) {
-    await sendTemplate(organizationId, "order_confirmation_office", process.env.FULFILLMENT_EMAIL, vars);
+    await sendTemplate(organizationId, "order_confirmation_office", process.env.FULFILLMENT_EMAIL, vars, { brandId: input.brandId });
   }
 
   await pushNotifyNewOrder({

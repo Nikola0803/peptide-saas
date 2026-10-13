@@ -114,7 +114,7 @@ export async function POST(req: NextRequest) {
     create: {
       organizationId: brand.organizationId,
       email,
-      name: name ?? [firstName, lastName].filter(Boolean).join(" ") || null,
+      name: name ?? ([firstName, lastName].filter(Boolean).join(" ") || null),
       marketingOptIn,
     },
     update: {

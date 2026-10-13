@@ -763,21 +763,37 @@ export async function getTemplate(organizationId: string, key: string): Promise<
   return row ? { subject: row.subject, html: row.html } : { subject: fallback.subject, html: fallback.html };
 }
 
-export async function sendTemplate(organizationId: string, key: string, to: string, vars: Record<string, string>, options?: { replyTo?: string }): Promise<boolean> {
-  const { subject, html } = await getTemplate(organizationId, key);
-  const unsubscribeUrl = await buildUnsubscribeUrl(organizationId, to);
+export async function sendTemplate(organizationId: string, key: string, to: string, vars: Record<string, string>, options?: { replyTo?: string; brandId?: string }): Promise<boolean> {
+  let { subject, html } = await getTemplate(organizationId, key);
+  const brand = options?.brandId
+    ? await prisma.brand.findFirst({ where: { id: options.brandId, organizationId } })
+    : null;
+  if (brand && brand.slug !== "evlv") {
+    const origin = `https://${brand.domain}`;
+    subject = subject.replace(/EVLV/g, brand.name);
+    if (brand.logoUrl) {
+      html = html.replace(/https:\/\/www\.evlvpeptides\.com\/logo\/evlv-logo-light\.png/g, brand.logoUrl);
+    }
+    html = html
+      .replace(/EVLV/g, brand.name)
+      .replace(/https:\/\/www\.evlvpeptides\.com/g, origin)
+      .replace(/https:\/\/evlvpeptides\.com/g, origin);
+  }
+  const unsubscribeUrl = await buildUnsubscribeUrl(organizationId, to, options?.brandId);
   const mergedVars = { unsubscribeUrl, preferenceCenterUrl: unsubscribeUrl, ...vars };
   return sendEmail(to, renderTemplate(subject, mergedVars), renderTemplate(html, mergedVars), options);
 }
 
-async function buildUnsubscribeUrl(organizationId: string, to: string): Promise<string> {
+async function buildUnsubscribeUrl(organizationId: string, to: string, brandId?: string): Promise<string> {
   const { getStorefrontUrl } = await import("./storefront-url");
   const { signUnsubscribeToken } = await import("./customer-auth");
 
   const contact = await prisma.contact.findUnique({
     where: { organizationId_email: { organizationId, email: to } },
   });
-  const brand = contact
+  const brand = brandId
+    ? await prisma.brand.findFirst({ where: { id: brandId, organizationId }, select: { domain: true } })
+    : contact
     ? (await prisma.contactBrandLink.findFirst({ where: { contactId: contact.id }, select: { brand: { select: { domain: true } } } }))?.brand
     : await prisma.brand.findFirst({ where: { organizationId }, select: { domain: true } });
   if (!brand?.domain) return "";

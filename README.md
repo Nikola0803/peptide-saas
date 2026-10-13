@@ -404,3 +404,20 @@ ingested today; anything else gets stored as a `[type]` placeholder.
   before trusting the net profit numbers.
 - **Team invitations** — `Membership`/`Role` exist in the schema, but
   there's no UI to invite a second user into an organization yet.
+# Multi-store workspaces
+
+The CRM supports multiple storefront brands under one organization. Operators can switch between an individual store or the combined organization view from the sidebar. Customer activity, orders, conversion tracking, affiliate revenue, and wholesale leads follow the selected workspace. Master inventory and supplier operations remain shared at organization level.
+
+## Adding ZOONETICS
+
+1. Apply the Prisma schema with `npm run db:push`.
+2. Ensure the EVLV organization exists with `npm run db:seed:evlv`.
+3. Run `npm run db:seed:zoonetics`.
+4. Copy the printed values into the ZOONETICS deployment:
+   - `CRM_API_URL` points to this CRM.
+   - `CRM_ORG_API_KEY` is the existing EVLV organization API key.
+   - `CRM_STORE_DOMAIN=zoonetics.co` selects the ZOONETICS brand.
+   - `CRM_CONTACT_FORM_KEY` and `NEXT_PUBLIC_CRM_TRACKING_KEY` use the generated ZOONETICS tracking key.
+5. Verify both `EVLV` and `ZOONETICS` appear in the sidebar workspace selector before enabling production checkout.
+
+The storefront already proxies checkout, accounts, affiliates, wholesale, newsletter, coupons, COAs, and tracking through the brand-scoped `/api/store/*` endpoints. Never expose `CRM_ORG_API_KEY` through a `NEXT_PUBLIC_` variable.

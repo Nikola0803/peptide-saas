@@ -2,22 +2,22 @@ import { prisma } from "@/lib/prisma";
 import { StatCard } from "@/components/ui";
 import { money } from "@/lib/format";
 
-export async function DashboardKpis({ organizationId }: { organizationId: string }) {
+export async function DashboardKpis({ organizationId, brandId }: { organizationId: string; brandId?: string }) {
   const [orderAgg, openCommission] = await Promise.all([
     prisma.order.aggregate({
-      where: { organizationId },
+      where: { organizationId, ...(brandId ? { brandId } : {}) },
       _sum: { grossCents: true, netProfitCents: true },
       _count: true,
     }),
     prisma.affiliateOrderAttribution.aggregate({
-      where: { affiliate: { organizationId } },
+      where: { affiliate: { organizationId }, ...(brandId ? { order: { brandId } } : {}) },
       _sum: { commissionCents: true },
     }),
   ]);
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-      <StatCard label="Gross revenue" value={money(orderAgg._sum.grossCents ?? 0)} hint="All-time, all brands" />
+      <StatCard label="Gross revenue" value={money(orderAgg._sum.grossCents ?? 0)} hint={brandId ? "All-time, selected store" : "All-time, all stores"} />
       <StatCard
         label="Net profit"
         value={money(orderAgg._sum.netProfitCents ?? 0)}

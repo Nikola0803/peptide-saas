@@ -9,10 +9,10 @@ const STEPS = [
   { key: "purchase", label: "Purchases" },
 ];
 
-export async function DashboardFunnel({ organizationId }: { organizationId: string }) {
+export async function DashboardFunnel({ organizationId, brandId }: { organizationId: string; brandId?: string }) {
   const counts = await prisma.trackingEvent.groupBy({
     by: ["eventName"],
-    where: { organizationId },
+    where: { organizationId, ...(brandId ? { brandId } : {}) },
     _count: true,
   });
 

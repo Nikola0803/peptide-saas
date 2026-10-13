@@ -61,7 +61,6 @@ const badgeStyles: Record<string, string> = {
   closed: "bg-background-200 text-foreground-500",
   requested: "bg-accent-100 text-accent-700",
   confirmed: "bg-secondary-100 text-secondary-700",
-  completed: "bg-primary-100 text-primary-700",
   cancelled: "bg-background-200 text-foreground-600",
   "no-show": "bg-accent-200 text-accent-800",
 };

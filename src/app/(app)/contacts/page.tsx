@@ -3,15 +3,20 @@ import { requireOrg } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader, StatCard, EmptyState } from "@/components/ui";
 import { money, shortDate, initials } from "@/lib/format";
+import { getActiveBrand } from "@/lib/active-brand";
 
 export default async function ContactsPage() {
   const { organization } = await requireOrg();
+  const activeBrand = await getActiveBrand(organization.id);
 
   const contacts = await prisma.contact.findMany({
-    where: { organizationId: organization.id },
+    where: {
+      organizationId: organization.id,
+      ...(activeBrand ? { brandLinks: { some: { brandId: activeBrand.id } } } : {}),
+    },
     include: {
       brandLinks: { include: { brand: true } },
-      orders: { orderBy: { placedAt: "desc" } },
+      orders: { where: activeBrand ? { brandId: activeBrand.id } : undefined, orderBy: { placedAt: "desc" } },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -27,7 +32,7 @@ export default async function ContactsPage() {
 
   return (
     <div>
-      <PageHeader title="Contacts" subtitle="Unified customer identities across all brands" />
+      <PageHeader title="Contacts" subtitle={activeBrand ? `${activeBrand.name} customers` : "Unified customer identities across all stores"} />
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <StatCard label="Total contacts" value={String(rows.length)} />

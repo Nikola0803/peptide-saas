@@ -3,14 +3,16 @@ import { prisma } from "@/lib/prisma";
 import { PageHeader, Card, StatCard, Badge, EmptyState } from "@/components/ui";
 import { money, shortDate } from "@/lib/format";
 import { linkAndApproveInquiry, rejectInquiry, createWholesaleInvoice, markWholesaleInvoicePaid } from "./actions";
+import { getActiveBrand } from "@/lib/active-brand";
 
 export default async function WholesalePage() {
   const { organization } = await requireOrg();
+  const activeBrand = await getActiveBrand(organization.id);
 
   const [newInquiries, partners] = await Promise.all([
-    prisma.wholesaleInquiry.findMany({ where: { organizationId: organization.id, status: "NEW" }, orderBy: { createdAt: "desc" } }),
+    prisma.wholesaleInquiry.findMany({ where: { organizationId: organization.id, status: "NEW", ...(activeBrand ? { brandId: activeBrand.id } : {}) }, orderBy: { createdAt: "desc" } }),
     prisma.wholesalePartner.findMany({
-      where: { contact: { organizationId: organization.id } },
+      where: { contact: { organizationId: organization.id, ...(activeBrand ? { brandLinks: { some: { brandId: activeBrand.id } } } : {}) } },
       include: { contact: true, invoices: { orderBy: { issuedDate: "desc" } } },
       orderBy: { createdAt: "desc" },
     }),
@@ -24,7 +26,7 @@ export default async function WholesalePage() {
 
   return (
     <div>
-      <PageHeader title="Wholesale" subtitle="B2B inquiries and dropship/bulk partner invoicing" />
+      <PageHeader title="Wholesale" subtitle={`B2B inquiries and partner invoicing · ${activeBrand?.name ?? "all stores"}`} />
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <StatCard label="New inquiries" value={String(newInquiries.length)} hint={newInquiries.length > 0 ? "Needs review" : undefined} />

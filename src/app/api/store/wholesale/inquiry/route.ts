@@ -34,6 +34,7 @@ export async function POST(req: NextRequest) {
   await prisma.wholesaleInquiry.create({
     data: {
       organizationId: store.organizationId,
+      brandId: store.brandId,
       companyName: parsed.data.companyName,
       contactName: parsed.data.contactName,
       email: parsed.data.email.toLowerCase().trim(),

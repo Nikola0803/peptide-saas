@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
     customerName: contact.name || email,
     couponCode,
     welcomeDiscountPercent: String(welcomeDiscountPercent),
-  }).catch((err) => console.error("Welcome email failed", err));
+  }, { brandId: store.brandId }).catch((err) => console.error("Welcome email failed", err));
 
   const token = signCustomerToken({
     contactId: contact.id,

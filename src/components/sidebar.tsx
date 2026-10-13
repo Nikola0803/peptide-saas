@@ -6,15 +6,20 @@ import { useState, useEffect } from "react";
 import clsx from "clsx";
 import { NAV_GROUPS } from "@/lib/nav";
 import { PushNotificationManager } from "./PushNotificationManager";
+import { BrandWorkspaceSwitcher } from "./brand-workspace-switcher";
 
 export function Sidebar({
   organizationName,
   brandCount,
   notificationCounts,
+  brands,
+  activeBrandId,
 }: {
   organizationName: string;
   brandCount: number;
   notificationCounts?: Record<string, number>;
+  brands: Array<{ id: string; name: string; domain: string; status: string }>;
+  activeBrandId: string | null;
 }) {
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -42,6 +47,8 @@ export function Sidebar({
           <i className="ri-close-line text-xl" />
         </button>
       </div>
+
+      <BrandWorkspaceSwitcher brands={brands} activeBrandId={activeBrandId} />
 
       <nav className="flex-1 px-3 py-4 overflow-y-auto">
         {NAV_GROUPS.map((group) => (

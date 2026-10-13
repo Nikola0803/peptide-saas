@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
     couponCode,
     welcomeDiscountPercent,
     unsubscribeFooterHtml: unsubscribeFooterHtml(unsubscribeUrl),
-  }).catch((err) => console.error("Newsletter confirmation email failed", err));
+  }, { brandId: store.brandId }).catch((err) => console.error("Newsletter confirmation email failed", err));
 
   return NextResponse.json({ ok: true, couponCode });
 }

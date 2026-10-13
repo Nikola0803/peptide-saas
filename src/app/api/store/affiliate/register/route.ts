@@ -78,6 +78,7 @@ export async function POST(req: NextRequest) {
   const affiliate = await prisma.affiliate.create({
     data: {
       organizationId: store.organizationId,
+      sourceBrandId: store.brandId,
       contactId: contact.id,
       name: contact.name || contact.email,
       email: contact.email,
