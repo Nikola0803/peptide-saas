@@ -14,13 +14,15 @@ export function RoleSelect({ membershipId, currentRole }: { membershipId: string
       disabled={saving}
       onChange={async (e) => {
         setSaving(true);
-        await updateMemberRole(membershipId, e.target.value as "OWNER" | "ADMIN" | "MEMBER");
+        await updateMemberRole(membershipId, e.target.value as "OWNER" | "ADMIN" | "MEMBER" | "CARE_AGENT" | "VETERINARY_PROFESSIONAL");
         router.refresh();
         setSaving(false);
       }}
       className="text-xs border border-background-300 rounded px-1.5 py-1 bg-background-50 disabled:opacity-60"
     >
       <option value="MEMBER">Member</option>
+      <option value="CARE_AGENT">Care Agent</option>
+      <option value="VETERINARY_PROFESSIONAL">Veterinary Professional</option>
       <option value="ADMIN">Admin</option>
       <option value="OWNER">Owner</option>
     </select>

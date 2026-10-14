@@ -54,9 +54,9 @@ export async function inviteMember(formData: FormData): Promise<{ email: string;
   const { organization } = await requireOrg();
 
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
-  const role = String(formData.get("role") ?? "MEMBER") as "OWNER" | "ADMIN" | "MEMBER";
+  const role = String(formData.get("role") ?? "MEMBER") as "OWNER" | "ADMIN" | "MEMBER" | "CARE_AGENT" | "VETERINARY_PROFESSIONAL";
   if (!email) throw new Error("Email is required");
-  if (!["OWNER", "ADMIN", "MEMBER"].includes(role)) throw new Error("Invalid role");
+  if (!["OWNER", "ADMIN", "MEMBER", "CARE_AGENT", "VETERINARY_PROFESSIONAL"].includes(role)) throw new Error("Invalid role");
 
   const password = createId().slice(0, 16);
   const passwordHash = await bcrypt.hash(password, 10);
@@ -86,7 +86,7 @@ export async function inviteMember(formData: FormData): Promise<{ email: string;
   return { email, password };
 }
 
-export async function updateMemberRole(membershipId: string, role: "OWNER" | "ADMIN" | "MEMBER") {
+export async function updateMemberRole(membershipId: string, role: "OWNER" | "ADMIN" | "MEMBER" | "CARE_AGENT" | "VETERINARY_PROFESSIONAL") {
   const { organization } = await requireOrg();
   await prisma.membership.updateMany({
     where: { id: membershipId, organizationId: organization.id, role: { not: "DROPSHIP_AGENT" } },

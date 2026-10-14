@@ -62,6 +62,8 @@ export function InviteMemberForm() {
       />
       <select value={role} onChange={(e) => setRole(e.target.value)} className="text-sm border border-background-300 rounded px-2 py-1.5 bg-background-50">
         <option value="MEMBER">Member</option>
+        <option value="CARE_AGENT">Care Agent</option>
+        <option value="VETERINARY_PROFESSIONAL">Veterinary Professional</option>
         <option value="ADMIN">Admin</option>
         <option value="OWNER">Owner</option>
       </select>

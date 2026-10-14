@@ -1,0 +1,17 @@
+BEGIN;
+ALTER TYPE "Role" ADD VALUE IF NOT EXISTS 'CARE_AGENT';
+ALTER TYPE "Role" ADD VALUE IF NOT EXISTS 'VETERINARY_PROFESSIONAL';
+DO $$ BEGIN CREATE TYPE "ZooProtocolCaseStatus" AS ENUM ('ACTIVE','NEEDS_REVIEW','IN_REVIEW','CLOSED'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE "ZooProtocolAuditAction" AS ENUM ('CREATED','VIEWED','ASSIGNED','NOTE_ADDED','STATUS_CHANGED','EXPORTED','SHARED'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+CREATE TABLE IF NOT EXISTS "ZooProtocolDog" ("id" TEXT PRIMARY KEY,"contactId" TEXT NOT NULL REFERENCES "Contact"("id") ON DELETE CASCADE,"name" TEXT NOT NULL,"breed" TEXT,"birthDate" TIMESTAMP(3),"weightLbs" DOUBLE PRECISION,"focus" TEXT,"createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,"updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS "ZooProtocolCase" ("id" TEXT PRIMARY KEY,"organizationId" TEXT NOT NULL REFERENCES "Organization"("id") ON DELETE CASCADE,"brandId" TEXT NOT NULL REFERENCES "Brand"("id") ON DELETE CASCADE,"dogId" TEXT NOT NULL REFERENCES "ZooProtocolDog"("id") ON DELETE CASCADE,"assignedToId" TEXT REFERENCES "User"("id") ON DELETE SET NULL,"status" "ZooProtocolCaseStatus" NOT NULL DEFAULT 'ACTIVE',"sharingConsentAt" TIMESTAMP(3),"createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,"updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS "ZooProtocolCheckIn" ("id" TEXT PRIMARY KEY,"caseId" TEXT NOT NULL REFERENCES "ZooProtocolCase"("id") ON DELETE CASCADE,"movement" INTEGER NOT NULL,"energy" INTEGER NOT NULL,"comfort" INTEGER NOT NULL,"observation" TEXT,"createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,CONSTRAINT "ZooProtocolCheckIn_scores" CHECK ("movement" BETWEEN 1 AND 10 AND "energy" BETWEEN 1 AND 10 AND "comfort" BETWEEN 1 AND 10));
+CREATE TABLE IF NOT EXISTS "ZooProtocolProfessionalNote" ("id" TEXT PRIMARY KEY,"caseId" TEXT NOT NULL REFERENCES "ZooProtocolCase"("id") ON DELETE CASCADE,"authorId" TEXT NOT NULL REFERENCES "User"("id") ON DELETE RESTRICT,"body" TEXT NOT NULL,"visibleToCustomer" BOOLEAN NOT NULL DEFAULT false,"createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS "ZooProtocolAuditEvent" ("id" TEXT PRIMARY KEY,"organizationId" TEXT NOT NULL REFERENCES "Organization"("id") ON DELETE CASCADE,"caseId" TEXT NOT NULL REFERENCES "ZooProtocolCase"("id") ON DELETE CASCADE,"actorId" TEXT REFERENCES "User"("id") ON DELETE SET NULL,"action" "ZooProtocolAuditAction" NOT NULL,"metadata" JSONB,"createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE INDEX IF NOT EXISTS "ZooProtocolDog_contactId_idx" ON "ZooProtocolDog"("contactId");
+CREATE INDEX IF NOT EXISTS "ZooProtocolCase_org_brand_status_idx" ON "ZooProtocolCase"("organizationId","brandId","status");
+CREATE INDEX IF NOT EXISTS "ZooProtocolCase_assignee_status_idx" ON "ZooProtocolCase"("assignedToId","status");
+CREATE INDEX IF NOT EXISTS "ZooProtocolCheckIn_case_created_idx" ON "ZooProtocolCheckIn"("caseId","createdAt");
+CREATE INDEX IF NOT EXISTS "ZooProtocolProfessionalNote_case_created_idx" ON "ZooProtocolProfessionalNote"("caseId","createdAt");
+CREATE INDEX IF NOT EXISTS "ZooProtocolAuditEvent_case_created_idx" ON "ZooProtocolAuditEvent"("caseId","createdAt");
+COMMIT;

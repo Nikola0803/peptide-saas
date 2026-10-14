@@ -18,6 +18,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: "Contacts", href: "/contacts", icon: "ri-user-heart-line" },
       { label: "Bookings", href: "/bookings", icon: "ri-calendar-check-line" },
       { label: "Support", href: "/support", icon: "ri-customer-service-2-line" },
+      { label: "ZooProtocol", href: "/zooprotocol", icon: "ri-heart-pulse-line" },
       { label: "Master Products", href: "/products", icon: "ri-flask-line" },
       { label: "Media", href: "/media", icon: "ri-image-line" },
       { label: "Shipping", href: "/shipping", icon: "ri-ship-2-line" },
