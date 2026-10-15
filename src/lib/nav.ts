@@ -37,6 +37,12 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    label: "Store workspace",
+    items: [
+      { label: "EVLV Reseller", href: "/evlv-reseller", icon: "ri-store-3-line" },
+    ],
+  },
+  {
     label: "Growth",
     items: [
       { label: "Social Analytics", href: "/social-analytics", icon: "ri-bar-chart-grouped-line" },
