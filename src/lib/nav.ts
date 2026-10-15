@@ -41,7 +41,6 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { label: "Social Analytics", href: "/social-analytics", icon: "ri-bar-chart-grouped-line" },
       { label: "AI Blog Tool", href: "/blog-tool", icon: "ri-article-line" },
-      { label: "Reddit Marketing", href: "/reddit-marketing", icon: "ri-reddit-line" },
     ],
   },
   {
