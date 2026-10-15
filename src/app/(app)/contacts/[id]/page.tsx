@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { PageHeader, Card, StatCard, Badge } from "@/components/ui";
 import { money, shortDate, dateTime, initials } from "@/lib/format";
 import { updateContact, assignPersonalCoupon, revokePersonalCoupon } from "../actions";
+import { SendEmailButton } from "@/components/send-email-button";
 
 export default async function ContactDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { organization } = await requireOrg();
@@ -30,7 +31,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
       <Link href="/contacts" className="text-xs text-foreground-500 hover:text-foreground-800 mb-2 inline-block">
         ← Contacts
       </Link>
-      <PageHeader title={contact.name || contact.email} subtitle={contact.name ? contact.email : "Customer profile"} />
+      <PageHeader title={contact.name || contact.email} subtitle={contact.name ? contact.email : "Customer profile"} actions={<SendEmailButton email={contact.email} name={contact.name || undefined} />} />
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <StatCard label="Lifetime value" value={money(ltv)} />

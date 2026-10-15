@@ -5,6 +5,7 @@ import { PageHeader, StatCard, Card, Badge, EmptyState } from "@/components/ui";
 import { money, dateTime } from "@/lib/format";
 import { approveAffiliate, rejectAffiliate, markPayoutPaid, rejectPayout } from "./actions";
 import { getActiveBrand } from "@/lib/active-brand";
+import { SendEmailButton } from "@/components/send-email-button";
 
 const PAGE_SIZE = 50;
 
@@ -117,6 +118,7 @@ export default async function AffiliatesPage({ searchParams }: { searchParams?: 
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
+                  <SendEmailButton email={a.email} name={a.name} />
                   <form action={approveAffiliate.bind(null, a.id)}>
                     <button className="text-xs bg-primary-500 text-background-50 rounded-md px-2.5 py-1.5 font-medium hover:bg-primary-600">Approve</button>
                   </form>
@@ -211,7 +213,10 @@ export default async function AffiliatesPage({ searchParams }: { searchParams?: 
                   <div className="text-[10px] text-foreground-500">Commission</div>
                 </div>
               </div>
-              <Link href={`/affiliates/${affiliate.id}`} className="mt-3 block rounded-md border border-background-300 px-3 py-2 text-center text-xs font-medium text-foreground-700 hover:bg-background-100">Open partner profile</Link>
+              <div className="mt-3 flex gap-2">
+                <Link href={`/affiliates/${affiliate.id}`} className="flex-1 block rounded-md border border-background-300 px-3 py-2 text-center text-xs font-medium text-foreground-700 hover:bg-background-100">Open partner profile</Link>
+                <SendEmailButton email={affiliate.email} name={affiliate.name} />
+              </div>
             </Card>
           ))}
         </div>

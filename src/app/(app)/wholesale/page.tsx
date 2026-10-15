@@ -4,6 +4,7 @@ import { PageHeader, Card, StatCard, Badge, EmptyState } from "@/components/ui";
 import { money, shortDate } from "@/lib/format";
 import { linkAndApproveInquiry, rejectInquiry, createWholesaleInvoice, markWholesaleInvoicePaid } from "./actions";
 import { getActiveBrand } from "@/lib/active-brand";
+import { SendEmailButton } from "@/components/send-email-button";
 
 export default async function WholesalePage() {
   const { organization } = await requireOrg();
@@ -57,6 +58,7 @@ export default async function WholesalePage() {
                   <div className="text-[10px] text-foreground-400 mt-1">{shortDate(inq.createdAt)}</div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
+                  <SendEmailButton email={inq.email} name={inq.contactName || undefined} />
                   <form action={linkAndApproveInquiry.bind(null, inq.id)}>
                     <button className="text-xs bg-primary-500 text-background-50 rounded-md px-2.5 py-1.5 font-medium hover:bg-primary-600">
                       Link &amp; Approve
@@ -90,7 +92,10 @@ export default async function WholesalePage() {
                       {p.notificationEmail && p.notificationEmail !== p.contact.email ? ` — notifications: ${p.notificationEmail}` : ""}
                     </div>
                   </div>
-                  <Badge status={p.status} />
+                  <div className="flex items-center gap-2">
+                    <SendEmailButton email={p.contact.email} name={p.businessName || p.contact.name || undefined} />
+                    <Badge status={p.status} />
+                  </div>
                 </div>
 
                 {p.status === "APPROVED" && (
