@@ -472,6 +472,8 @@ export async function runCheckout(
         externalOrderNumber,
         grossCents: grossCentsTotal,
         shippingCents,
+        total: ((grossCentsTotal + shippingCents) / 100).toFixed(2),
+        currency: "USD",
         status: order.status,
       },
       contactEmail: contact.email,
