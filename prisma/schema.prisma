@@ -441,6 +441,18 @@ model Contact {
   lastVisitorId     String?
   lastVisitorSeenAt DateTime?
 
+  // Referral program — each registered customer gets a unique code they
+  // can share. Clicking the link gives the new buyer a $15 coupon on
+  // signup; the referrer gets a $15 coupon once their referee places
+  // their first order. See src/lib/referral-engine.ts.
+  referralCode           String?   @unique
+  referredByContact      Contact?  @relation("ContactReferrals", fields: [referredByContactId], references: [id], onDelete: SetNull)
+  referredByContactId    String?
+  referrals              Contact[] @relation("ContactReferrals")
+  // Set once the $15 referrer bonus coupon has been issued, so it only
+  // fires on the referee's first purchase and never repeats.
+  referralCreditIssuedAt DateTime?
+
   brandLinks             ContactBrandLink[]
   orders                 Order[]
   automationSends        EmailAutomationSend[]
