@@ -81,6 +81,16 @@ export async function importSupplierPriceList(supplierId: string, formData: Form
   return result;
 }
 
+export async function saveSupplierSheetUrl(formData: FormData) {
+  const { organization } = await requireOrg();
+  const url = String(formData.get("supplierSheetUrl") ?? "").trim();
+  await prisma.organization.update({
+    where: { id: organization.id },
+    data: { supplierSheetUrl: url || null },
+  });
+  revalidatePath("/suppliers");
+}
+
 export async function setInvoiceStatus(invoiceId: string, status: "SENT" | "PAID") {
   const { organization } = await requireOrg();
 

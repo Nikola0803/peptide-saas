@@ -52,6 +52,11 @@ model Organization {
   // src/lib/coupon-engine.ts, not just at the UI layer.
   minMarginPercent Int @default(30)
 
+  // Google Sheets URL for the supplier price sheet -- displayed as a live
+  // table on the Suppliers page. The sheet must be published to the web
+  // (File → Share → Publish to web → CSV).
+  supplierSheetUrl String?
+
   memberships             Membership[]
   brands                  Brand[]
   products                Product[]
