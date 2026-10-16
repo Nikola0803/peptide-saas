@@ -153,7 +153,7 @@ export async function runCheckout(
       tx.organization.findUnique({ where: { id: organizationId } }),
       tx.brand.findUnique({
         where: { id: brandId },
-        select: { researchSetActive: true, researchSetStartsAt: true, researchSetEndsAt: true, glpPairActive: true },
+        select: { slug: true, researchSetActive: true, researchSetStartsAt: true, researchSetEndsAt: true, glpPairActive: true },
       }),
       tx.wholesalePartner.findUnique({ where: { contactId: contact.id }, select: { status: true } }),
       tx.order.findFirst({
@@ -180,6 +180,11 @@ export async function runCheckout(
     }[] = [];
     const couponCartItems: CouponCartItem[] = [];
     const promotionItems: GlpPairPromotionItem[] = [];
+    // ZOONETICS is fulfilled as an always-available catalog. Its mappings
+    // intentionally reuse EVLV master products for shared pricing/content,
+    // but EVLV's warehouse count must never block or be decremented by a
+    // ZOONETICS order.
+    const bypassInventory = brand?.slug === "zoonetics";
 
     for (const item of input.items) {
       const quantity = Math.max(1, Math.floor(item.quantity));
@@ -206,7 +211,7 @@ export async function runCheckout(
       });
 
       const availableStock = supplierProduct ? supplierProduct.stock : product.masterStock;
-      if (availableStock < quantity) {
+      if (!bypassInventory && availableStock < quantity) {
         throw new CheckoutError(`Insufficient stock for ${product.sku}`, "OUT_OF_STOCK", {
           slug: item.slug,
           available: availableStock,
@@ -226,10 +231,12 @@ export async function runCheckout(
       // covers this item gets decremented now, at order time, not at
       // shipment time — released back by src/lib/stock-release-job.ts if
       // the order is never paid.
-      if (supplierProduct) {
-        await tx.supplierProduct.update({ where: { id: supplierProduct.id }, data: { stock: { decrement: quantity } } });
-      } else {
-        await tx.product.update({ where: { id: product.id }, data: { masterStock: { decrement: quantity } } });
+      if (!bypassInventory) {
+        if (supplierProduct) {
+          await tx.supplierProduct.update({ where: { id: supplierProduct.id }, data: { stock: { decrement: quantity } } });
+        } else {
+          await tx.product.update({ where: { id: product.id }, data: { masterStock: { decrement: quantity } } });
+        }
       }
 
       // FIFO batch allocation, same as the WooCommerce ingestion path — see
@@ -238,17 +245,19 @@ export async function runCheckout(
       // recorded (EVLV never receives the physical batch), so this is a
       // no-op for them.
       let lotId: string | undefined;
-      const lot = await tx.productLot.findFirst({
-        where: { productId: product.id, status: "ACTIVE", quantityRemaining: { gt: 0 } },
-        orderBy: { receivedAt: "asc" },
-      });
-      if (lot) {
-        lotId = lot.id;
-        const remaining = lot.quantityRemaining - quantity;
-        await tx.productLot.update({
-          where: { id: lot.id },
-          data: { quantityRemaining: Math.max(remaining, 0), status: remaining <= 0 ? "DEPLETED" : "ACTIVE" },
+      if (!bypassInventory) {
+        const lot = await tx.productLot.findFirst({
+          where: { productId: product.id, status: "ACTIVE", quantityRemaining: { gt: 0 } },
+          orderBy: { receivedAt: "asc" },
         });
+        if (lot) {
+          lotId = lot.id;
+          const remaining = lot.quantityRemaining - quantity;
+          await tx.productLot.update({
+            where: { id: lot.id },
+            data: { quantityRemaining: Math.max(remaining, 0), status: remaining <= 0 ? "DEPLETED" : "ACTIVE" },
+          });
+        }
       }
 
       resolvedItems.push({
