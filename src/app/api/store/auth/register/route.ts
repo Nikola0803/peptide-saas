@@ -5,12 +5,14 @@ import { resolveHeaderOverride } from "@/lib/store-context";
 import { hashPassword, signCustomerToken } from "@/lib/customer-auth";
 import { sendTemplate } from "@/lib/email";
 import { ensureWelcomeCoupon } from "@/lib/welcome-coupon";
+import { applyReferralSignup, ensureReferralCode } from "@/lib/referral-engine";
 
 const bodySchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
   name: z.string().optional(),
   marketingOptIn: z.boolean().optional(),
+  referralCode: z.string().optional(),
 });
 
 // POST /api/store/auth/register
@@ -51,6 +53,15 @@ export async function POST(req: NextRequest) {
   const couponCode = await ensureWelcomeCoupon(store.organizationId, contact.id, email);
   const welcomeDiscountPercent = couponCode.toUpperCase().startsWith("WELCOME20-") ? 20 : 10;
 
+  // Issue a referral code for this new contact and handle an inbound referral
+  let referralCouponCode: string | null = null;
+  const ownReferralCode = await ensureReferralCode(contact.id);
+  if (parsed.data.referralCode) {
+    referralCouponCode = await applyReferralSignup(store.organizationId, contact.id, parsed.data.referralCode).catch(
+      (err) => { console.error("Referral signup failed", err); return null; }
+    );
+  }
+
   sendTemplate(store.organizationId, "welcome_customer", email, {
     customerName: contact.name || email,
     couponCode,
@@ -69,7 +80,16 @@ export async function POST(req: NextRequest) {
   // writes them straight to localStorage as-is (src/lib/auth.ts), so
   // anything nested here is silently lost on their end.
   return NextResponse.json(
-    { token, email, username: contact.name || email, user_id: contact.id, couponCode, welcomeDiscountPercent },
+    {
+      token,
+      email,
+      username: contact.name || email,
+      user_id: contact.id,
+      couponCode,
+      welcomeDiscountPercent,
+      referralCode: ownReferralCode,
+      referralCouponCode,
+    },
     { status: 201 }
   );
 }

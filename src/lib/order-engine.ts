@@ -14,6 +14,7 @@ import {
   RESEARCH_SET_PROMOTION_CODE,
 } from "@/lib/research-set-promotion";
 import { affiliateDiscountCents } from "@/lib/affiliate-program";
+import { issueReferrerCredit } from "@/lib/referral-engine";
 
 // "YYYY-MM-DD" in UTC -- the calendar day used to decide whether a
 // StoreMapping's Deal of the Day is currently active and to bucket
@@ -135,7 +136,7 @@ export async function runCheckout(
     throw new CheckoutError("Cart is empty", "EMPTY_CART");
   }
 
-  const { result, contactEmail, contactName, resolvedItems, grossCentsTotal, shippingCents } = await prisma.$transaction(async (tx) => {
+  const { result, contactId, contactEmail, contactName, resolvedItems, grossCentsTotal, shippingCents } = await prisma.$transaction(async (tx) => {
     const email = input.customerEmail.toLowerCase().trim();
 
     const contact = await tx.contact.upsert({
@@ -472,6 +473,7 @@ export async function runCheckout(
         shippingCents,
         status: order.status,
       },
+      contactId: contact.id,
       contactEmail: contact.email,
       contactName: contact.name ?? billingName,
       resolvedItems,
@@ -499,6 +501,10 @@ export async function runCheckout(
 
   enterGiveawayIfQualifying(brandId, contactEmail, grossCentsTotal, result.orderId).catch((err) =>
     console.error("Giveaway entry failed", err)
+  );
+
+  issueReferrerCredit(organizationId, contactId).catch((err) =>
+    console.error("Referral credit failed", err)
   );
 
   return result;
