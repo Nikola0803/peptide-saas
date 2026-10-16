@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { REFERRAL_REWARD_CENTS } from "@/lib/customer-referral";
 import { z } from "zod";
 import { resolveHeaderOverride } from "@/lib/store-context";
 import { prisma } from "@/lib/prisma";
@@ -172,6 +173,35 @@ export async function POST(req: NextRequest) {
 
   const typedCode = parsed.data.code?.trim();
   if (typedCode) {
+    const customerReferral = contactId
+      ? await prisma.customerReferral.findUnique({
+          where: { friendContactId: contactId },
+          include: { referrer: { select: { referralCode: true } } },
+        })
+      : null;
+    const priorOrder = contactId
+      ? await prisma.order.findFirst({
+          where: { organizationId: store.organizationId, contactId, status: { not: "REFUNDED" } },
+          select: { id: true },
+        })
+      : null;
+    const referralMatches = customerReferral?.referrer.referralCode?.toUpperCase() === typedCode.toUpperCase();
+    const cogsCents = couponCartItems.reduce((sum, item) => sum + item.cogsCents * item.quantity, 0);
+    const maximumReferralDiscount = Math.max(0, subtotalCents - Math.ceil(cogsCents * (1 + (org?.minMarginPercent ?? 30) / 100)));
+    if (referralMatches && !customerReferral?.referredOrderId && !priorOrder && maximumReferralDiscount >= REFERRAL_REWARD_CENTS) {
+      return NextResponse.json({
+        valid: true,
+        discountCents: REFERRAL_REWARD_CENTS,
+        subtotalCents,
+        totalCents: Math.max(0, subtotalCents - REFERRAL_REWARD_CENTS),
+        appliedCoupons: [{ code: typedCode.toUpperCase(), label: "$15 friend referral" }],
+        promotionLabel: "$15 friend referral",
+        flooredByMargin: false,
+        maximumDiscountPercent: 30,
+        errors: [],
+      });
+    }
+
     const affiliate = await prisma.affiliate.findFirst({
       where: {
         organizationId: store.organizationId,

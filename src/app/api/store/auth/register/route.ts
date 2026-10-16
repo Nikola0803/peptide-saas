@@ -5,12 +5,14 @@ import { resolveHeaderOverride } from "@/lib/store-context";
 import { hashPassword, signCustomerToken } from "@/lib/customer-auth";
 import { sendTemplate } from "@/lib/email";
 import { ensureWelcomeCoupon } from "@/lib/welcome-coupon";
+import { attachReferralAtRegistration, ensureReferralCode } from "@/lib/customer-referral";
 
 const bodySchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
   name: z.string().optional(),
   marketingOptIn: z.boolean().optional(),
+  referralCode: z.string().trim().max(80).optional(),
 });
 
 // POST /api/store/auth/register
@@ -48,6 +50,14 @@ export async function POST(req: NextRequest) {
     create: { contactId: contact.id, brandId: store.brandId },
   });
 
+  await attachReferralAtRegistration({
+    organizationId: store.organizationId,
+    brandId: store.brandId,
+    friendContactId: contact.id,
+    referralCode: parsed.data.referralCode,
+  });
+  const referralCode = await ensureReferralCode(contact.id);
+
   const couponCode = await ensureWelcomeCoupon(store.organizationId, contact.id, email);
   const welcomeDiscountPercent = couponCode.toUpperCase().startsWith("WELCOME20-") ? 20 : 10;
 
@@ -55,6 +65,7 @@ export async function POST(req: NextRequest) {
     customerName: contact.name || email,
     couponCode,
     welcomeDiscountPercent: String(welcomeDiscountPercent),
+    referralLink: `https://www.evlvpeptides.com/?ref=${encodeURIComponent(referralCode)}`,
   }, { brandId: store.brandId }).catch((err) => console.error("Welcome email failed", err));
 
   const token = signCustomerToken({
@@ -69,7 +80,7 @@ export async function POST(req: NextRequest) {
   // writes them straight to localStorage as-is (src/lib/auth.ts), so
   // anything nested here is silently lost on their end.
   return NextResponse.json(
-    { token, email, username: contact.name || email, user_id: contact.id, couponCode, welcomeDiscountPercent },
+    { token, email, username: contact.name || email, user_id: contact.id, couponCode, welcomeDiscountPercent, referralCode },
     { status: 201 }
   );
 }

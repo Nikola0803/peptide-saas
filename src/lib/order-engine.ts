@@ -14,6 +14,7 @@ import {
   RESEARCH_SET_PROMOTION_CODE,
 } from "@/lib/research-set-promotion";
 import { affiliateDiscountCents } from "@/lib/affiliate-program";
+import { REFERRAL_REWARD_CENTS } from "@/lib/customer-referral";
 
 // "YYYY-MM-DD" in UTC -- the calendar day used to decide whether a
 // StoreMapping's Deal of the Day is currently active and to bucket
@@ -149,7 +150,7 @@ export async function runCheckout(
       create: { contactId: contact.id, brandId },
     });
 
-    const [org, brand, wholesale, priorPromotionOrder] = await Promise.all([
+    const [org, brand, wholesale, priorPromotionOrder, customerReferral, priorCustomerOrder] = await Promise.all([
       tx.organization.findUnique({ where: { id: organizationId } }),
       tx.brand.findUnique({
         where: { id: brandId },
@@ -163,6 +164,14 @@ export async function runCheckout(
           appliedCouponCodes: { contains: GLP_PAIR_PROMOTION_CODE },
           status: { not: "REFUNDED" },
         },
+        select: { id: true },
+      }),
+      tx.customerReferral.findUnique({
+        where: { friendContactId: contact.id },
+        select: { id: true, referrerContactId: true, referredOrderId: true },
+      }),
+      tx.order.findFirst({
+        where: { organizationId, contactId: contact.id, status: { not: "REFUNDED" } },
         select: { id: true },
       }),
     ]);
@@ -321,7 +330,22 @@ export async function runCheckout(
 
     const promotion = glpPromotion.applies ? glpPromotion : researchSetPromotion;
 
-    const affiliate = input.couponCode && !promotion.applies
+    const referralCodeMatches = customerReferral && input.couponCode
+      ? Boolean(await tx.contact.findFirst({
+          where: {
+            id: customerReferral.referrerContactId,
+            referralCode: { equals: input.couponCode, mode: "insensitive" },
+          },
+          select: { id: true },
+        }))
+      : false;
+    const maximumReferralDiscount = Math.max(0, grossCentsTotal - Math.ceil(cogsCentsTotal * (1 + marginPercent / 100)));
+    const eligibleReferral = !promotion.applies && referralCodeMatches && !customerReferral?.referredOrderId && !priorCustomerOrder
+      && maximumReferralDiscount >= REFERRAL_REWARD_CENTS
+      ? customerReferral
+      : null;
+
+    const affiliate = input.couponCode && !promotion.applies && !eligibleReferral
       ? await tx.affiliate.findFirst({
           where: {
             organizationId,
@@ -342,12 +366,18 @@ export async function runCheckout(
     // combined with another one just doesn't apply (checkout never fails
     // over a bad promo code) -- evlv-site's checkout should call
     // /api/store/coupons/validate first so the customer sees why.
-    let discountCents = promotion.applies && "discountCents" in promotion ? promotion.discountCents : 0;
+    let discountCents = promotion.applies && "discountCents" in promotion
+      ? promotion.discountCents
+      : eligibleReferral
+      ? REFERRAL_REWARD_CENTS
+      : 0;
     let couponId: string | undefined;
     let appliedCouponCodes: string | undefined = glpPromotion.applies
       ? GLP_PAIR_PROMOTION_CODE
       : researchSetPromotion.applies
       ? RESEARCH_SET_PROMOTION_CODE
+      : eligibleReferral
+      ? input.couponCode?.trim().toUpperCase()
       : undefined;
     if (eligibleAffiliate && eligibleAffiliate.customerDiscountPercent > 0) {
       const affiliateDiscount = affiliateDiscountCents(
@@ -363,9 +393,9 @@ export async function runCheckout(
     // contact -- see Coupon.assignedContactId) go first, so a non-stackable
     // personal deal wins over a generic code the customer happens to also
     // type in, and is applied even if they never enter anything at all.
-    const autoApplyCodes = promotion.applies || eligibleAffiliate ? [] : await getAutoApplyCodes(organizationId, contact.id);
-    const requestedCodes = promotion.applies || eligibleAffiliate ? [] : [...autoApplyCodes, ...(input.discountCodes?.filter(Boolean) ?? [])];
-    if (!promotion.applies && !eligibleAffiliate && requestedCodes.length > 0) {
+    const autoApplyCodes = promotion.applies || eligibleAffiliate || eligibleReferral ? [] : await getAutoApplyCodes(organizationId, contact.id);
+    const requestedCodes = promotion.applies || eligibleAffiliate || eligibleReferral ? [] : [...autoApplyCodes, ...(input.discountCodes?.filter(Boolean) ?? [])];
+    if (!promotion.applies && !eligibleAffiliate && !eligibleReferral && requestedCodes.length > 0) {
       const maximumDiscountPercent = wholesale?.status === "APPROVED" ? 40 : 30;
       const { coupons } = await resolveCoupons(organizationId, requestedCodes, grossCentsTotal, contact.id);
       if (coupons.length > 0) {
@@ -457,6 +487,10 @@ export async function runCheckout(
         notes: input.customerNote ? { create: { body: `Customer note: ${input.customerNote}` } } : undefined,
       },
     });
+
+    if (eligibleReferral) {
+      await tx.customerReferral.update({ where: { id: eligibleReferral.id }, data: { referredOrderId: order.id } });
+    }
 
     if (eligibleAffiliate && !promotion.applies) {
       await tx.affiliateOrderAttribution.create({

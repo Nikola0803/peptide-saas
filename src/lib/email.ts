@@ -181,6 +181,25 @@ const LAYOUT = (body: string, image = EVLV_VIAL_HERO) => `
 // correctly from day one, before anyone has touched the Email page.
 export const DEFAULT_TEMPLATES: EmailTemplateDefault[] = [
   {
+    key: "referral_earned",
+    name: "Referral reward earned",
+    description: "Sent when a referred friend's first qualifying order payment is confirmed.",
+    subject: "Your $15 EVLV referral reward is ready",
+    sampleVars: { customerName: "Jordan", rewardCode: "THANKS15-AB12CDE34FG", rewardAmount: "$15" },
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:620px;margin:0 auto;background:#f1eee7;color:#0e1113;padding:36px;">
+        <p style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#b8875a;font-weight:700;">Referral confirmed</p>
+        <h1 style="font-family:Georgia,serif;font-size:30px;line-height:1.2;">Your {{rewardAmount}} reward is ready.</h1>
+        <p style="font-size:16px;line-height:1.65;">Thank you, {{customerName}}. Your friend completed their first qualifying EVLV order.</p>
+        <div style="margin:24px 0;padding:20px;text-align:center;background:#fff;border:1px solid #d8d3c7;">
+          <p style="margin:0 0 8px;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:#6b7370;">One-use reward code</p>
+          <p style="margin:0;font-size:23px;letter-spacing:2px;font-weight:700;color:#203a37;">{{rewardCode}}</p>
+        </div>
+        <a href="https://www.evlvpeptides.com/shop" style="display:inline-block;background:#0e1113;color:#f1eee7;text-decoration:none;padding:15px 24px;font-size:13px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;">Use your reward</a>
+        <p style="margin-top:28px;font-size:11px;line-height:1.55;color:#6b7370;">Single use. Eligibility and combination with other offers are determined at checkout. Research use only.</p>
+      </div>`,
+  },
+  {
     key: "welcome_customer",
     name: "Welcome (new account)",
     description: "Sent right after someone creates an account on evlv-site.",

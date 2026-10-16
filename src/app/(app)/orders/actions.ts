@@ -5,6 +5,7 @@ import { requireOrg } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { releaseOrderStock } from "@/lib/stock-release-job";
 import { sendPaymentConfirmedEmail } from "@/lib/automation-job";
+import { qualifyReferral } from "@/lib/customer-referral";
 
 async function assertOrderOwnership(orderId: string) {
   const { organization } = await requireOrg();
@@ -76,6 +77,7 @@ export async function confirmPayment(orderId: string) {
   });
 
   sendPaymentConfirmedEmail(order.organizationId, orderId).catch((err) => console.error("Payment confirmed email failed", err));
+  await qualifyReferral(orderId).catch((err) => console.error("Referral reward issue failed", err));
 
   if (order.stockReleasedAt) {
     await prisma.orderNote.create({
@@ -93,6 +95,7 @@ export async function confirmPayment(orderId: string) {
 export async function markCompleted(orderId: string) {
   await assertOrderOwnership(orderId);
   await prisma.order.update({ where: { id: orderId }, data: { status: "COMPLETED" } });
+  await qualifyReferral(orderId).catch((err) => console.error("Referral reward issue failed", err));
   revalidatePath(`/orders/${orderId}`);
   revalidatePath("/orders");
 }

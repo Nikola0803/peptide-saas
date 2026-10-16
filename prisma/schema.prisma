@@ -79,6 +79,7 @@ model Organization {
   bookings                Booking[]
   zooProtocolCases        ZooProtocolCase[]
   zooProtocolAuditEvents  ZooProtocolAuditEvent[]
+  customerReferrals       CustomerReferral[]
 }
 
 enum Plan {
@@ -95,8 +96,8 @@ model User {
   name         String?
   createdAt    DateTime @default(now())
 
-  memberships Membership[]
-  assignedZooProtocolCases ZooProtocolCase[] @relation("ZooProtocolAssignee")
+  memberships              Membership[]
+  assignedZooProtocolCases ZooProtocolCase[]             @relation("ZooProtocolAssignee")
   zooProtocolNotes         ZooProtocolProfessionalNote[]
   zooProtocolAuditEvents   ZooProtocolAuditEvent[]
 }
@@ -164,18 +165,19 @@ model Brand {
   createdAt    DateTime  @default(now())
 
   // ── Shop/store profile, used to style marketing emails and shown on the storefront ──
-  logoUrl          String? // shown in the CRM UI and used as the header image in marketing emails
-  supportEmail     String? // public contact address; also the reply-to on marketing emails
-  senderName       String? // "From" display name on marketing emails, e.g. "EVLV Team"
-  emailAccentColor String? // hex, e.g. "#B8875A" — used for buttons/links in marketing email templates
-  businessAddress  String? // physical mailing address, required on marketing emails for CAN-SPAM compliance
-  products         StoreMapping[]
-  contactLinks     ContactBrandLink[]
-  orders           Order[]
-  webhookEvents    WebhookEvent[]
+  logoUrl           String? // shown in the CRM UI and used as the header image in marketing emails
+  supportEmail      String? // public contact address; also the reply-to on marketing emails
+  senderName        String? // "From" display name on marketing emails, e.g. "EVLV Team"
+  emailAccentColor  String? // hex, e.g. "#B8875A" — used for buttons/links in marketing email templates
+  businessAddress   String? // physical mailing address, required on marketing emails for CAN-SPAM compliance
+  products          StoreMapping[]
+  contactLinks      ContactBrandLink[]
+  orders            Order[]
+  customerReferrals CustomerReferral[]
+  webhookEvents     WebhookEvent[]
   // Safe to expose client-side — identifies this brand for booking form submissions.
   // Used as x-public-key in CRM_BOOKING_FORM_KEY env vars on connected storefronts.
-  bookingPublicKey String             @unique @default(cuid())
+  bookingPublicKey  String             @unique @default(cuid())
 
   trackingConfig        TrackingConfig?
   trackingEvents        TrackingEvent[]
@@ -427,6 +429,10 @@ model Contact {
   // out just flips this back off.
   marketingOptIn Boolean @default(false)
 
+  // Stable, customer-facing code used by https://evlvpeptides.com/?ref=...
+  // Existing accounts are assigned one lazily by the referral account API.
+  referralCode String? @unique
+
   // Set after a successful push to Mailchimp (see lib/mailchimp.ts). Null
   // means either never synced, or marketingOptIn is false and there's
   // nothing to sync -- checked alongside marketingOptIn, not instead of it.
@@ -450,7 +456,9 @@ model Contact {
   membershipRequest      MembershipRequest?
   verification           CustomerVerification?
   accountDeletionRequest AccountDeletionRequest?
-  zooProtocolDogs         ZooProtocolDog[]
+  zooProtocolDogs        ZooProtocolDog[]
+  referralsMade          CustomerReferral[]      @relation("ReferralReferrer")
+  referralReceived       CustomerReferral?       @relation("ReferralFriend")
 
   @@unique([organizationId, email])
   @@index([organizationId, createdAt])
@@ -1587,6 +1595,31 @@ model Booking {
   @@index([organizationId, requestedDate])
 }
 
+// Customer-to-customer $15 + $15 program. A referral is attached at
+// registration, the friend's discount is attached to their first eligible
+// order, and the referrer's one-use reward coupon is issued only when staff
+// confirms payment for that order.
+model CustomerReferral {
+  id             String       @id @default(cuid())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+  brand          Brand        @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  brandId        String
+
+  referrer          Contact @relation("ReferralReferrer", fields: [referrerContactId], references: [id], onDelete: Cascade)
+  referrerContactId String
+  friend            Contact @relation("ReferralFriend", fields: [friendContactId], references: [id], onDelete: Cascade)
+  friendContactId   String  @unique
+
+  referredOrderId  String?   @unique
+  rewardCouponCode String?
+  qualifiedAt      DateTime?
+  createdAt        DateTime  @default(now())
+
+  @@index([organizationId, referrerContactId])
+  @@index([brandId, createdAt])
+}
+
 enum ZooProtocolCaseStatus {
   ACTIVE
   NEEDS_REVIEW
@@ -1605,75 +1638,80 @@ enum ZooProtocolAuditAction {
 }
 
 model ZooProtocolDog {
-  id String @id @default(cuid())
-  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  id        String            @id @default(cuid())
+  contact   Contact           @relation(fields: [contactId], references: [id], onDelete: Cascade)
   contactId String
-  name String
-  breed String?
+  name      String
+  breed     String?
   birthDate DateTime?
   weightLbs Float?
-  focus String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  cases ZooProtocolCase[]
+  focus     String?
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  cases     ZooProtocolCase[]
+
   @@index([contactId])
 }
 
 model ZooProtocolCase {
-  id String @id @default(cuid())
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  organizationId String
-  brand Brand @relation(fields: [brandId], references: [id], onDelete: Cascade)
-  brandId String
-  dog ZooProtocolDog @relation(fields: [dogId], references: [id], onDelete: Cascade)
-  dogId String
-  assignedTo User? @relation("ZooProtocolAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
-  assignedToId String?
-  status ZooProtocolCaseStatus @default(ACTIVE)
+  id               String                        @id @default(cuid())
+  organization     Organization                  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId   String
+  brand            Brand                         @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  brandId          String
+  dog              ZooProtocolDog                @relation(fields: [dogId], references: [id], onDelete: Cascade)
+  dogId            String
+  assignedTo       User?                         @relation("ZooProtocolAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  assignedToId     String?
+  status           ZooProtocolCaseStatus         @default(ACTIVE)
   sharingConsentAt DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  checkIns ZooProtocolCheckIn[]
-  notes ZooProtocolProfessionalNote[]
-  auditEvents ZooProtocolAuditEvent[]
+  createdAt        DateTime                      @default(now())
+  updatedAt        DateTime                      @updatedAt
+  checkIns         ZooProtocolCheckIn[]
+  notes            ZooProtocolProfessionalNote[]
+  auditEvents      ZooProtocolAuditEvent[]
+
   @@index([organizationId, brandId, status])
   @@index([assignedToId, status])
 }
 
 model ZooProtocolCheckIn {
-  id String @id @default(cuid())
-  case ZooProtocolCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
-  caseId String
-  movement Int
-  energy Int
-  comfort Int
-  observation String? @db.Text
-  createdAt DateTime @default(now())
+  id          String          @id @default(cuid())
+  case        ZooProtocolCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  caseId      String
+  movement    Int
+  energy      Int
+  comfort     Int
+  observation String?         @db.Text
+  createdAt   DateTime        @default(now())
+
   @@index([caseId, createdAt])
 }
 
 model ZooProtocolProfessionalNote {
-  id String @id @default(cuid())
-  case ZooProtocolCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
-  caseId String
-  author User @relation(fields: [authorId], references: [id], onDelete: Restrict)
-  authorId String
-  body String @db.Text
-  visibleToCustomer Boolean @default(false)
-  createdAt DateTime @default(now())
+  id                String          @id @default(cuid())
+  case              ZooProtocolCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  caseId            String
+  author            User            @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  authorId          String
+  body              String          @db.Text
+  visibleToCustomer Boolean         @default(false)
+  createdAt         DateTime        @default(now())
+
   @@index([caseId, createdAt])
 }
 
 model ZooProtocolAuditEvent {
-  id String @id @default(cuid())
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  id             String                 @id @default(cuid())
+  organization   Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   organizationId String
-  case ZooProtocolCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
-  caseId String
-  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
-  actorId String?
-  action ZooProtocolAuditAction
-  metadata Json?
-  createdAt DateTime @default(now())
+  case           ZooProtocolCase        @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  caseId         String
+  actor          User?                  @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  actorId        String?
+  action         ZooProtocolAuditAction
+  metadata       Json?
+  createdAt      DateTime               @default(now())
+
   @@index([caseId, createdAt])
 }
