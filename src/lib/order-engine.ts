@@ -153,7 +153,7 @@ export async function runCheckout(
       tx.organization.findUnique({ where: { id: organizationId } }),
       tx.brand.findUnique({
         where: { id: brandId },
-        select: { slug: true, researchSetActive: true, researchSetStartsAt: true, researchSetEndsAt: true, glpPairActive: true },
+        select: { slug: true, domain: true, researchSetActive: true, researchSetStartsAt: true, researchSetEndsAt: true, glpPairActive: true },
       }),
       tx.wholesalePartner.findUnique({ where: { contactId: contact.id }, select: { status: true } }),
       tx.order.findFirst({
@@ -184,7 +184,9 @@ export async function runCheckout(
     // intentionally reuse EVLV master products for shared pricing/content,
     // but EVLV's warehouse count must never block or be decremented by a
     // ZOONETICS order.
-    const bypassInventory = brand?.slug === "zoonetics";
+    const bypassInventory =
+      brand?.slug.toLowerCase() === "zoonetics" ||
+      brand?.domain.toLowerCase().replace(/^www\./, "") === "zoonetics.co";
 
     for (const item of input.items) {
       const quantity = Math.max(1, Math.floor(item.quantity));

@@ -97,6 +97,7 @@ export async function GET(req: NextRequest) {
 
   const groups = new Map<string, Group>();
   const today = utcDateString();
+  const bypassInventory = store.brandDomain.toLowerCase().replace(/^www\./, "") === "zoonetics.co";
 
   for (const m of mappings) {
     const product = m.product;
@@ -114,7 +115,7 @@ export async function GET(req: NextRequest) {
       sku: product.sku,
       label: product.variantLabel || doseLabel(product.chemicalName) || product.chemicalName,
       priceCents: isDeal ? (m.dealPriceCents as number) : regularPriceCents,
-      inStock: stock > 0,
+      inStock: bypassInventory || stock > 0,
       coaUrl: absoluteMediaUrl(product.coas[0]?.url),
       imageUrl: absoluteMediaUrl(product.imageUrl),
       shortDescription: product.shortDescription ?? undefined,
