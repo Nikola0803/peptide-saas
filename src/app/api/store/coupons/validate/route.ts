@@ -179,13 +179,22 @@ export async function POST(req: NextRequest) {
           include: { referrer: { select: { referralCode: true } } },
         })
       : null;
+    const referralCodeOwner = await prisma.contact.findFirst({
+      where: { organizationId: store.organizationId, referralCode: { equals: typedCode, mode: "insensitive" } },
+      select: { id: true },
+    });
     const priorOrder = contactId
       ? await prisma.order.findFirst({
           where: { organizationId: store.organizationId, contactId, status: { not: "REFUNDED" } },
           select: { id: true },
         })
       : null;
-    const referralMatches = customerReferral?.referrer.referralCode?.toUpperCase() === typedCode.toUpperCase();
+    const referralMatches = Boolean(
+      contactId
+      && referralCodeOwner
+      && referralCodeOwner.id !== contactId
+      && (!customerReferral || customerReferral.referrerContactId === referralCodeOwner.id),
+    );
     const cogsCents = couponCartItems.reduce((sum, item) => sum + item.cogsCents * item.quantity, 0);
     const maximumReferralDiscount = Math.max(0, subtotalCents - Math.ceil(cogsCents * (1 + (org?.minMarginPercent ?? 30) / 100)));
     if (referralMatches && !customerReferral?.referredOrderId && !priorOrder && maximumReferralDiscount >= REFERRAL_REWARD_CENTS) {

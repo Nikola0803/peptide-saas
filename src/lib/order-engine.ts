@@ -150,7 +150,7 @@ export async function runCheckout(
       create: { contactId: contact.id, brandId },
     });
 
-    const [org, brand, wholesale, priorPromotionOrder, customerReferral, priorCustomerOrder] = await Promise.all([
+    const [org, brand, wholesale, priorPromotionOrder, customerReferral, priorCustomerOrder, referralCodeOwner] = await Promise.all([
       tx.organization.findUnique({ where: { id: organizationId } }),
       tx.brand.findUnique({
         where: { id: brandId },
@@ -174,6 +174,12 @@ export async function runCheckout(
         where: { organizationId, contactId: contact.id, status: { not: "REFUNDED" } },
         select: { id: true },
       }),
+      input.couponCode
+        ? tx.contact.findFirst({
+            where: { organizationId, referralCode: { equals: input.couponCode, mode: "insensitive" } },
+            select: { id: true },
+          })
+        : Promise.resolve(null),
     ]);
 
     let grossCentsTotal = 0;
@@ -330,19 +336,20 @@ export async function runCheckout(
 
     const promotion = glpPromotion.applies ? glpPromotion : researchSetPromotion;
 
-    const referralCodeMatches = customerReferral && input.couponCode
-      ? Boolean(await tx.contact.findFirst({
-          where: {
-            id: customerReferral.referrerContactId,
-            referralCode: { equals: input.couponCode, mode: "insensitive" },
-          },
-          select: { id: true },
-        }))
-      : false;
+    let effectiveReferral = customerReferral;
+    if (!effectiveReferral && referralCodeOwner && referralCodeOwner.id !== contact.id && !priorCustomerOrder) {
+      effectiveReferral = await tx.customerReferral.create({
+        data: { organizationId, brandId, referrerContactId: referralCodeOwner.id, friendContactId: contact.id },
+        select: { id: true, referrerContactId: true, referredOrderId: true },
+      });
+    }
+    const referralCodeMatches = Boolean(
+      effectiveReferral && referralCodeOwner && effectiveReferral.referrerContactId === referralCodeOwner.id,
+    );
     const maximumReferralDiscount = Math.max(0, grossCentsTotal - Math.ceil(cogsCentsTotal * (1 + marginPercent / 100)));
-    const eligibleReferral = !promotion.applies && referralCodeMatches && !customerReferral?.referredOrderId && !priorCustomerOrder
+    const eligibleReferral = !promotion.applies && referralCodeMatches && !effectiveReferral?.referredOrderId && !priorCustomerOrder
       && maximumReferralDiscount >= REFERRAL_REWARD_CENTS
-      ? customerReferral
+      ? effectiveReferral
       : null;
 
     const affiliate = input.couponCode && !promotion.applies && !eligibleReferral
