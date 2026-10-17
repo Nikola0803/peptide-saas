@@ -93,6 +93,35 @@ export function verifyUnsubscribeToken(token: string | null | undefined): { cont
   }
 }
 
+const RESET_TTL_SECONDS = 60 * 60; // 1 hour
+
+export function signResetToken(email: string): string {
+  const exp = Math.floor(Date.now() / 1000) + RESET_TTL_SECONDS;
+  const body = Buffer.from(JSON.stringify({ email, exp })).toString("base64url");
+  const signature = crypto.createHmac("sha256", secret()).update(body).digest("base64url");
+  return `${body}.${signature}`;
+}
+
+export function verifyResetToken(token: string | null | undefined): { email: string } | null {
+  if (!token) return null;
+  const [body, signature] = token.split(".");
+  if (!body || !signature) return null;
+
+  const expected = crypto.createHmac("sha256", secret()).update(body).digest("base64url");
+  const a = Buffer.from(signature);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+
+  try {
+    const payload = JSON.parse(Buffer.from(body, "base64url").toString("utf8"));
+    if (typeof payload?.email !== "string") return null;
+    if (typeof payload?.exp !== "number" || payload.exp < Math.floor(Date.now() / 1000)) return null;
+    return { email: payload.email };
+  } catch {
+    return null;
+  }
+}
+
 export function bearerToken(req: Request): string | null {
   const header = req.headers.get("authorization");
   if (!header?.startsWith("Bearer ")) return null;
