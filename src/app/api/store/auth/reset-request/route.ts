@@ -30,6 +30,8 @@ export async function POST(req: NextRequest) {
     const token = signResetToken(email);
     const resetUrl = `https://${store.brandDomain}/account/reset?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`;
     const name = contact.name || email;
+    const isZoonetics = store.brandDomain.toLowerCase().includes("zoonetics");
+    const btnBg = isZoonetics ? "#17233B" : "#2B1810";
     let delivered = false;
     try {
       delivered = await sendEmail(
@@ -37,7 +39,7 @@ export async function POST(req: NextRequest) {
         "Reset your password",
         `<p>Hi ${name},</p>
 <p>Click the link below to reset your password. This link expires in 1 hour.</p>
-<p><a href="${resetUrl}" style="display:inline-block;padding:12px 24px;background:#2B1810;color:#F8F4EE;text-decoration:none;border-radius:8px;font-weight:600;">Reset Password</a></p>
+<p><a href="${resetUrl}" style="display:inline-block;padding:12px 24px;background:${btnBg};color:#FFFFFF;text-decoration:none;border-radius:8px;font-weight:600;">Reset Password</a></p>
 <p>If you didn't request this, ignore this email - your password won't change.</p>
 <p style="color:#888;font-size:12px;">Research Use Only</p>`
       );

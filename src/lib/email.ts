@@ -798,6 +798,49 @@ export async function sendTemplate(organizationId: string, key: string, to: stri
       .replace(/https:\/\/www\.evlvpeptides\.com/g, origin)
       .replace(/https:\/\/evlvpeptides\.com/g, origin);
   }
+
+  // Per-brand visual theme — runs after the URL substitution above so the
+  // hero image check can match the already-substituted domain.
+  if (brand?.slug === "zoonetics") {
+    // The URL substitution maps the hero image to zoonetics.co/images/certified/…
+    // which doesn't exist there — swap for the real ZooNetics hero.
+    html = html.replace(
+      /https:\/\/zoonetics\.co\/images\/certified\/evlv-hero-multi-vials\.png/g,
+      "https://zoonetics.co/images/zoonetics-premium/hero-senior-lab-v2.png"
+    );
+    // If brand.logoUrl wasn't set, URL substitution left a broken EVLV logo
+    // path on zoonetics.co — replace the img with a plain-text wordmark.
+    if (!brand.logoUrl) {
+      html = html.replace(
+        /<img src="https:\/\/zoonetics\.co\/logo\/evlv-logo-light\.png"[^>]*>/,
+        `<span style="font-family:${EMAIL_FONT};font-size:18px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:#ffffff;">ZOONETICS</span>`
+      );
+    }
+    // Swap EVLV warm-ivory/forest-green palette for ZooNetics navy/cobalt.
+    html = html
+      .replace(/background:#e7e3da/g, "background:#eef2ff")
+      .replace(/background:#f1eee7/g, "background:#eef2ff")
+      .replace(/background:#f4f1ea/g, "background:#f6f8fc")
+      .replace(/background:#0e1113/g, "background:#101829")
+      .replace(/background:#b8875a/g, "background:#4f6ef7")
+      .replace(/background:#203a37/g, "background:#17233b")
+      .replace(/color:#a56f43/g, "color:#a9c7ff")
+      .replace(/color:#b8875a/g, "color:#4f6ef7")
+      .replace(/color:#314743/g, "color:#29446f")
+      .replace(/color:#40514e/g, "color:#29446f")
+      .replace(/color:#203a37/g, "color:#4f6ef7")
+      .replace(/color:#6b7370/g, "color:#68758f")
+      .replace(/color:#8f9693/g, "color:#68758f")
+      .replace(/color:#f1eee7/g, "color:#f6f8fc")
+      .replace(/color:#d8d3c7/g, "color:#aeb9d3")
+      .replace(/color:#0e1113/g, "color:#101829")
+      .replace(/border:1px solid #d8d3c7/g, "border:1px solid #aeb9d3")
+      .replace(/border-top:1px solid #d8d3c7/g, "border-top:1px solid #aeb9d3")
+      .replace(/border-top:1px solid #e7e3da/g, "border-top:1px solid #dce3f5")
+      .replace(/border-bottom:1px solid #d8d3c7/g, "border-bottom:1px solid #aeb9d3")
+      .replace(/rgba\(14,17,19,0\.10\)/g, "rgba(17,35,59,0.10)");
+  }
+
   const unsubscribeUrl = await buildUnsubscribeUrl(organizationId, to, options?.brandId);
   const mergedVars = { unsubscribeUrl, preferenceCenterUrl: unsubscribeUrl, ...vars };
   return sendEmail(to, renderTemplate(subject, mergedVars), renderTemplate(html, mergedVars), options);
