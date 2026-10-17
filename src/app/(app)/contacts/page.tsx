@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { PageHeader, StatCard, EmptyState } from "@/components/ui";
 import { money, shortDate, initials } from "@/lib/format";
 import { getActiveBrand } from "@/lib/active-brand";
+import { SendEmailButton } from "@/components/send-email-button";
 
 export default async function ContactsPage() {
   const { organization } = await requireOrg();
@@ -59,6 +60,7 @@ export default async function ContactsPage() {
                 <th className="py-2.5 px-4 font-medium text-right">Lifetime value</th>
                 <th className="py-2.5 px-4 font-medium">Last order</th>
                 <th className="py-2.5 px-4 font-medium">Joined</th>
+                <th className="py-2.5 px-4 font-medium"></th>
               </tr>
             </thead>
             <tbody>
@@ -88,6 +90,9 @@ export default async function ContactsPage() {
                     {lastOrder ? shortDate(lastOrder) : "—"}
                   </td>
                   <td className="py-3 px-4 text-foreground-600 text-xs">{shortDate(contact.createdAt)}</td>
+                  <td className="py-3 px-4">
+                    <SendEmailButton email={contact.email} name={contact.name || undefined} />
+                  </td>
                 </tr>
               ))}
             </tbody>
