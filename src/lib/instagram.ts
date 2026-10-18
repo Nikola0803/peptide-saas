@@ -98,6 +98,16 @@ export async function subscribeAccountToWebhooks(token: string, igUserId: string
   return gql(`/${igUserId}/subscribed_apps?subscribed_fields=comments,messages`, token, { method: "POST" });
 }
 
+// Look up a sender's username by their IGSID (for DM webhook events)
+export async function getSenderUsername(token: string, igsid: string): Promise<string | undefined> {
+  try {
+    const data = await igGql(`/${igsid}?fields=username,name`, token) as { username?: string; name?: string };
+    return data.username ?? data.name ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 // Verify token and return account info — auto-detects new (IGAAPT) vs old (EAA) token format
 export async function verifyAndFetchAccount(token: string, igUserId?: string) {
   if (token.startsWith("IGAAPT") || !igUserId) {

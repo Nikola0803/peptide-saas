@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { sendDM, sendPrivateReply, replyToComment } from "@/lib/instagram";
+import { sendDM, sendPrivateReply, replyToComment, getSenderUsername } from "@/lib/instagram";
 import type { InstagramTrigger } from "@prisma/client";
 
 export async function GET(req: NextRequest) {
@@ -172,6 +172,10 @@ async function handleDM(account: AccountWithAutomations, senderId: string, text:
   if (!senderId || senderId === account.igUserId) return;
   const textLower = text.toLowerCase().trim();
 
+  // Look up the sender's username once for use in message interpolation
+  const senderUsername = await getSenderUsername(account.accessToken, senderId);
+  const displayName = senderUsername ?? senderId;
+
   // ------------------------------------------------------------------
   // FIRST_DM — fires once, ever, the first time someone messages this account
   // ------------------------------------------------------------------
@@ -183,9 +187,9 @@ async function handleDM(account: AccountWithAutomations, senderId: string, text:
     });
 
     if (!alreadyWelcomed) {
-      const contact = await captureContact(account.organizationId, senderId, undefined);
+      const contact = await captureContact(account.organizationId, senderId, senderUsername);
       for (const auto of firstDmAutomations) {
-        const message = interpolate(auto.dmMessage, { username: senderId });
+        const message = interpolate(auto.dmMessage, { username: displayName });
         let dmSent = false;
         let dmError: string | undefined;
         try {
@@ -227,7 +231,7 @@ async function handleDM(account: AccountWithAutomations, senderId: string, text:
       if (recent) continue;
     }
 
-    const message = interpolate(auto.dmMessage, { username: senderId });
+    const message = interpolate(auto.dmMessage, { username: displayName });
     let dmSent = false;
     let dmError: string | undefined;
 
@@ -238,7 +242,7 @@ async function handleDM(account: AccountWithAutomations, senderId: string, text:
       dmError = err instanceof Error ? err.message : "Unknown error";
     }
 
-    const contact = await captureContact(account.organizationId, senderId, undefined);
+    const contact = await captureContact(account.organizationId, senderId, senderUsername);
 
     await prisma.instagramEvent.create({
       data: {
