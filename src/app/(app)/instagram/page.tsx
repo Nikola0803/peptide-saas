@@ -8,6 +8,7 @@ import {
   disconnectInstagramAccount,
   toggleInstagramAccount,
   createAutomation,
+  updateAutomation,
   toggleAutomation,
   deleteAutomation,
 } from "./actions";
@@ -286,6 +287,28 @@ export default async function InstagramPage() {
                               </form>
                             </div>
                           </div>
+                          {/* Inline edit form */}
+                          <details className="mt-2 border-t border-background-200">
+                            <summary className="pt-2 text-[11px] text-primary-600 cursor-pointer hover:underline list-none">Edit automation</summary>
+                            <form action={updateAutomation.bind(null, auto.id)} className="mt-2 space-y-2">
+                              <div className="grid grid-cols-2 gap-2">
+                                <input name="name" required defaultValue={auto.name} placeholder="Automation name" className="col-span-2 w-full text-xs border border-background-300 rounded px-2.5 py-1.5 bg-background-50" />
+                                <select name="trigger" required defaultValue={auto.trigger} className="col-span-2 text-xs border border-background-300 rounded px-2.5 py-1.5 bg-background-50">
+                                  {Object.entries(TRIGGER_LABELS).map(([val, label]) => (
+                                    <option key={val} value={val}>{label} — {TRIGGER_DESC[val]}</option>
+                                  ))}
+                                </select>
+                                <input name="keyword" defaultValue={auto.keyword ?? ""} placeholder="Keyword (for keyword triggers)" className="text-xs border border-background-300 rounded px-2.5 py-1.5 bg-background-50" />
+                                <input name="cooldownHours" type="number" min="0" defaultValue={auto.cooldownHours} placeholder="Cooldown hours" className="text-xs border border-background-300 rounded px-2.5 py-1.5 bg-background-50" />
+                              </div>
+                              <textarea name="dmMessage" required rows={3} defaultValue={auto.dmMessage} placeholder="DM message… use {username} for their handle" className="w-full text-xs border border-background-300 rounded px-2.5 py-1.5 bg-background-50 resize-none" />
+                              <input name="publicReply" defaultValue={auto.publicReply ?? ""} placeholder='Public comment reply (optional, e.g. "Sent you a DM! 📥")' className="w-full text-xs border border-background-300 rounded px-2.5 py-1.5 bg-background-50" />
+                              <input name="postUrl" defaultValue={auto.postUrl ?? ""} placeholder="Specific post URL (optional — leave blank to fire on all posts)" className="w-full text-xs border border-background-300 rounded px-2.5 py-1.5 bg-background-50" />
+                              <button className="w-full text-xs bg-foreground-900 text-background-50 rounded-md px-3 py-1.5 font-medium hover:bg-foreground-700">
+                                Save changes
+                              </button>
+                            </form>
+                          </details>
                         );
                       })
                     )}
