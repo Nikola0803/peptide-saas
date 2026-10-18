@@ -215,7 +215,7 @@ export default async function AffiliatesPage({ searchParams }: { searchParams?: 
               </div>
               <div className="mt-3 flex gap-2">
                 <Link href={`/affiliates/${affiliate.id}`} className="flex-1 block rounded-md border border-background-300 px-3 py-2 text-center text-xs font-medium text-foreground-700 hover:bg-background-100">Open partner profile</Link>
-                <SendEmailButton email={affiliate.email} name={affiliate.name} />
+                <SendEmailButton email={affiliate.email ?? ""} name={affiliate.name ?? ""} />
               </div>
             </Card>
           ))}
