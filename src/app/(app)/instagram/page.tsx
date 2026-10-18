@@ -245,70 +245,72 @@ export default async function InstagramPage() {
                           ? Math.round((auto.triggerCount / auto._count.events) * 100)
                           : 0;
                         return (
-                          <div key={auto.id} className="flex items-start gap-3 p-3 rounded-lg bg-background-100 border border-background-200">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="text-xs font-semibold text-foreground-800">{auto.name}</span>
-                                <span className="text-[10px] bg-primary-50 text-primary-700 rounded-full px-2 py-0.5 font-medium">
-                                  {TRIGGER_LABELS[auto.trigger]}
-                                </span>
-                                {!auto.active && (
-                                  <span className="text-[10px] bg-background-200 text-foreground-500 rounded-full px-2 py-0.5">Paused</span>
-                                )}
+                          <div key={auto.id} className="rounded-lg bg-background-100 border border-background-200">
+                            <div className="flex items-start gap-3 p-3">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-xs font-semibold text-foreground-800">{auto.name}</span>
+                                  <span className="text-[10px] bg-primary-50 text-primary-700 rounded-full px-2 py-0.5 font-medium">
+                                    {TRIGGER_LABELS[auto.trigger]}
+                                  </span>
+                                  {!auto.active && (
+                                    <span className="text-[10px] bg-background-200 text-foreground-500 rounded-full px-2 py-0.5">Paused</span>
+                                  )}
+                                </div>
+                                <div className="flex flex-wrap gap-x-3 mt-1 text-[11px] text-foreground-500">
+                                  {auto.keyword && (
+                                    <span>Keyword: <span className="font-mono text-foreground-700">{auto.keyword}</span></span>
+                                  )}
+                                  {auto.postUrl && (
+                                    <span>Post: <a href={auto.postUrl} target="_blank" rel="noreferrer" className="text-primary-600 hover:underline">specific post ↗</a></span>
+                                  )}
+                                  {auto.cooldownHours > 0 && (
+                                    <span>Cooldown: {auto.cooldownHours}h</span>
+                                  )}
+                                </div>
+                                <p className="text-[11px] text-foreground-500 mt-1 line-clamp-1">DM: {auto.dmMessage}</p>
+                                <div className="flex gap-4 mt-1.5 text-[10px] text-foreground-400">
+                                  <span className="font-semibold text-foreground-700">{auto.triggerCount} triggers</span>
+                                  <span>{auto._count.events} events</span>
+                                  {auto._count.events > 0 && <span>{successRate}% delivered</span>}
+                                </div>
                               </div>
-                              <div className="flex flex-wrap gap-x-3 mt-1 text-[11px] text-foreground-500">
-                                {auto.keyword && (
-                                  <span>Keyword: <span className="font-mono text-foreground-700">{auto.keyword}</span></span>
-                                )}
-                                {auto.postUrl && (
-                                  <span>Post: <a href={auto.postUrl} target="_blank" rel="noreferrer" className="text-primary-600 hover:underline">specific post ↗</a></span>
-                                )}
-                                {auto.cooldownHours > 0 && (
-                                  <span>Cooldown: {auto.cooldownHours}h</span>
-                                )}
-                              </div>
-                              <p className="text-[11px] text-foreground-500 mt-1 line-clamp-1">DM: {auto.dmMessage}</p>
-                              <div className="flex gap-4 mt-1.5 text-[10px] text-foreground-400">
-                                <span className="font-semibold text-foreground-700">{auto.triggerCount} triggers</span>
-                                <span>{auto._count.events} events</span>
-                                {auto._count.events > 0 && <span>{successRate}% delivered</span>}
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <form action={toggleAutomation.bind(null, auto.id, !auto.active)}>
+                                  <button className="text-[11px] border border-background-300 rounded px-2 py-1 text-foreground-600 hover:bg-background-100">
+                                    {auto.active ? "Pause" : "Resume"}
+                                  </button>
+                                </form>
+                                <form action={deleteAutomation.bind(null, auto.id)}>
+                                  <button className="text-[11px] border border-red-200 rounded px-2 py-1 text-red-500 hover:bg-red-50">
+                                    Delete
+                                  </button>
+                                </form>
                               </div>
                             </div>
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              <form action={toggleAutomation.bind(null, auto.id, !auto.active)}>
-                                <button className="text-[11px] border border-background-300 rounded px-2 py-1 text-foreground-600 hover:bg-background-100">
-                                  {auto.active ? "Pause" : "Resume"}
+                            {/* Inline edit form */}
+                            <details className="border-t border-background-200">
+                              <summary className="px-3 py-2 text-[11px] text-primary-600 cursor-pointer hover:bg-background-50 list-none">Edit automation</summary>
+                              <form action={updateAutomation.bind(null, auto.id)} className="px-3 pb-3 pt-2 space-y-2 border-t border-background-200">
+                                <div className="grid grid-cols-2 gap-2">
+                                  <input name="name" required defaultValue={auto.name} placeholder="Automation name" className="col-span-2 w-full text-xs border border-background-300 rounded px-2.5 py-1.5 bg-background-50" />
+                                  <select name="trigger" required defaultValue={auto.trigger} className="col-span-2 text-xs border border-background-300 rounded px-2.5 py-1.5 bg-background-50">
+                                    {Object.entries(TRIGGER_LABELS).map(([val, label]) => (
+                                      <option key={val} value={val}>{label} — {TRIGGER_DESC[val]}</option>
+                                    ))}
+                                  </select>
+                                  <input name="keyword" defaultValue={auto.keyword ?? ""} placeholder="Keyword (for keyword triggers)" className="text-xs border border-background-300 rounded px-2.5 py-1.5 bg-background-50" />
+                                  <input name="cooldownHours" type="number" min="0" defaultValue={auto.cooldownHours} placeholder="Cooldown hours" className="text-xs border border-background-300 rounded px-2.5 py-1.5 bg-background-50" />
+                                </div>
+                                <textarea name="dmMessage" required rows={3} defaultValue={auto.dmMessage} placeholder="DM message… use {username} for their handle" className="w-full text-xs border border-background-300 rounded px-2.5 py-1.5 bg-background-50 resize-none" />
+                                <input name="publicReply" defaultValue={auto.publicReply ?? ""} placeholder='Public comment reply (optional, e.g. "Sent you a DM! 📥")' className="w-full text-xs border border-background-300 rounded px-2.5 py-1.5 bg-background-50" />
+                                <input name="postUrl" defaultValue={auto.postUrl ?? ""} placeholder="Specific post URL (optional — leave blank to fire on all posts)" className="w-full text-xs border border-background-300 rounded px-2.5 py-1.5 bg-background-50" />
+                                <button className="w-full text-xs bg-foreground-900 text-background-50 rounded-md px-3 py-1.5 font-medium hover:bg-foreground-700">
+                                  Save changes
                                 </button>
                               </form>
-                              <form action={deleteAutomation.bind(null, auto.id)}>
-                                <button className="text-[11px] border border-red-200 rounded px-2 py-1 text-red-500 hover:bg-red-50">
-                                  Delete
-                                </button>
-                              </form>
-                            </div>
+                            </details>
                           </div>
-                          {/* Inline edit form */}
-                          <details className="mt-2 border-t border-background-200">
-                            <summary className="pt-2 text-[11px] text-primary-600 cursor-pointer hover:underline list-none">Edit automation</summary>
-                            <form action={updateAutomation.bind(null, auto.id)} className="mt-2 space-y-2">
-                              <div className="grid grid-cols-2 gap-2">
-                                <input name="name" required defaultValue={auto.name} placeholder="Automation name" className="col-span-2 w-full text-xs border border-background-300 rounded px-2.5 py-1.5 bg-background-50" />
-                                <select name="trigger" required defaultValue={auto.trigger} className="col-span-2 text-xs border border-background-300 rounded px-2.5 py-1.5 bg-background-50">
-                                  {Object.entries(TRIGGER_LABELS).map(([val, label]) => (
-                                    <option key={val} value={val}>{label} — {TRIGGER_DESC[val]}</option>
-                                  ))}
-                                </select>
-                                <input name="keyword" defaultValue={auto.keyword ?? ""} placeholder="Keyword (for keyword triggers)" className="text-xs border border-background-300 rounded px-2.5 py-1.5 bg-background-50" />
-                                <input name="cooldownHours" type="number" min="0" defaultValue={auto.cooldownHours} placeholder="Cooldown hours" className="text-xs border border-background-300 rounded px-2.5 py-1.5 bg-background-50" />
-                              </div>
-                              <textarea name="dmMessage" required rows={3} defaultValue={auto.dmMessage} placeholder="DM message… use {username} for their handle" className="w-full text-xs border border-background-300 rounded px-2.5 py-1.5 bg-background-50 resize-none" />
-                              <input name="publicReply" defaultValue={auto.publicReply ?? ""} placeholder='Public comment reply (optional, e.g. "Sent you a DM! 📥")' className="w-full text-xs border border-background-300 rounded px-2.5 py-1.5 bg-background-50" />
-                              <input name="postUrl" defaultValue={auto.postUrl ?? ""} placeholder="Specific post URL (optional — leave blank to fire on all posts)" className="w-full text-xs border border-background-300 rounded px-2.5 py-1.5 bg-background-50" />
-                              <button className="w-full text-xs bg-foreground-900 text-background-50 rounded-md px-3 py-1.5 font-medium hover:bg-foreground-700">
-                                Save changes
-                              </button>
-                            </form>
-                          </details>
                         );
                       })
                     )}
