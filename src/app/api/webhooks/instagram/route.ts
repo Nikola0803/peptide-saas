@@ -162,7 +162,7 @@ async function handleDM(account: AccountWithAutomations, senderId: string, text:
   // ------------------------------------------------------------------
   // FIRST_DM — fires once, ever, the first time someone messages this account
   // ------------------------------------------------------------------
-  const firstDmAutomations = account.automations.filter((a) => a.trigger === "FIRST_DM" && a.active);
+  const firstDmAutomations = account.automations.filter((a) => a.trigger === "FIRST_DM");
   if (firstDmAutomations.length > 0) {
     // Has this person ever triggered a FIRST_DM for this account?
     const alreadyWelcomed = await prisma.instagramEvent.findFirst({
