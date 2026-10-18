@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireOrg } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
-import { verifyAndFetchAccount } from "@/lib/instagram";
+import { verifyAndFetchAccount, subscribeAccountToWebhooks } from "@/lib/instagram";
 import type { InstagramTrigger } from "@prisma/client";
 
 export async function connectInstagramAccount(formData: FormData) {
@@ -26,6 +26,14 @@ export async function connectInstagramAccount(formData: FormData) {
       name: info.name,
     },
   });
+
+  // Subscribe this account to receive webhook events
+  try {
+    await subscribeAccountToWebhooks(accessToken, igUserId);
+  } catch {
+    // Non-fatal — account is saved, webhook subscription can be retried
+  }
+
   revalidatePath("/instagram");
 }
 

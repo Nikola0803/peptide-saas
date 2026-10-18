@@ -76,6 +76,15 @@ export async function replyToComment(token: string, commentId: string, message: 
   });
 }
 
+// Subscribe the IG account to receive webhook events (comments + messages)
+export async function subscribeAccountToWebhooks(token: string, igUserId: string) {
+  const isNewToken = token.startsWith("IGAAPT");
+  if (isNewToken) {
+    return igGql(`/${igUserId}/subscribed_apps?subscribed_fields=comments,messages`, token, { method: "POST" });
+  }
+  return gql(`/${igUserId}/subscribed_apps?subscribed_fields=comments,messages`, token, { method: "POST" });
+}
+
 // Verify token and return account info — auto-detects new (IGAAPT) vs old (EAA) token format
 export async function verifyAndFetchAccount(token: string, igUserId?: string) {
   if (token.startsWith("IGAAPT") || !igUserId) {
