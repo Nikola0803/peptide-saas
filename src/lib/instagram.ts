@@ -32,19 +32,30 @@ export async function getAccountInfo(token: string, igUserId: string) {
 }
 
 // For new Instagram Login API tokens (IGAAPT... format) — uses graph.instagram.com/me
+// user_id = real Instagram Business Account ID (used by webhooks)
+// id = app-scoped IGSID (different from webhook entry.id)
 export async function getAccountInfoFromNewToken(token: string) {
-  return igGql(`/me?fields=id,username,name,followers_count,biography`, token) as Promise<{
+  const raw = await igGql(`/me?fields=id,username,name,followers_count,biography,user_id`, token) as {
     id: string;
+    user_id?: string;
     username: string;
     name: string;
     followers_count: number;
     biography?: string;
-  }>;
+  };
+  return {
+    id: raw.user_id ?? raw.id,
+    username: raw.username,
+    name: raw.name,
+    followers_count: raw.followers_count,
+    biography: raw.biography,
+  };
 }
 
 // Send a DM to an Instagram-scoped user ID
 export async function sendDM(token: string, igUserId: string, recipientId: string, message: string) {
-  return gql(`/${igUserId}/messages`, token, {
+  const api = token.startsWith("IGAAPT") ? igGql : gql;
+  return api(`/${igUserId}/messages`, token, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -57,7 +68,8 @@ export async function sendDM(token: string, igUserId: string, recipientId: strin
 
 // Private reply linked to a comment (appears in DMs as a reply to that comment)
 export async function sendPrivateReply(token: string, igUserId: string, commentId: string, message: string) {
-  return gql(`/${igUserId}/messages`, token, {
+  const api = token.startsWith("IGAAPT") ? igGql : gql;
+  return api(`/${igUserId}/messages`, token, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -69,7 +81,8 @@ export async function sendPrivateReply(token: string, igUserId: string, commentI
 
 // Post a public reply on a comment thread
 export async function replyToComment(token: string, commentId: string, message: string) {
-  return gql(`/${commentId}/replies`, token, {
+  const api = token.startsWith("IGAAPT") ? igGql : gql;
+  return api(`/${commentId}/replies`, token, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ message }),
