@@ -159,6 +159,48 @@ async function handleDM(account: AccountWithAutomations, senderId: string, text:
   if (!senderId || senderId === account.igUserId) return;
   const textLower = text.toLowerCase().trim();
 
+  // ------------------------------------------------------------------
+  // FIRST_DM — fires once, ever, the first time someone messages this account
+  // ------------------------------------------------------------------
+  const firstDmAutomations = account.automations.filter((a) => a.trigger === "FIRST_DM" && a.active);
+  if (firstDmAutomations.length > 0) {
+    // Has this person ever triggered a FIRST_DM for this account?
+    const alreadyWelcomed = await prisma.instagramEvent.findFirst({
+      where: { accountId: account.id, fromIgUserId: senderId, triggerType: "FIRST_DM" },
+    });
+
+    if (!alreadyWelcomed) {
+      const contact = await captureContact(account.organizationId, senderId, undefined);
+      for (const auto of firstDmAutomations) {
+        const message = interpolate(auto.dmMessage, { username: senderId });
+        let dmSent = false;
+        let dmError: string | undefined;
+        try {
+          await sendDM(account.accessToken, account.igUserId, senderId, message);
+          dmSent = true;
+        } catch (err) {
+          dmError = err instanceof Error ? err.message : "Unknown error";
+        }
+        await prisma.instagramEvent.create({
+          data: {
+            accountId: account.id,
+            automationId: auto.id,
+            triggerType: "FIRST_DM",
+            fromIgUserId: senderId,
+            commentText: text,
+            contactId: contact?.id,
+            dmSent,
+            dmError,
+          },
+        });
+        await prisma.instagramAutomation.update({ where: { id: auto.id }, data: { triggerCount: { increment: 1 } } });
+      }
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // DM_KEYWORD — fires whenever the keyword appears in a DM
+  // ------------------------------------------------------------------
   for (const auto of account.automations) {
     if (auto.trigger !== "DM_KEYWORD") continue;
     if (!auto.keyword) continue;

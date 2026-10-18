@@ -13,11 +13,13 @@ import {
 } from "./actions";
 
 const TRIGGER_LABELS: Record<string, string> = {
+  FIRST_DM: "Welcome DM",
   COMMENT_KEYWORD: "Comment keyword",
   ANY_COMMENT: "Any comment",
   DM_KEYWORD: "DM keyword",
 };
 const TRIGGER_DESC: Record<string, string> = {
+  FIRST_DM: "Someone messages you for the first time — fires once per person, ever",
   COMMENT_KEYWORD: "Someone comments your keyword on any post",
   ANY_COMMENT: "Anyone comments on any post",
   DM_KEYWORD: "Someone DMs you a keyword",
@@ -421,7 +423,12 @@ export default async function InstagramPage() {
                 </div>
               ))}
             </div>
-            <p className="text-[11px] text-foreground-400 mt-3">Example: <em>"Hey {"{username}"}, here's your guide: …"</em></p>
+            <p className="text-[11px] text-foreground-400 mt-3">
+              Example: <em>"Hey {"{username}"}, welcome! We make peptide research compounds…"</em>
+            </p>
+            <p className="text-[11px] text-foreground-400 mt-1">
+              <strong>Welcome DM</strong> doesn't need a keyword — leave it blank.
+            </p>
           </Card>
 
           {/* How it works */}
