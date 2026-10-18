@@ -379,13 +379,10 @@ export default async function InstagramPage() {
           <Card className="p-4">
             <h2 className="text-sm font-semibold text-foreground-950 mb-1">Connect an account</h2>
             <p className="text-xs text-foreground-500 mb-3">
-              Needs a long-lived Page Access Token with{" "}
-              <code className="font-mono bg-background-100 px-1 rounded text-[10px]">instagram_manage_messages</code> and{" "}
-              <code className="font-mono bg-background-100 px-1 rounded text-[10px]">pages_manage_engagement</code>.
+              Paste your Instagram Login API token (<code className="font-mono bg-background-100 px-1 rounded text-[10px]">IGAAPT…</code>). The Account ID is auto-detected from the token.
             </p>
             <form action={connectInstagramAccount} className="space-y-2">
-              <input name="igUserId" required placeholder="Instagram Business Account ID" className="w-full text-xs border border-background-300 rounded px-2.5 py-1.5 bg-background-50 font-mono" />
-              <input name="accessToken" required placeholder="Long-lived access token" className="w-full text-xs border border-background-300 rounded px-2.5 py-1.5 bg-background-50 font-mono" />
+              <input name="accessToken" required placeholder="Instagram access token (IGAAPT…)" className="w-full text-xs border border-background-300 rounded px-2.5 py-1.5 bg-background-50 font-mono" />
               <button className="w-full text-xs bg-primary-500 text-background-50 rounded-md px-3 py-1.5 font-medium hover:bg-primary-600">
                 Verify & connect
               </button>

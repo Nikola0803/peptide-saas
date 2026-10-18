@@ -8,11 +8,12 @@ import type { InstagramTrigger } from "@prisma/client";
 
 export async function connectInstagramAccount(formData: FormData) {
   const { organization } = await requireOrg();
-  const igUserId = String(formData.get("igUserId") ?? "").trim();
+  const igUserIdInput = String(formData.get("igUserId") ?? "").trim() || undefined;
   const accessToken = String(formData.get("accessToken") ?? "").trim();
-  if (!igUserId || !accessToken) throw new Error("Instagram User ID and Access Token are required");
+  if (!accessToken) throw new Error("Access Token is required");
 
-  const info = await verifyAndFetchAccount(accessToken, igUserId);
+  const info = await verifyAndFetchAccount(accessToken, igUserIdInput);
+  const igUserId = info.id;
 
   await prisma.instagramAccount.upsert({
     where: { igUserId },
