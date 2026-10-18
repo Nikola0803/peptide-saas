@@ -118,7 +118,7 @@ export default async function AffiliatesPage({ searchParams }: { searchParams?: 
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <SendEmailButton email={a.email} name={a.name} />
+                  <SendEmailButton email={a.email ?? ""} name={a.name ?? ""} />
                   <form action={approveAffiliate.bind(null, a.id)}>
                     <button className="text-xs bg-primary-500 text-background-50 rounded-md px-2.5 py-1.5 font-medium hover:bg-primary-600">Approve</button>
                   </form>
