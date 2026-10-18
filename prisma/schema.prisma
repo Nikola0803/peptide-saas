@@ -84,6 +84,7 @@ model Organization {
   bookings                Booking[]
   zooProtocolCases        ZooProtocolCase[]
   zooProtocolAuditEvents  ZooProtocolAuditEvent[]
+  instagramAccounts       InstagramAccount[]
 }
 
 enum Plan {
@@ -1681,4 +1682,74 @@ model ZooProtocolAuditEvent {
   metadata Json?
   createdAt DateTime @default(now())
   @@index([caseId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Instagram Automation — comment-to-DM and DM keyword triggers across
+// multiple connected Instagram Business accounts.
+// ---------------------------------------------------------------------------
+
+model InstagramAccount {
+  id             String       @id @default(cuid())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+
+  igUserId    String  @unique // Instagram Business Account numeric ID
+  username    String
+  name        String?
+  accessToken String  // Long-lived Page Access Token
+
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  automations InstagramAutomation[]
+  events      InstagramEvent[]
+}
+
+enum InstagramTrigger {
+  COMMENT_KEYWORD // Someone comments a keyword on any post → DM them
+  ANY_COMMENT     // Any comment on any post → DM them
+  DM_KEYWORD      // Someone DMs a keyword → reply with DM
+}
+
+model InstagramAutomation {
+  id        String           @id @default(cuid())
+  account   InstagramAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  accountId String
+
+  name    String
+  trigger InstagramTrigger
+  keyword String? // Required for COMMENT_KEYWORD and DM_KEYWORD
+
+  dmMessage   String  @db.Text
+  publicReply String? // Optional public comment reply (e.g. "Check your DMs! 📥")
+
+  active       Boolean  @default(true)
+  triggerCount Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  events InstagramEvent[]
+}
+
+model InstagramEvent {
+  id           String               @id @default(cuid())
+  account      InstagramAccount     @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  accountId    String
+  automation   InstagramAutomation? @relation(fields: [automationId], references: [id])
+  automationId String?
+
+  triggerType  InstagramTrigger
+  fromIgUserId String  // The Instagram user who triggered this
+  igUsername   String?
+  commentId    String?
+  commentText  String?
+  mediaId      String? // Post / Reel the comment was on
+
+  dmSent  Boolean @default(false)
+  dmError String?
+
+  createdAt DateTime @default(now())
+
+  @@index([accountId, createdAt])
 }
