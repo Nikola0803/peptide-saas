@@ -8,12 +8,10 @@ import type { InstagramTrigger } from "@prisma/client";
 
 export async function connectInstagramAccount(formData: FormData) {
   const { organization } = await requireOrg();
-
   const igUserId = String(formData.get("igUserId") ?? "").trim();
   const accessToken = String(formData.get("accessToken") ?? "").trim();
   if (!igUserId || !accessToken) throw new Error("Instagram User ID and Access Token are required");
 
-  // Verify the token works
   const info = await verifyAndFetchAccount(accessToken, igUserId);
 
   await prisma.instagramAccount.upsert({
@@ -27,7 +25,6 @@ export async function connectInstagramAccount(formData: FormData) {
       name: info.name,
     },
   });
-
   revalidatePath("/instagram");
 }
 
@@ -45,7 +42,6 @@ export async function toggleInstagramAccount(accountId: string, active: boolean)
 
 export async function createAutomation(accountId: string, formData: FormData) {
   const { organization } = await requireOrg();
-
   const account = await prisma.instagramAccount.findFirst({ where: { id: accountId, organizationId: organization.id } });
   if (!account) throw new Error("Account not found");
 
@@ -54,6 +50,8 @@ export async function createAutomation(accountId: string, formData: FormData) {
   const keyword = String(formData.get("keyword") ?? "").trim() || null;
   const dmMessage = String(formData.get("dmMessage") ?? "").trim();
   const publicReply = String(formData.get("publicReply") ?? "").trim() || null;
+  const postUrl = String(formData.get("postUrl") ?? "").trim() || null;
+  const cooldownHours = parseInt(String(formData.get("cooldownHours") ?? "24"), 10) || 0;
 
   if (!name) throw new Error("Name is required");
   if (!dmMessage) throw new Error("DM message is required");
@@ -61,16 +59,21 @@ export async function createAutomation(accountId: string, formData: FormData) {
     throw new Error("Keyword is required for this trigger type");
   }
 
-  await prisma.instagramAutomation.create({
-    data: { accountId, name, trigger, keyword, dmMessage, publicReply },
-  });
+  // Extract post ID from URL if provided
+  let postId: string | null = null;
+  if (postUrl) {
+    const m = postUrl.match(/\/p\/([A-Za-z0-9_-]+)/) ?? postUrl.match(/\/reel\/([A-Za-z0-9_-]+)/);
+    postId = m ? m[1] : null;
+  }
 
+  await prisma.instagramAutomation.create({
+    data: { accountId, name, trigger, keyword, dmMessage, publicReply, postId, postUrl, cooldownHours },
+  });
   revalidatePath("/instagram");
 }
 
 export async function updateAutomation(automationId: string, formData: FormData) {
   const { organization } = await requireOrg();
-
   const automation = await prisma.instagramAutomation.findFirst({
     where: { id: automationId, account: { organizationId: organization.id } },
   });
@@ -81,12 +84,19 @@ export async function updateAutomation(automationId: string, formData: FormData)
   const keyword = String(formData.get("keyword") ?? "").trim() || null;
   const dmMessage = String(formData.get("dmMessage") ?? "").trim();
   const publicReply = String(formData.get("publicReply") ?? "").trim() || null;
+  const postUrl = String(formData.get("postUrl") ?? "").trim() || null;
+  const cooldownHours = parseInt(String(formData.get("cooldownHours") ?? "24"), 10) || 0;
+
+  let postId: string | null = null;
+  if (postUrl) {
+    const m = postUrl.match(/\/p\/([A-Za-z0-9_-]+)/) ?? postUrl.match(/\/reel\/([A-Za-z0-9_-]+)/);
+    postId = m ? m[1] : null;
+  }
 
   await prisma.instagramAutomation.update({
     where: { id: automationId },
-    data: { name, trigger, keyword, dmMessage, publicReply },
+    data: { name, trigger, keyword, dmMessage, publicReply, postId, postUrl, cooldownHours },
   });
-
   revalidatePath("/instagram");
 }
 

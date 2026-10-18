@@ -457,6 +457,12 @@ model Contact {
   verification           CustomerVerification?
   accountDeletionRequest AccountDeletionRequest?
   zooProtocolDogs         ZooProtocolDog[]
+  instagramEvents         InstagramEvent[]
+
+  // Set when this contact was captured via an Instagram automation trigger.
+  // Unique so we can upsert by IG user ID across automations.
+  instagramUserId  String? @unique
+  instagramUsername String?
 
   @@unique([organizationId, email])
   @@index([organizationId, createdAt])
@@ -1725,6 +1731,13 @@ model InstagramAutomation {
   dmMessage   String  @db.Text
   publicReply String? // Optional public comment reply (e.g. "Check your DMs! 📥")
 
+  // If set, only fire when the comment is on this specific post (IG media ID)
+  postId  String?
+  postUrl String? // Human-readable URL for display
+
+  // Minimum hours between DMs to the same person from this automation (0 = unlimited)
+  cooldownHours Int @default(24)
+
   active       Boolean  @default(true)
   triggerCount Int      @default(0)
   createdAt    DateTime @default(now())
@@ -1746,10 +1759,15 @@ model InstagramEvent {
   commentText  String?
   mediaId      String? // Post / Reel the comment was on
 
+  // CRM contact auto-captured when this event fired
+  contact   Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  contactId String?
+
   dmSent  Boolean @default(false)
   dmError String?
 
   createdAt DateTime @default(now())
 
   @@index([accountId, createdAt])
+  @@index([automationId, fromIgUserId, createdAt])
 }

@@ -7,6 +7,7 @@ import { DashboardRecentOrders, DashboardRecentOrdersSkeleton } from "./recent-o
 import { DashboardBrandsPanel, DashboardBrandsPanelSkeleton } from "./brands-panel";
 import { DashboardFunnel, DashboardFunnelSkeleton } from "./funnel";
 import { DashboardRecallAlert } from "./recall-alert";
+import { DashboardInstagramPanel, DashboardInstagramPanelSkeleton } from "./instagram-panel";
 import { getActiveBrand } from "@/lib/active-brand";
 
 // Each section below fetches and streams independently. A slow query in
@@ -42,7 +43,7 @@ export default async function DashboardPage() {
         </Suspense>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
         <div className="lg:col-span-2">
           <Suspense fallback={<DashboardRecentOrdersSkeleton />}>
             <DashboardRecentOrders organizationId={organization.id} brandId={brandId} />
@@ -52,6 +53,10 @@ export default async function DashboardPage() {
           <DashboardBrandsPanel organizationId={organization.id} />
         </Suspense>
       </div>
+
+      <Suspense fallback={<DashboardInstagramPanelSkeleton />}>
+        <DashboardInstagramPanel organizationId={organization.id} />
+      </Suspense>
     </div>
   );
 }
