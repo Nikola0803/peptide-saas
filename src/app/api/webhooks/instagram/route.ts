@@ -15,12 +15,15 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  let body: unknown;
   try {
-    const body = await req.json();
-    processEvent(body).catch((err) => console.error("[instagram-webhook]", err));
-  } catch {
-    // ignore parse errors
+    body = await req.json();
+  } catch (err) {
+    console.error("[ig-webhook] Failed to parse body:", err);
+    return NextResponse.json({ ok: true });
   }
+  console.log("[ig-webhook] Received:", JSON.stringify(body));
+  processEvent(body as MetaPayload).catch((err) => console.error("[ig-webhook] processEvent error:", err));
   return NextResponse.json({ ok: true });
 }
 
@@ -48,19 +51,29 @@ type CommentValue = {
 };
 
 async function processEvent(body: MetaPayload) {
-  if (body.object !== "instagram") return;
+  if (body.object !== "instagram") {
+    console.log("[ig-webhook] Skipping — object is:", body.object);
+    return;
+  }
   for (const entry of body.entry ?? []) {
     const igUserId = entry.id;
+    console.log("[ig-webhook] Entry igUserId:", igUserId, "changes:", entry.changes?.map(c => c.field), "messaging:", entry.messaging?.length ?? 0);
     const account = await prisma.instagramAccount.findFirst({
       where: { igUserId, active: true },
       include: { automations: { where: { active: true } } },
     });
-    if (!account) continue;
+    if (!account) {
+      console.log("[ig-webhook] No account found for igUserId:", igUserId);
+      continue;
+    }
+    console.log("[ig-webhook] Matched account:", account.username, "automations:", account.automations.length);
 
     for (const change of entry.changes ?? []) {
+      console.log("[ig-webhook] Processing change field:", change.field, "value:", JSON.stringify(change.value));
       if (change.field === "comments") await handleComment(account, change.value as CommentValue);
     }
     for (const msg of entry.messaging ?? []) {
+      console.log("[ig-webhook] Processing message from:", msg.sender.id, "text:", msg.message?.text);
       if (msg.message?.text) await handleDM(account, msg.sender.id, msg.message.text);
     }
   }
