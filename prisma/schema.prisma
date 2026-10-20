@@ -1718,6 +1718,7 @@ enum InstagramTrigger {
   ANY_COMMENT     // Any comment on any post → DM them
   DM_KEYWORD      // Someone DMs a keyword → reply with DM
   FIRST_DM        // Someone messages for the first time → welcome DM (fires once per person)
+  STORY_REACTION  // Someone reacts to or replies to your story → DM them
 }
 
 model InstagramAutomation {

@@ -92,10 +92,11 @@ export async function replyToComment(token: string, commentId: string, message: 
 // Subscribe the IG account to receive webhook events (comments + messages)
 export async function subscribeAccountToWebhooks(token: string, igUserId: string) {
   const isNewToken = token.startsWith("IGAAPT");
+  const fields = "comments,messages,follows";
   if (isNewToken) {
-    return igGql(`/${igUserId}/subscribed_apps?subscribed_fields=comments,messages`, token, { method: "POST" });
+    return igGql(`/${igUserId}/subscribed_apps?subscribed_fields=${fields}`, token, { method: "POST" });
   }
-  return gql(`/${igUserId}/subscribed_apps?subscribed_fields=comments,messages`, token, { method: "POST" });
+  return gql(`/${igUserId}/subscribed_apps?subscribed_fields=${fields}`, token, { method: "POST" });
 }
 
 // Look up a sender's username by their IGSID (for DM webhook events)

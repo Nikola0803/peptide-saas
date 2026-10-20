@@ -17,12 +17,14 @@ const TRIGGER_LABELS: Record<string, string> = {
   COMMENT_KEYWORD: "Comment keyword",
   ANY_COMMENT: "Any comment",
   DM_KEYWORD: "DM keyword",
+  STORY_REACTION: "Story reaction",
 };
 const TRIGGER_DESC: Record<string, string> = {
   FIRST_DM: "Someone messages you for the first time — fires once per person, ever",
   COMMENT_KEYWORD: "Someone comments your keyword on any post",
   ANY_COMMENT: "Anyone comments on any post",
   DM_KEYWORD: "Someone DMs you a keyword",
+  STORY_REACTION: "Someone reacts to or replies to your story — DM them automatically",
 };
 
 // ---------------------------------------------------------------------------
@@ -418,7 +420,7 @@ export default async function InstagramPage() {
           <Card className="p-4">
             <h2 className="text-sm font-semibold text-foreground-950 mb-2">Meta webhook</h2>
             <p className="text-xs text-foreground-500 mb-3">
-              In Meta App → Webhooks → Instagram, subscribe to <strong>comments</strong> and <strong>messages</strong>.
+              In Meta App → Webhooks → Instagram, subscribe to <strong>comments</strong>, <strong>messages</strong>, and <strong>follows</strong>.
             </p>
             <div className="space-y-2">
               <div>

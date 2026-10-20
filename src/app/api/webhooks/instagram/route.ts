@@ -37,7 +37,11 @@ type MetaPayload = {
     messaging?: Array<{
       sender: { id: string };
       recipient: { id: string };
-      message?: { mid: string; text: string };
+      message?: {
+        mid: string;
+        text?: string;
+        attachments?: Array<{ type: string; payload?: Record<string, unknown> }>;
+      };
     }>;
   }>;
 };
@@ -71,10 +75,17 @@ async function processEvent(body: MetaPayload) {
     for (const change of entry.changes ?? []) {
       console.log("[ig-webhook] Processing change field:", change.field, "value:", JSON.stringify(change.value));
       if (change.field === "comments") await handleComment(account, change.value as CommentValue);
+      if (change.field === "follows") await handleFollow(account, change.value as { id: string });
     }
     for (const msg of entry.messaging ?? []) {
-      console.log("[ig-webhook] Processing message from:", msg.sender.id, "text:", msg.message?.text);
-      if (msg.message?.text) await handleDM(account, msg.sender.id, msg.message.text);
+      const attachmentTypes = msg.message?.attachments?.map((a) => a.type) ?? [];
+      const isStoryInteraction = attachmentTypes.some((t) => ["story_mention", "story_reply", "share"].includes(t));
+      console.log("[ig-webhook] Processing message from:", msg.sender.id, "text:", msg.message?.text, "attachments:", attachmentTypes);
+      if (isStoryInteraction) {
+        await handleStoryReaction(account, msg.sender.id, msg.message?.text ?? "");
+      } else if (msg.message?.text) {
+        await handleDM(account, msg.sender.id, msg.message.text);
+      }
     }
   }
 }
@@ -249,6 +260,72 @@ async function handleDM(account: AccountWithAutomations, senderId: string, text:
         accountId: account.id,
         automationId: auto.id,
         triggerType: "DM_KEYWORD",
+        fromIgUserId: senderId,
+        commentText: text,
+        contactId: contact?.id,
+        dmSent,
+        dmError,
+      },
+    });
+    await prisma.instagramAutomation.update({ where: { id: auto.id }, data: { triggerCount: { increment: 1 } } });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Follow trigger — capture new follower as CRM contact
+// ---------------------------------------------------------------------------
+
+async function handleFollow(account: AccountWithAutomations, value: { id: string }) {
+  const followerId = value.id;
+  if (!followerId || followerId === account.igUserId) return;
+  console.log("[ig-webhook] New follower:", followerId, "for account:", account.username);
+
+  const username = await getSenderUsername(account.accessToken, followerId);
+  await captureContact(account.organizationId, followerId, username);
+
+  // Fire any STORY_REACTION automations that also act as follow welcome? No —
+  // keep follow as contact-only for now (DM requires Meta beta permission).
+}
+
+// ---------------------------------------------------------------------------
+// Story reaction trigger
+// ---------------------------------------------------------------------------
+
+async function handleStoryReaction(account: AccountWithAutomations, senderId: string, text: string) {
+  if (!senderId || senderId === account.igUserId) return;
+
+  const senderUsername = await getSenderUsername(account.accessToken, senderId);
+  const displayName = senderUsername ?? senderId;
+
+  const contact = await captureContact(account.organizationId, senderId, senderUsername);
+
+  for (const auto of account.automations) {
+    if (auto.trigger !== "STORY_REACTION") continue;
+
+    if (auto.cooldownHours > 0) {
+      const cutoff = new Date(Date.now() - auto.cooldownHours * 3_600_000);
+      const recent = await prisma.instagramEvent.findFirst({
+        where: { automationId: auto.id, fromIgUserId: senderId, dmSent: true, createdAt: { gte: cutoff } },
+      });
+      if (recent) continue;
+    }
+
+    const message = interpolate(auto.dmMessage, { username: displayName });
+    let dmSent = false;
+    let dmError: string | undefined;
+
+    try {
+      await sendDM(account.accessToken, account.igUserId, senderId, message);
+      dmSent = true;
+    } catch (err) {
+      dmError = err instanceof Error ? err.message : "Unknown error";
+    }
+
+    await prisma.instagramEvent.create({
+      data: {
+        accountId: account.id,
+        automationId: auto.id,
+        triggerType: "STORY_REACTION",
         fromIgUserId: senderId,
         commentText: text,
         contactId: contact?.id,
