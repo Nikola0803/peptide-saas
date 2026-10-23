@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { createId } from "@/lib/id";
 import { sendEmail, sendTemplate, escapeHtml } from "@/lib/email";
 import { pushNotifyNewOrder } from "@/lib/push-notify";
+import { pushOrderToOmnisend } from "@/lib/omnisend";
 import { resolveCoupons, evaluateCoupons, getAutoApplyCodes, type CouponCartItem } from "@/lib/coupon-engine";
 import { getQuantityUnitPriceCents } from "@/lib/quantity-pricing";
 import {
@@ -541,6 +542,27 @@ export async function runCheckout(
   }).catch((err) => console.error("Order confirmation email failed", err));
 
   notifySuppliers(organizationId, result.number, resolvedItems).catch((err) => console.error("Supplier notification email failed", err));
+
+  // Report the order to Omnisend for revenue attribution / email flows.
+  // Best-effort: a failed push never fails a completed checkout.
+  pushOrderToOmnisend({
+    orderID: result.number,
+    email: contactEmail,
+    createdAt: new Date().toISOString(),
+    currency: "USD",
+    orderSum: parseFloat(((grossCentsTotal + shippingCents) / 100).toFixed(2)),
+    subTotalSum: parseFloat((grossCentsTotal / 100).toFixed(2)),
+    shippingSum: parseFloat((shippingCents / 100).toFixed(2)),
+    paymentStatus: "awaitingPayment",
+    fulfillmentStatus: "unfulfilled",
+    products: resolvedItems.map((item) => ({
+      productID: item.productId,
+      sku: item.sku,
+      name: item.name,
+      quantity: item.quantity,
+      price: parseFloat((item.unitPriceCents / 100).toFixed(2)),
+    })),
+  }).catch((err) => console.error("Omnisend order push failed", err));
 
   enterGiveawayIfQualifying(brandId, contactEmail, grossCentsTotal, result.orderId).catch((err) =>
     console.error("Giveaway entry failed", err)

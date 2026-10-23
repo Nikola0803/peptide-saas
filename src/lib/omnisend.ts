@@ -1,12 +1,5 @@
-// Omnisend push for newsletter contacts -- mirrors sendEmail()'s pattern in
-// email.ts: gated on an env var, best-effort, never blocks the caller.
-//
-// Not wired to a real Omnisend account yet -- OMNISEND_API_KEY is unset, so
-// pushContactToOmnisend() is a no-op today. Once a key is added to the
-// environment, this is the one place that needs to change: swap the
-// contactsUrl/fetch body below for Omnisend's real "add/update contact"
-// endpoint (POST https://api.omnisend.com/v3/contacts, header
-// X-API-KEY: <key>) per their API docs.
+// Omnisend push for contacts and orders -- mirrors sendEmail()'s pattern in
+// email.ts: gated on OMNISEND_API_KEY, best-effort, never blocks the caller.
 export function omnisendConfigured(): boolean {
   return Boolean(process.env.OMNISEND_API_KEY);
 }
@@ -36,6 +29,67 @@ export async function pushContactToOmnisend(email: string, opts?: { firstName?: 
     return true;
   } catch (err) {
     console.error(`[omnisend] Push errored for ${email}:`, err);
+    return false;
+  }
+}
+
+export interface OmnisendOrderItem {
+  productID: string;
+  sku: string;
+  name: string;
+  quantity: number;
+  price: number;
+}
+
+export interface OmnisendOrderInput {
+  orderID: string;
+  email: string;
+  createdAt: string;
+  currency: string;
+  orderSum: number;
+  subTotalSum: number;
+  shippingSum: number;
+  paymentStatus: "awaitingPayment" | "paid" | "voided" | "partiallyRefunded" | "refunded";
+  fulfillmentStatus: "unfulfilled" | "inProgress" | "fulfilled" | "restocked";
+  products: OmnisendOrderItem[];
+  tags?: string[];
+}
+
+export async function pushOrderToOmnisend(input: OmnisendOrderInput): Promise<boolean> {
+  if (!omnisendConfigured()) {
+    console.warn(`[omnisend] Not configured (OMNISEND_API_KEY missing) — skipped order ${input.orderID}`);
+    return false;
+  }
+
+  try {
+    const res = await fetch("https://api.omnisend.com/v3/orders", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-KEY": process.env.OMNISEND_API_KEY!,
+      },
+      body: JSON.stringify({
+        orderID: input.orderID,
+        email: input.email,
+        createdAt: input.createdAt,
+        updatedAt: input.createdAt,
+        currency: input.currency,
+        orderSum: input.orderSum,
+        subTotalSum: input.subTotalSum,
+        shippingSum: input.shippingSum,
+        paymentStatus: input.paymentStatus,
+        fulfillmentStatus: input.fulfillmentStatus,
+        products: input.products,
+        tags: input.tags,
+      }),
+    });
+    if (!res.ok) {
+      console.error(`[omnisend] Order push failed for ${input.orderID}: ${res.status} ${await res.text().catch(() => "")}`);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error(`[omnisend] Order push errored for ${input.orderID}:`, err);
     return false;
   }
 }
