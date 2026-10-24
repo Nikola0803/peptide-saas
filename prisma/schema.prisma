@@ -95,6 +95,7 @@ model User {
   passwordHash String
   name         String?
   createdAt    DateTime @default(now())
+  credentialInviteSentAt DateTime?
 
   memberships              Membership[]
   assignedZooProtocolCases ZooProtocolCase[]             @relation("ZooProtocolAssignee")

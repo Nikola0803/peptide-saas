@@ -15,7 +15,7 @@ async function main() {
     const existingMembership = await prisma.membership.findUnique({
       where: { userId_organizationId: { userId: existingUser.id, organizationId: organization.id } },
     });
-    if (existingMembership) {
+    if (existingMembership && existingUser.credentialInviteSentAt) {
       if (existingMembership.role !== "ADMIN" && existingMembership.role !== "OWNER") {
         await prisma.membership.update({ where: { id: existingMembership.id }, data: { role: "ADMIN" } });
       }
@@ -29,11 +29,13 @@ async function main() {
 
   const user = await prisma.user.upsert({
     where: { email: EMAIL },
-    update: { passwordHash },
+    update: { passwordHash, name: existingUser?.name || "Warrior Distributions" },
     create: { email: EMAIL, name: "Warrior Distributions", passwordHash },
   });
-  await prisma.membership.create({
-    data: { userId: user.id, organizationId: organization.id, role: "ADMIN" },
+  await prisma.membership.upsert({
+    where: { userId_organizationId: { userId: user.id, organizationId: organization.id } },
+    update: { role: "ADMIN" },
+    create: { userId: user.id, organizationId: organization.id, role: "ADMIN" },
   });
 
   const delivered = await sendEmail(
@@ -42,6 +44,8 @@ async function main() {
     `<h1>EVLV CRM access</h1><p>Your administrator account is ready.</p><p><strong>Login:</strong> <a href="https://crm.evlvpeptides.com/login">https://crm.evlvpeptides.com/login</a></p><p><strong>Email:</strong> ${EMAIL}<br/><strong>Temporary password:</strong> ${temporaryPassword}</p><p>Please sign in and replace this temporary password promptly.</p>`,
   );
   if (!delivered) throw new Error(`Admin account was created for ${EMAIL}, but the credential email was not delivered`);
+
+  await prisma.user.update({ where: { id: user.id }, data: { credentialInviteSentAt: new Date() } });
 
   console.log(`Created ADMIN membership and delivered credentials to ${EMAIL}.`);
 }

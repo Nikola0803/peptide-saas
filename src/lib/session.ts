@@ -31,6 +31,13 @@ export async function requireOrg() {
   return { session, organization: organization! };
 }
 
+export async function requireAdmin() {
+  const context = await requireOrg();
+  const role = (context.session.user as any)?.role as string | undefined;
+  if (role !== "OWNER" && role !== "ADMIN") redirect("/dashboard");
+  return context;
+}
+
 // Every /dropship page calls this first, mirroring requireOrg(). Always
 // re-resolves the Membership from the DB rather than trusting the JWT's
 // supplierId for the actual data fetch -- the JWT is only used to route

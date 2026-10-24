@@ -6,21 +6,25 @@ import { inviteMember } from "./actions";
 
 export function InviteMemberForm() {
   const router = useRouter();
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("MEMBER");
-  const [result, setResult] = useState<{ email: string; password: string } | null>(null);
+  const [result, setResult] = useState<{ email: string; password: string; delivered: boolean } | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   if (result) {
     return (
       <div className="text-xs bg-primary-50 border border-primary-200 rounded p-2.5">
-        <p className="font-medium text-foreground-900 mb-1">Added — copy this now, it won't be shown again:</p>
+        <p className="font-medium text-foreground-900 mb-1">
+          {result.delivered ? "Added and temporary password emailed." : "Added, but email delivery failed — copy this now:"}
+        </p>
         <p className="font-mono">{result.email}</p>
         <p className="font-mono">{result.password}</p>
         <button
           onClick={() => {
             setResult(null);
+            setName("");
             setEmail("");
           }}
           className="mt-2 text-xs text-primary-600 hover:underline"
@@ -33,13 +37,14 @@ export function InviteMemberForm() {
 
   return (
     <form
-      className="flex items-center gap-1.5"
+      className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1.2fr_auto_auto]"
       onSubmit={async (e) => {
         e.preventDefault();
         setError("");
         setLoading(true);
         try {
           const formData = new FormData();
+          formData.set("name", name);
           formData.set("email", email);
           formData.set("role", role);
           const res = await inviteMember(formData);
@@ -53,12 +58,19 @@ export function InviteMemberForm() {
       }}
     >
       <input
+        type="text"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="Full name"
+        className="text-sm border border-background-300 rounded px-2.5 py-1.5 bg-background-50"
+      />
+      <input
         type="email"
         required
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         placeholder="teammate@company.com"
-        className="flex-1 text-sm border border-background-300 rounded px-2.5 py-1.5 bg-background-50"
+        className="text-sm border border-background-300 rounded px-2.5 py-1.5 bg-background-50"
       />
       <select value={role} onChange={(e) => setRole(e.target.value)} className="text-sm border border-background-300 rounded px-2 py-1.5 bg-background-50">
         <option value="MEMBER">Member</option>

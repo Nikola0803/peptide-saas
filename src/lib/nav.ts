@@ -47,6 +47,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: "System",
     items: [
+      { label: "Users", href: "/users", icon: "ri-team-line" },
       { label: "Tracking & Pixels", href: "/tracking-pixels", icon: "ri-radar-line" },
       { label: "Webhooks", href: "/webhooks", icon: "ri-plug-line" },
       { label: "Settings", href: "/settings", icon: "ri-settings-3-line" },
