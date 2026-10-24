@@ -7,3 +7,4 @@ node_modules
 /prisma/dev.db
 /public/uploads
 /private-uploads
+tsconfig.tsbuildinfo
