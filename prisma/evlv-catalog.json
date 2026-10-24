@@ -20,7 +20,7 @@
     "inStock": true,
     "shortDescription": "Standard-concentration BPC-157 for research protocols.",
     "description": "BPC-157 5mg, lyophilized and independently verified for identity and purity. Supplied for laboratory research use only.",
-    "storage": "Store lyophilized vials at 2–8°C. After reconstitution, use within 30 days and refrigerate.",
+    "storage": "Store lyophilized vials at 2\u20138\u00b0C. After reconstitution, use within 30 days and refrigerate.",
     "reconstitution": "Reconstitute with bacteriostatic or sterile water appropriate for laboratory use.",
     "badges": [
       "Save 20%"
@@ -34,7 +34,7 @@
       {
         "slug": "bpc-157-10mg",
         "label": "10mg",
-        "price": 70,
+        "price": 64.99,
         "inStock": true
       },
       {
@@ -59,7 +59,7 @@
     "category": "peptides",
     "categoryLabel": "Peptide Research",
     "image": "/images/products/bpc-157-10mg.png",
-    "price": 70,
+    "price": 64.99,
     "bulkOption": {
       "qty": 10,
       "price": 560,
@@ -72,7 +72,7 @@
     "inStock": true,
     "shortDescription": "Higher-concentration BPC-157 for extended research protocols.",
     "description": "BPC-157 10mg, lyophilized and independently verified for identity and purity. Supplied for laboratory research use only.",
-    "storage": "Store lyophilized vials at 2–8°C. After reconstitution, use within 30 days and refrigerate.",
+    "storage": "Store lyophilized vials at 2\u20138\u00b0C. After reconstitution, use within 30 days and refrigerate.",
     "reconstitution": "Reconstitute with bacteriostatic or sterile water appropriate for laboratory use.",
     "badges": [
       "Save 20%"
@@ -86,7 +86,7 @@
       {
         "slug": "bpc-157-10mg",
         "label": "10mg",
-        "price": 70,
+        "price": 64.99,
         "inStock": true
       },
       {
@@ -124,7 +124,7 @@
     "inStock": true,
     "shortDescription": "High-concentration BPC-157 for extended research protocols.",
     "description": "BPC-157 20mg, lyophilized and independently verified for identity and purity. Supplied for laboratory research use only.",
-    "storage": "Store lyophilized vials at 2–8°C. After reconstitution, use within 30 days and refrigerate.",
+    "storage": "Store lyophilized vials at 2\u20138\u00b0C. After reconstitution, use within 30 days and refrigerate.",
     "reconstitution": "Reconstitute with bacteriostatic or sterile water appropriate for laboratory use.",
     "badges": [
       "Save 20%"
@@ -138,7 +138,7 @@
       {
         "slug": "bpc-157-10mg",
         "label": "10mg",
-        "price": 70,
+        "price": 64.99,
         "inStock": true
       },
       {
@@ -176,7 +176,7 @@
     "inStock": true,
     "shortDescription": "Standard-concentration TB-500 for research protocols.",
     "description": "TB-500 5mg, lyophilized and independently verified for identity and purity. Supplied for laboratory research use only.",
-    "storage": "Store lyophilized vials at 2–8°C. After reconstitution, use within 30 days and refrigerate.",
+    "storage": "Store lyophilized vials at 2\u20138\u00b0C. After reconstitution, use within 30 days and refrigerate.",
     "reconstitution": "Reconstitute with bacteriostatic or sterile water appropriate for laboratory use.",
     "badges": [
       "Save 20%"
@@ -228,7 +228,7 @@
     "inStock": true,
     "shortDescription": "Higher-concentration TB-500 for extended research protocols.",
     "description": "TB-500 10mg, lyophilized and independently verified for identity and purity. Supplied for laboratory research use only.",
-    "storage": "Store lyophilized vials at 2–8°C. After reconstitution, use within 30 days and refrigerate.",
+    "storage": "Store lyophilized vials at 2\u20138\u00b0C. After reconstitution, use within 30 days and refrigerate.",
     "reconstitution": "Reconstitute with bacteriostatic or sterile water appropriate for laboratory use.",
     "badges": [
       "Save 20%"
@@ -280,7 +280,7 @@
     "inStock": true,
     "shortDescription": "High-concentration TB-500 for extended research protocols.",
     "description": "TB-500 20mg, lyophilized and independently verified for identity and purity. Supplied for laboratory research use only.",
-    "storage": "Store lyophilized vials at 2–8°C. After reconstitution, use within 30 days and refrigerate.",
+    "storage": "Store lyophilized vials at 2\u20138\u00b0C. After reconstitution, use within 30 days and refrigerate.",
     "reconstitution": "Reconstitute with bacteriostatic or sterile water appropriate for laboratory use.",
     "badges": [
       "Save 20%"
@@ -333,7 +333,7 @@
     "inStock": true,
     "shortDescription": "Pre-combined BPC-157 and TB-500 blend for research convenience.",
     "description": "BPC-157 / TB-500 10mg blend for research protocols, independently tested for identity and mass.",
-    "storage": "Store lyophilized vials at 2–8°C. After reconstitution, use within 30 days and refrigerate.",
+    "storage": "Store lyophilized vials at 2\u20138\u00b0C. After reconstitution, use within 30 days and refrigerate.",
     "reconstitution": "Reconstitute with bacteriostatic or sterile water appropriate for laboratory use.",
     "badges": [
       "Save 20%"
@@ -380,7 +380,7 @@
     "inStock": true,
     "shortDescription": "Pre-combined BPC-157 and TB-500 blend for research convenience.",
     "description": "BPC-157 / TB-500 20mg blend for research protocols, independently tested for identity and mass.",
-    "storage": "Store lyophilized vials at 2–8°C. After reconstitution, use within 30 days and refrigerate.",
+    "storage": "Store lyophilized vials at 2\u20138\u00b0C. After reconstitution, use within 30 days and refrigerate.",
     "reconstitution": "Reconstitute with bacteriostatic or sterile water appropriate for laboratory use.",
     "badges": [
       "Save 20%"
@@ -413,7 +413,7 @@
     "category": "peptides",
     "categoryLabel": "Peptide Research",
     "image": "/images/products/gp-3-10mg.png",
-    "price": 90,
+    "price": 74.99,
     "bulkOption": {
       "qty": 10,
       "price": 720,
@@ -426,7 +426,7 @@
     "inStock": true,
     "shortDescription": "Tri-agonist research peptide, standard concentration.",
     "description": "GP-3 10mg vial for research protocols. 99.34% purity verified by independent third-party testing.",
-    "storage": "Store lyophilized vials at 2–8°C. After reconstitution, use within 30 days and refrigerate.",
+    "storage": "Store lyophilized vials at 2\u20138\u00b0C. After reconstitution, use within 30 days and refrigerate.",
     "reconstitution": "Reconstitute with bacteriostatic or sterile water appropriate for laboratory use.",
     "badges": [
       "Save 20%"
@@ -440,25 +440,25 @@
       {
         "slug": "gp-3-10mg",
         "label": "10mg",
-        "price": 90,
+        "price": 74.99,
         "inStock": true
       },
       {
         "slug": "gp-3-15mg",
         "label": "15mg",
-        "price": 125,
+        "price": 109.99,
         "inStock": true
       },
       {
         "slug": "gp-3-30mg",
         "label": "30mg",
-        "price": 220,
+        "price": 189.99,
         "inStock": true
       },
       {
         "slug": "gp-3-60mg",
         "label": "60mg",
-        "price": 380,
+        "price": 349.99,
         "inStock": true
       }
     ]
@@ -471,7 +471,7 @@
     "category": "peptides",
     "categoryLabel": "Peptide Research",
     "image": "/images/products/gp-3-15mg.png",
-    "price": 125,
+    "price": 109.99,
     "bulkOption": {
       "qty": 10,
       "price": 1000,
@@ -484,7 +484,7 @@
     "inStock": true,
     "shortDescription": "Tri-agonist research peptide, mid concentration.",
     "description": "GP-3 15mg vial for research protocols. 99.41% purity verified by independent third-party testing.",
-    "storage": "Store lyophilized vials at 2–8°C. After reconstitution, use within 30 days and refrigerate.",
+    "storage": "Store lyophilized vials at 2\u20138\u00b0C. After reconstitution, use within 30 days and refrigerate.",
     "reconstitution": "Reconstitute with bacteriostatic or sterile water appropriate for laboratory use.",
     "badges": [
       "Save 20%"
@@ -498,25 +498,25 @@
       {
         "slug": "gp-3-10mg",
         "label": "10mg",
-        "price": 90,
+        "price": 74.99,
         "inStock": true
       },
       {
         "slug": "gp-3-15mg",
         "label": "15mg",
-        "price": 125,
+        "price": 109.99,
         "inStock": true
       },
       {
         "slug": "gp-3-30mg",
         "label": "30mg",
-        "price": 220,
+        "price": 189.99,
         "inStock": true
       },
       {
         "slug": "gp-3-60mg",
         "label": "60mg",
-        "price": 380,
+        "price": 349.99,
         "inStock": true
       }
     ]
@@ -529,7 +529,7 @@
     "category": "peptides",
     "categoryLabel": "Peptide Research",
     "image": "/images/products/gp-3-30mg.png",
-    "price": 220,
+    "price": 189.99,
     "bulkOption": {
       "qty": 10,
       "price": 1760,
@@ -542,7 +542,7 @@
     "inStock": true,
     "shortDescription": "Tri-agonist research peptide, high concentration.",
     "description": "GP-3 30mg vial for research protocols. 99.43% purity verified by independent third-party testing.",
-    "storage": "Store lyophilized vials at 2–8°C. After reconstitution, use within 30 days and refrigerate.",
+    "storage": "Store lyophilized vials at 2\u20138\u00b0C. After reconstitution, use within 30 days and refrigerate.",
     "reconstitution": "Reconstitute with bacteriostatic or sterile water appropriate for laboratory use.",
     "badges": [
       "Save 20%"
@@ -556,25 +556,25 @@
       {
         "slug": "gp-3-10mg",
         "label": "10mg",
-        "price": 90,
+        "price": 74.99,
         "inStock": true
       },
       {
         "slug": "gp-3-15mg",
         "label": "15mg",
-        "price": 125,
+        "price": 109.99,
         "inStock": true
       },
       {
         "slug": "gp-3-30mg",
         "label": "30mg",
-        "price": 220,
+        "price": 189.99,
         "inStock": true
       },
       {
         "slug": "gp-3-60mg",
         "label": "60mg",
-        "price": 380,
+        "price": 349.99,
         "inStock": true
       }
     ]
@@ -587,7 +587,7 @@
     "category": "peptides",
     "categoryLabel": "Peptide Research",
     "image": "/images/products/gp-3-60mg.png",
-    "price": 380,
+    "price": 349.99,
     "bulkOption": {
       "qty": 10,
       "price": 3040,
@@ -600,7 +600,7 @@
     "inStock": true,
     "shortDescription": "Tri-agonist research peptide, maximum concentration.",
     "description": "GP-3 60mg vial for research protocols. 99.6% purity verified by independent third-party testing.",
-    "storage": "Store lyophilized vials at 2–8°C. After reconstitution, use within 30 days and refrigerate.",
+    "storage": "Store lyophilized vials at 2\u20138\u00b0C. After reconstitution, use within 30 days and refrigerate.",
     "reconstitution": "Reconstitute with bacteriostatic or sterile water appropriate for laboratory use.",
     "badges": [
       "Save 20%"
@@ -614,25 +614,25 @@
       {
         "slug": "gp-3-10mg",
         "label": "10mg",
-        "price": 90,
+        "price": 74.99,
         "inStock": true
       },
       {
         "slug": "gp-3-15mg",
         "label": "15mg",
-        "price": 125,
+        "price": 109.99,
         "inStock": true
       },
       {
         "slug": "gp-3-30mg",
         "label": "30mg",
-        "price": 220,
+        "price": 189.99,
         "inStock": true
       },
       {
         "slug": "gp-3-60mg",
         "label": "60mg",
-        "price": 380,
+        "price": 349.99,
         "inStock": true
       }
     ]
@@ -658,7 +658,7 @@
     "inStock": true,
     "shortDescription": "GHRH-analog research peptide, standard concentration.",
     "description": "Tesamorelin 10mg vial for research protocols. 99.86% purity verified by independent third-party testing.",
-    "storage": "Store lyophilized vials at 2–8°C. After reconstitution, use within 30 days and refrigerate.",
+    "storage": "Store lyophilized vials at 2\u20138\u00b0C. After reconstitution, use within 30 days and refrigerate.",
     "reconstitution": "Reconstitute with bacteriostatic or sterile water appropriate for laboratory use.",
     "badges": [
       "Save 20%"
@@ -704,7 +704,7 @@
     "inStock": true,
     "shortDescription": "GHRH-analog research peptide, high concentration.",
     "description": "Tesamorelin 20mg vial for research protocols. 99.7% purity verified by independent third-party testing.",
-    "storage": "Store lyophilized vials at 2–8°C. After reconstitution, use within 30 days and refrigerate.",
+    "storage": "Store lyophilized vials at 2\u20138\u00b0C. After reconstitution, use within 30 days and refrigerate.",
     "reconstitution": "Reconstitute with bacteriostatic or sterile water appropriate for laboratory use.",
     "badges": [
       "Save 20%"
@@ -750,7 +750,7 @@
     "inStock": true,
     "shortDescription": "Copper-peptide research compound, standard concentration.",
     "description": "GHK-Cu 50mg vial for research protocols. 99.4% purity verified by independent third-party testing.",
-    "storage": "Store lyophilized vials at 2–8°C. After reconstitution, use within 30 days and refrigerate.",
+    "storage": "Store lyophilized vials at 2\u20138\u00b0C. After reconstitution, use within 30 days and refrigerate.",
     "reconstitution": "Reconstitute with bacteriostatic or sterile water appropriate for laboratory use.",
     "badges": [
       "Save 20%"
@@ -782,7 +782,7 @@
     "inStock": true,
     "shortDescription": "Mitochondrial-derived peptide, standard concentration.",
     "description": "MOTS-c 10mg vial for research protocols. 99.53% purity verified by independent third-party testing.",
-    "storage": "Store lyophilized vials at 2–8°C. After reconstitution, use within 30 days and refrigerate.",
+    "storage": "Store lyophilized vials at 2\u20138\u00b0C. After reconstitution, use within 30 days and refrigerate.",
     "reconstitution": "Reconstitute with bacteriostatic or sterile water appropriate for laboratory use.",
     "badges": [
       "Save 20%"
@@ -828,7 +828,7 @@
     "inStock": true,
     "shortDescription": "Mitochondrial-derived peptide, high concentration.",
     "description": "MOTS-c 40mg vial for research protocols. 99.3% purity verified by independent third-party testing.",
-    "storage": "Store lyophilized vials at 2–8°C. After reconstitution, use within 30 days and refrigerate.",
+    "storage": "Store lyophilized vials at 2\u20138\u00b0C. After reconstitution, use within 30 days and refrigerate.",
     "reconstitution": "Reconstitute with bacteriostatic or sterile water appropriate for laboratory use.",
     "badges": [
       "Save 20%"
@@ -874,7 +874,7 @@
     "inStock": true,
     "shortDescription": "Immune-modulating research peptide, standard concentration.",
     "description": "Thymosin Alpha-1 5mg vial for research protocols. 99.5% purity verified by independent third-party testing.",
-    "storage": "Store lyophilized vials at 2–8°C. After reconstitution, use within 30 days and refrigerate.",
+    "storage": "Store lyophilized vials at 2\u20138\u00b0C. After reconstitution, use within 30 days and refrigerate.",
     "reconstitution": "Reconstitute with bacteriostatic or sterile water appropriate for laboratory use.",
     "badges": [
       "Save 20%"
@@ -907,7 +907,7 @@
     "inStock": true,
     "shortDescription": "Pre-combined cellular-support blend for research convenience.",
     "description": "GLOW 70mg blend for research protocols, independently tested for identity and mass.",
-    "storage": "Store lyophilized vials at 2–8°C. After reconstitution, use within 30 days and refrigerate.",
+    "storage": "Store lyophilized vials at 2\u20138\u00b0C. After reconstitution, use within 30 days and refrigerate.",
     "reconstitution": "Reconstitute with bacteriostatic or sterile water appropriate for laboratory use.",
     "badges": [
       "Save 20%"
@@ -939,7 +939,7 @@
     "inStock": true,
     "shortDescription": "Pre-combined cellular-support blend for research convenience.",
     "description": "KLOW 80mg blend for research protocols, independently tested for identity and mass.",
-    "storage": "Store lyophilized vials at 2–8°C. After reconstitution, use within 30 days and refrigerate.",
+    "storage": "Store lyophilized vials at 2\u20138\u00b0C. After reconstitution, use within 30 days and refrigerate.",
     "reconstitution": "Reconstitute with bacteriostatic or sterile water appropriate for laboratory use.",
     "badges": [
       "Save 20%"
@@ -971,7 +971,7 @@
     "inStock": true,
     "shortDescription": "Anxiolytic peptide research compound, standard concentration.",
     "description": "Selank 10mg vial for research protocols. 99.4% purity verified by independent third-party testing.",
-    "storage": "Store lyophilized vials at 2–8°C. After reconstitution, use within 30 days and refrigerate.",
+    "storage": "Store lyophilized vials at 2\u20138\u00b0C. After reconstitution, use within 30 days and refrigerate.",
     "reconstitution": "Reconstitute with bacteriostatic or sterile water appropriate for laboratory use.",
     "badges": [
       "Save 20%"
@@ -1003,7 +1003,7 @@
     "inStock": true,
     "shortDescription": "Nootropic peptide research compound, standard concentration.",
     "description": "Semax 10mg vial for research protocols. 99.3% purity verified by independent third-party testing.",
-    "storage": "Store lyophilized vials at 2–8°C. After reconstitution, use within 30 days and refrigerate.",
+    "storage": "Store lyophilized vials at 2\u20138\u00b0C. After reconstitution, use within 30 days and refrigerate.",
     "reconstitution": "Reconstitute with bacteriostatic or sterile water appropriate for laboratory use.",
     "badges": [
       "Save 20%"
@@ -1036,7 +1036,7 @@
     "inStock": true,
     "shortDescription": "Pre-combined GHRH-analog blend for research convenience.",
     "description": "CJC-1295 / Ipamorelin 10mg blend for research protocols, independently tested for identity and mass.",
-    "storage": "Store lyophilized vials at 2–8°C. After reconstitution, use within 30 days and refrigerate.",
+    "storage": "Store lyophilized vials at 2\u20138\u00b0C. After reconstitution, use within 30 days and refrigerate.",
     "reconstitution": "Reconstitute with bacteriostatic or sterile water appropriate for laboratory use.",
     "badges": [
       "Save 20%"
@@ -1082,7 +1082,7 @@
     "inStock": true,
     "shortDescription": "Pre-combined GHRH-analog blend for research convenience.",
     "description": "CJC-1295 / Ipamorelin 20mg blend for research protocols, independently tested for identity and mass.",
-    "storage": "Store lyophilized vials at 2–8°C. After reconstitution, use within 30 days and refrigerate.",
+    "storage": "Store lyophilized vials at 2\u20138\u00b0C. After reconstitution, use within 30 days and refrigerate.",
     "reconstitution": "Reconstitute with bacteriostatic or sterile water appropriate for laboratory use.",
     "badges": [
       "Save 20%"
@@ -1115,7 +1115,7 @@
     "category": "peptides",
     "categoryLabel": "Peptide Research",
     "image": "/images/products/semaglutide-5mg.png",
-    "price": 85,
+    "price": 49.99,
     "bulkOption": {
       "qty": 10,
       "price": 680,
@@ -1128,7 +1128,7 @@
     "inStock": true,
     "shortDescription": "GLP-1 receptor agonist research peptide, standard concentration.",
     "description": "GP-1 5mg vial for research protocols. 99.19% purity verified by independent third-party testing.",
-    "storage": "Store lyophilized vials at 2–8°C. After reconstitution, use within 30 days and refrigerate.",
+    "storage": "Store lyophilized vials at 2\u20138\u00b0C. After reconstitution, use within 30 days and refrigerate.",
     "reconstitution": "Reconstitute with bacteriostatic or sterile water appropriate for laboratory use.",
     "badges": [
       "Save 20%"
@@ -1161,7 +1161,7 @@
     "category": "peptides",
     "categoryLabel": "Peptide Research",
     "image": "/images/products/semaglutide-10mg.png",
-    "price": 150,
+    "price": 69.99,
     "bulkOption": {
       "qty": 10,
       "price": 1200,
@@ -1174,7 +1174,7 @@
     "inStock": true,
     "shortDescription": "GLP-1 receptor agonist research peptide, high concentration.",
     "description": "GP-1 10mg vial for research protocols. 99.4% purity verified by independent third-party testing.",
-    "storage": "Store lyophilized vials at 2–8°C. After reconstitution, use within 30 days and refrigerate.",
+    "storage": "Store lyophilized vials at 2\u20138\u00b0C. After reconstitution, use within 30 days and refrigerate.",
     "reconstitution": "Reconstitute with bacteriostatic or sterile water appropriate for laboratory use.",
     "badges": [
       "Save 20%"
@@ -1207,7 +1207,7 @@
     "category": "peptides",
     "categoryLabel": "Peptide Research",
     "image": "/images/products/tirzepatide-10mg.png",
-    "price": 95,
+    "price": 84.99,
     "bulkOption": {
       "qty": 10,
       "price": 760,
@@ -1220,7 +1220,7 @@
     "inStock": true,
     "shortDescription": "GIP/GLP-1 dual-agonist research peptide, standard concentration.",
     "description": "GP-2 10mg vial for research protocols. 99.44% purity verified by independent third-party testing.",
-    "storage": "Store lyophilized vials at 2–8°C. After reconstitution, use within 30 days and refrigerate.",
+    "storage": "Store lyophilized vials at 2\u20138\u00b0C. After reconstitution, use within 30 days and refrigerate.",
     "reconstitution": "Reconstitute with bacteriostatic or sterile water appropriate for laboratory use.",
     "badges": [
       "Save 20%"
@@ -1265,7 +1265,7 @@
     "category": "peptides",
     "categoryLabel": "Peptide Research",
     "image": "/images/products/tirzepatide-15mg.png",
-    "price": 135,
+    "price": 119.99,
     "bulkOption": {
       "qty": 10,
       "price": 1080,
@@ -1278,7 +1278,7 @@
     "inStock": true,
     "shortDescription": "GIP/GLP-1 dual-agonist research peptide, mid concentration.",
     "description": "GP-2 15mg vial for research protocols. 99.28% purity verified by independent third-party testing.",
-    "storage": "Store lyophilized vials at 2–8°C. After reconstitution, use within 30 days and refrigerate.",
+    "storage": "Store lyophilized vials at 2\u20138\u00b0C. After reconstitution, use within 30 days and refrigerate.",
     "reconstitution": "Reconstitute with bacteriostatic or sterile water appropriate for laboratory use.",
     "badges": [
       "Save 20%"
@@ -1323,7 +1323,7 @@
     "category": "peptides",
     "categoryLabel": "Peptide Research",
     "image": "/images/products/tirzepatide-30mg.png",
-    "price": 230,
+    "price": 154.99,
     "bulkOption": {
       "qty": 10,
       "price": 1840,
@@ -1336,7 +1336,7 @@
     "inStock": true,
     "shortDescription": "GIP/GLP-1 dual-agonist research peptide, high concentration.",
     "description": "GP-2 30mg vial for research protocols. 99.29% purity verified by independent third-party testing.",
-    "storage": "Store lyophilized vials at 2–8°C. After reconstitution, use within 30 days and refrigerate.",
+    "storage": "Store lyophilized vials at 2\u20138\u00b0C. After reconstitution, use within 30 days and refrigerate.",
     "reconstitution": "Reconstitute with bacteriostatic or sterile water appropriate for laboratory use.",
     "badges": [
       "Save 20%"
@@ -1381,7 +1381,7 @@
     "category": "peptides",
     "categoryLabel": "Peptide Research",
     "image": "/images/products/tirzepatide-60mg.png",
-    "price": 400,
+    "price": 274.99,
     "bulkOption": {
       "qty": 10,
       "price": 3200,
@@ -1394,7 +1394,7 @@
     "inStock": true,
     "shortDescription": "GIP/GLP-1 dual-agonist research peptide, maximum concentration.",
     "description": "GP-2 60mg vial for research protocols. 99.6% purity verified by independent third-party testing.",
-    "storage": "Store lyophilized vials at 2–8°C. After reconstitution, use within 30 days and refrigerate.",
+    "storage": "Store lyophilized vials at 2\u20138\u00b0C. After reconstitution, use within 30 days and refrigerate.",
     "reconstitution": "Reconstitute with bacteriostatic or sterile water appropriate for laboratory use.",
     "badges": [
       "Save 20%"
@@ -1452,7 +1452,7 @@
     "inStock": true,
     "shortDescription": "Modified hGH-fragment research peptide, standard concentration.",
     "description": "AOD-9604 10mg vial for research protocols. 99.1% purity verified by independent third-party testing.",
-    "storage": "Store lyophilized vials at 2–8°C. After reconstitution, use within 30 days and refrigerate.",
+    "storage": "Store lyophilized vials at 2\u20138\u00b0C. After reconstitution, use within 30 days and refrigerate.",
     "reconstitution": "Reconstitute with bacteriostatic or sterile water appropriate for laboratory use.",
     "badges": [
       "Save 20%"
@@ -1484,7 +1484,7 @@
     "inStock": true,
     "shortDescription": "Cartilage-tissue research peptide, standard concentration.",
     "description": "Cartalax 20mg vial for research protocols. 98.9% purity verified by independent third-party testing.",
-    "storage": "Store lyophilized vials at 2–8°C. After reconstitution, use within 30 days and refrigerate.",
+    "storage": "Store lyophilized vials at 2\u20138\u00b0C. After reconstitution, use within 30 days and refrigerate.",
     "reconstitution": "Reconstitute with bacteriostatic or sterile water appropriate for laboratory use.",
     "badges": [
       "Save 20%"
@@ -1516,7 +1516,7 @@
     "inStock": true,
     "shortDescription": "Standard-concentration HCG for research protocols.",
     "description": "HCG 2000iu vial for research protocols. 99.0% purity verified by independent third-party testing.",
-    "storage": "Store lyophilized vials at 2–8°C. After reconstitution, use within 30 days and refrigerate.",
+    "storage": "Store lyophilized vials at 2\u20138\u00b0C. After reconstitution, use within 30 days and refrigerate.",
     "reconstitution": "Reconstitute with bacteriostatic or sterile water appropriate for laboratory use.",
     "badges": [
       "Save 20%"
@@ -1562,7 +1562,7 @@
     "inStock": true,
     "shortDescription": "High-concentration HCG for research protocols.",
     "description": "HCG 5000iu vial for research protocols. 99.2% purity verified by independent third-party testing.",
-    "storage": "Store lyophilized vials at 2–8°C. After reconstitution, use within 30 days and refrigerate.",
+    "storage": "Store lyophilized vials at 2\u20138\u00b0C. After reconstitution, use within 30 days and refrigerate.",
     "reconstitution": "Reconstitute with bacteriostatic or sterile water appropriate for laboratory use.",
     "badges": [
       "Save 20%"
@@ -1608,7 +1608,7 @@
     "inStock": true,
     "shortDescription": "Long-acting IGF-1 analog research compound, standard concentration.",
     "description": "IGF-1 LR3 1mg vial for research protocols. 99.0% purity verified by independent third-party testing.",
-    "storage": "Store lyophilized vials at 2–8°C. After reconstitution, use within 30 days and refrigerate.",
+    "storage": "Store lyophilized vials at 2\u20138\u00b0C. After reconstitution, use within 30 days and refrigerate.",
     "reconstitution": "Reconstitute with bacteriostatic or sterile water appropriate for laboratory use.",
     "badges": [
       "Save 20%"
@@ -1640,7 +1640,7 @@
     "inStock": true,
     "shortDescription": "Anti-inflammatory tripeptide research compound, standard concentration.",
     "description": "KPV 10mg vial for research protocols. 99.28% purity verified by independent third-party testing.",
-    "storage": "Store lyophilized vials at 2–8°C. After reconstitution, use within 30 days and refrigerate.",
+    "storage": "Store lyophilized vials at 2\u20138\u00b0C. After reconstitution, use within 30 days and refrigerate.",
     "reconstitution": "Reconstitute with bacteriostatic or sterile water appropriate for laboratory use.",
     "badges": [
       "Save 20%"
@@ -1704,7 +1704,7 @@
     "inStock": true,
     "shortDescription": "Melanocortin research peptide, standard concentration.",
     "description": "Melanotan II 10mg vial for research protocols. 99.0% purity verified by independent third-party testing.",
-    "storage": "Store lyophilized vials at 2–8°C. After reconstitution, use within 30 days and refrigerate.",
+    "storage": "Store lyophilized vials at 2\u20138\u00b0C. After reconstitution, use within 30 days and refrigerate.",
     "reconstitution": "Reconstitute with bacteriostatic or sterile water appropriate for laboratory use.",
     "badges": [
       "Save 20%"
@@ -1723,7 +1723,7 @@
     "category": "ancillaries",
     "categoryLabel": "Peptide & Ancillary Research",
     "image": "/images/products/nad-500mg.png",
-    "price": 95,
+    "price": 79.99,
     "bulkOption": {
       "qty": 10,
       "price": 760,
@@ -1736,7 +1736,7 @@
     "inStock": true,
     "shortDescription": "Cellular-energy cofactor research compound, standard concentration.",
     "description": "NAD+ 500mg vial for research protocols. 99.3% purity verified by independent third-party testing.",
-    "storage": "Store lyophilized vials at 2–8°C. After reconstitution, use within 30 days and refrigerate.",
+    "storage": "Store lyophilized vials at 2\u20138\u00b0C. After reconstitution, use within 30 days and refrigerate.",
     "reconstitution": "Reconstitute with bacteriostatic or sterile water appropriate for laboratory use.",
     "badges": [
       "Save 20%"
@@ -1768,7 +1768,7 @@
     "inStock": true,
     "shortDescription": "Neuropeptide research compound, standard concentration.",
     "description": "Oxytocin 10mg vial for research protocols. 99.0% purity verified by independent third-party testing.",
-    "storage": "Store lyophilized vials at 2–8°C. After reconstitution, use within 30 days and refrigerate.",
+    "storage": "Store lyophilized vials at 2\u20138\u00b0C. After reconstitution, use within 30 days and refrigerate.",
     "reconstitution": "Reconstitute with bacteriostatic or sterile water appropriate for laboratory use.",
     "badges": [
       "Save 20%"
@@ -1800,7 +1800,7 @@
     "inStock": true,
     "shortDescription": "Melanocortin research peptide, standard concentration.",
     "description": "PT-141 10mg vial for research protocols. 99.1% purity verified by independent third-party testing.",
-    "storage": "Store lyophilized vials at 2–8°C. After reconstitution, use within 30 days and refrigerate.",
+    "storage": "Store lyophilized vials at 2\u20138\u00b0C. After reconstitution, use within 30 days and refrigerate.",
     "reconstitution": "Reconstitute with bacteriostatic or sterile water appropriate for laboratory use.",
     "badges": [
       "Save 20%"
@@ -1832,7 +1832,7 @@
     "inStock": true,
     "shortDescription": "Mitochondria-targeted research peptide, standard concentration.",
     "description": "SS-31 10mg vial for research protocols. 99.4% purity verified by independent third-party testing.",
-    "storage": "Store lyophilized vials at 2–8°C. After reconstitution, use within 30 days and refrigerate.",
+    "storage": "Store lyophilized vials at 2\u20138\u00b0C. After reconstitution, use within 30 days and refrigerate.",
     "reconstitution": "Reconstitute with bacteriostatic or sterile water appropriate for laboratory use.",
     "badges": [
       "Save 20%"
