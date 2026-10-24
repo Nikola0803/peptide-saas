@@ -12,6 +12,10 @@ const bodySchema = z.object({
   // to resolve the contact (the token already does that), accepted so the
   // request doesn't need to be stripped down before it reaches here.
   customerId: z.string().optional(),
+  // Signed storefront customer session. The storefront proxies this in the
+  // JSON body because its server-to-server request does not preserve the
+  // browser's Authorization header.
+  token: z.string().optional(),
   couponCode: z.string().optional(),
   // Real discount coupon code(s) -- distinct from couponCode above
   // (Affiliate attribution). Accepts either a single code or an array
@@ -73,7 +77,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid request", detail: parsed.error.flatten() }, { status: 400 });
   }
 
-  const claims = verifyCustomerToken(bearerToken(req));
+  const claims = verifyCustomerToken(bearerToken(req) ?? parsed.data.token);
   const customerEmail = claims?.email ?? parsed.data.customerEmail ?? parsed.data.billing?.email;
   if (!customerEmail) {
     return NextResponse.json({ error: "customerEmail is required for guest checkout" }, { status: 400 });
