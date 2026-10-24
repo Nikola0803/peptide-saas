@@ -98,7 +98,12 @@ const FRAUD_VELOCITY_THRESHOLD = 3; // this many ON_HOLD/PROCESSING orders from 
 export class CheckoutError extends Error {
   constructor(
     message: string,
-    public readonly code: "EMPTY_CART" | "UNKNOWN_PRODUCT" | "OUT_OF_STOCK",
+    public readonly code:
+      | "EMPTY_CART"
+      | "UNKNOWN_PRODUCT"
+      | "OUT_OF_STOCK"
+      | "WHOLESALE_CASE_QUANTITY"
+      | "WHOLESALE_PRICE_UNAVAILABLE",
     public readonly detail?: unknown
   ) {
     super(message);
@@ -204,6 +209,8 @@ export async function runCheckout(
       brand?.slug.toLowerCase() === "zoonetics" ||
       brand?.domain.toLowerCase().replace(/^www\./, "") === "zoonetics.co";
 
+    const isWholesale = wholesale?.status === "APPROVED";
+
     for (const item of input.items) {
       const quantity = Math.max(1, Math.floor(item.quantity));
       const mapping = await tx.storeMapping.findFirst({
@@ -214,6 +221,28 @@ export async function runCheckout(
         throw new CheckoutError(`Unknown or unpriced product: ${item.slug}`, "UNKNOWN_PRODUCT", { slug: item.slug });
       }
       const product = mapping.product;
+
+      if (isWholesale && quantity % 10 !== 0) {
+        throw new CheckoutError(
+          `Wholesale quantities must be ordered in 10-vial cases: ${item.slug}`,
+          "WHOLESALE_CASE_QUANTITY",
+          { slug: item.slug, caseSize: 10 },
+        );
+      }
+      if (isWholesale && mapping.wholesaleCasePriceCents == null) {
+        throw new CheckoutError(
+          `Wholesale case pricing is not available for ${item.slug}`,
+          "WHOLESALE_PRICE_UNAVAILABLE",
+          { slug: item.slug },
+        );
+      }
+      if (isWholesale && (mapping.wholesaleCasePriceCents as number) % 10 !== 0) {
+        throw new CheckoutError(
+          `Wholesale case pricing is invalid for ${item.slug}`,
+          "WHOLESALE_PRICE_UNAVAILABLE",
+          { slug: item.slug },
+        );
+      }
 
       // Dropshipping — if a supplier currently lists this product as
       // in-stock, this item is theirs to fulfill; sticks with the item
@@ -241,7 +270,9 @@ export async function runCheckout(
       // dealPriceCents/dealDate doc comment in schema.prisma).
       const dealActive = mapping.dealDate === utcDateString() && mapping.dealPriceCents != null;
       const retailUnitPriceCents = dealActive ? (mapping.dealPriceCents as number) : mapping.storePriceCents;
-      const unitPriceCents = getQuantityUnitPriceCents(retailUnitPriceCents, quantity);
+      const unitPriceCents = isWholesale
+        ? (mapping.wholesaleCasePriceCents as number) / 10
+        : getQuantityUnitPriceCents(retailUnitPriceCents, quantity);
       grossCentsTotal += unitPriceCents * quantity;
       cogsCentsTotal += product.cogsCents * quantity;
 
@@ -297,7 +328,6 @@ export async function runCheckout(
       });
     }
 
-    const isWholesale = wholesale?.status === "APPROVED";
     const marginPercent = org?.minMarginPercent ?? 30;
 
     const glpPromotion = (brand?.glpPairActive ?? true)

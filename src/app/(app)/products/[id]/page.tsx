@@ -274,6 +274,16 @@ export default async function ProductDetailPage({ params }: { params: { id: stri
                       className="w-24 text-xs border border-background-300 rounded px-2 py-1 bg-background-50"
                     />
                     <input
+                      name="wholesaleCasePrice"
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      defaultValue={m.wholesaleCasePriceCents != null ? (m.wholesaleCasePriceCents / 100).toFixed(2) : ""}
+                      placeholder="10-vial case"
+                      title="Approved wholesale buyer price for one 10-vial case"
+                      className="w-28 text-xs border border-background-300 rounded px-2 py-1 bg-background-50"
+                    />
+                    <input
                       name="slug"
                       defaultValue={m.slug ?? ""}
                       placeholder="slug"
@@ -298,6 +308,15 @@ export default async function ProductDetailPage({ params }: { params: { id: stri
                       required
                       placeholder="Retail price"
                       className="w-24 text-xs border border-background-300 rounded px-2 py-1 bg-background-50"
+                    />
+                    <input
+                      name="wholesaleCasePrice"
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      placeholder="10-vial case"
+                      title="Approved wholesale buyer price for one 10-vial case"
+                      className="w-28 text-xs border border-background-300 rounded px-2 py-1 bg-background-50"
                     />
                     <input
                       name="slug"

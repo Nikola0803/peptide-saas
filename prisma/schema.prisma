@@ -341,6 +341,9 @@ model StoreMapping {
   brandId           String
   externalProductId String // WooCommerce product ID on that store
   storePriceCents   Int?
+  // Approved wholesale partners buy sealed 10-vial cases only. This is
+  // the total price for one case, scoped to this brand just like retail.
+  wholesaleCasePriceCents Int?
 
   // For headless storefronts (see /api/store/checkout) that don't have a
   // WooCommerce product id to send — evlv-site's static catalog references

@@ -18,6 +18,9 @@ npm run build
 echo "==> Applying schema changes..."
 npx prisma db push
 
+echo "==> Syncing EVLV catalog, images, and wholesale case prices..."
+npm run db:sync:evlv-catalog
+
 if [ "${SYNC_EMAIL_TEMPLATES:-1}" != "0" ]; then
   echo "==> Syncing EVLV email templates..."
   npm run email:sync-defaults

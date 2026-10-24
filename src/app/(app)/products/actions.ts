@@ -179,6 +179,14 @@ export async function setStorePrice(productId: string, brandId: string, formData
 
   const price = Number(formData.get("price") ?? 0);
   if (!(price > 0)) throw new Error("Price must be greater than zero");
+  const wholesaleCasePriceInput = String(formData.get("wholesaleCasePrice") ?? "").trim();
+  const wholesaleCasePrice = wholesaleCasePriceInput ? Number(wholesaleCasePriceInput) : null;
+  if (wholesaleCasePrice != null && !(wholesaleCasePrice > 0)) {
+    throw new Error("Wholesale case price must be greater than zero");
+  }
+  if (wholesaleCasePrice != null && Math.round(wholesaleCasePrice * 100) % 10 !== 0) {
+    throw new Error("Wholesale case price must divide evenly across 10 vials");
+  }
   const slugInput = String(formData.get("slug") ?? "").trim();
   const slug = slugInput ? slugify(slugInput) : slugify(product.sku);
 
@@ -186,7 +194,12 @@ export async function setStorePrice(productId: string, brandId: string, formData
   if (existing) {
     await prisma.storeMapping.update({
       where: { id: existing.id },
-      data: { storePriceCents: Math.round(price * 100), slug, active: true },
+      data: {
+        storePriceCents: Math.round(price * 100),
+        wholesaleCasePriceCents: wholesaleCasePrice == null ? null : Math.round(wholesaleCasePrice * 100),
+        slug,
+        active: true,
+      },
     });
   } else {
     await prisma.storeMapping.create({
@@ -196,6 +209,7 @@ export async function setStorePrice(productId: string, brandId: string, formData
         externalProductId: slug,
         slug,
         storePriceCents: Math.round(price * 100),
+        wholesaleCasePriceCents: wholesaleCasePrice == null ? null : Math.round(wholesaleCasePrice * 100),
         active: true,
       },
     });

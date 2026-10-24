@@ -29,10 +29,37 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ status: partner?.status ?? "NONE" });
   }
 
+  const mappings = await prisma.storeMapping.findMany({
+    where: {
+      brandId: store.brandId,
+      active: true,
+      slug: { not: null },
+      wholesaleCasePriceCents: { not: null },
+    },
+    include: {
+      product: {
+        include: { supplierProducts: { where: { active: true, supplier: { active: true } }, take: 1 } },
+      },
+    },
+    orderBy: { product: { chemicalName: "asc" } },
+  });
+
   return NextResponse.json({
     status: "APPROVED",
     businessName: partner.businessName ?? undefined,
     notificationEmail: partner.notificationEmail ?? undefined,
+    products: mappings.map((mapping) => {
+      const stock = mapping.product.supplierProducts[0]?.stock ?? mapping.product.masterStock;
+      return {
+        slug: mapping.slug,
+        sku: mapping.product.sku,
+        name: mapping.product.chemicalName,
+        imageUrl: mapping.product.imageUrl ?? undefined,
+        caseSize: 10,
+        casePriceCents: mapping.wholesaleCasePriceCents,
+        availableCases: Math.floor(stock / 10),
+      };
+    }),
     invoices: partner.invoices.map((inv) => ({
       id: inv.id,
       label: inv.label,
