@@ -3,6 +3,18 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 const STORE_DOMAIN = "evlvpeptides.com";
 
+function canonicalStorefrontImageUrl(image: string | undefined): string | null {
+  if (!image) return null;
+  // The storefront's own product assets should always be stored once as a
+  // canonical absolute URL. Using lastIndexOf also repairs legacy values such
+  // as "https://evlvpeptides.comhttps://evlvpeptides.com/images/...".
+  const imagesMarker = "/images/";
+  const markerIndex = image.lastIndexOf(imagesMarker);
+  if (markerIndex >= 0) return `https://${STORE_DOMAIN}${image.slice(markerIndex)}`;
+  if (/^https?:\/\//i.test(image)) return image;
+  return `https://${STORE_DOMAIN}${image.startsWith("/") ? "" : "/"}${image}`;
+}
+
 type CatalogProduct = {
   slug: string;
   sku: string;
@@ -40,7 +52,7 @@ async function main() {
     const wholesaleCasePriceCents = Math.round(
       (item.bulkOption?.qty === 10 ? item.bulkOption.price : item.price * 9) * 100,
     );
-    const imageUrl = item.image ? `https://${STORE_DOMAIN}${item.image}` : null;
+    const imageUrl = canonicalStorefrontImageUrl(item.image);
     const product = await prisma.product.upsert({
       where: { organizationId_sku: { organizationId: org.id, sku: item.sku } },
       update: {
