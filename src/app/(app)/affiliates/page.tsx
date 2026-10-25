@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AffiliateQrCode } from "./affiliate-qr-code";
 import { requireOrg } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader, StatCard, Card, Badge, EmptyState } from "@/components/ui";
@@ -192,9 +193,16 @@ export default async function AffiliatesPage({ searchParams }: { searchParams?: 
                 <span className="font-mono text-foreground-800">{affiliate.couponCode}</span>
               </div>
               {storeBrand && (
-                <div className="mb-3 rounded-md bg-background-100 px-2 py-1.5 text-[11px] font-mono text-foreground-600 truncate">
-                  https://{storeBrand.domain}/?ref={affiliate.couponCode}
-                </div>
+                <>
+                  <div className="mb-3 rounded-md bg-background-100 px-2 py-1.5 text-[11px] font-mono text-foreground-600 truncate">
+                    https://{storeBrand.domain}/?ref={affiliate.couponCode}
+                  </div>
+                  <AffiliateQrCode
+                    affiliateName={affiliate.name}
+                    affiliateCode={affiliate.couponCode}
+                    referralUrl={`https://${storeBrand.domain}/?ref=${encodeURIComponent(affiliate.couponCode)}`}
+                  />
+                </>
               )}
 
               <div className="grid grid-cols-3 gap-2 pt-3 border-t border-background-200 text-center">
