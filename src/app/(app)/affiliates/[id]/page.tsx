@@ -5,7 +5,9 @@ import { prisma } from "@/lib/prisma";
 import { PageHeader, StatCard, Card, Badge } from "@/components/ui";
 import { money, dateTime } from "@/lib/format";
 import { affiliateLevelForRevenue } from "@/lib/affiliate-program";
-import { updateAffiliateProgram } from "../actions";
+import { getActiveBrand } from "@/lib/active-brand";
+import { AffiliateQrCode } from "../affiliate-qr-code";
+import { assignAffiliateOwner, updateAffiliateProgram } from "../actions";
 
 export default async function AffiliateDetailPage({ params }: { params: { id: string } }) {
   const { organization } = await requireOrg();
@@ -21,6 +23,7 @@ export default async function AffiliateDetailPage({ params }: { params: { id: st
     },
   });
   if (!affiliate) notFound();
+  const storeBrand = await getActiveBrand(organization.id) ?? await prisma.brand.findFirst({ where: { organizationId: organization.id, verifiedAt: { not: null } } });
 
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
   const [clicksTotal, clicks30d] = await Promise.all([
@@ -63,8 +66,9 @@ export default async function AffiliateDetailPage({ params }: { params: { id: st
           <h2 className="text-sm font-semibold text-foreground-950">Program controls</h2>
           <p className="mt-1 text-xs text-foreground-500">The assigned rate is split between the public customer reward and partner commission. Changes affect future orders only.</p>
           <form action={updateAffiliateProgram.bind(null, affiliate.id)} className="mt-5 grid gap-4 sm:grid-cols-2">
-            <label className="text-xs text-foreground-600">Public code
-              <input name="couponCode" required defaultValue={affiliate.couponCode} className="mt-1 w-full rounded border border-background-300 bg-background-50 px-3 py-2 font-mono uppercase" />
+            <label className="text-xs text-foreground-600">Permanent public code
+              <input name="couponCode" readOnly required defaultValue={affiliate.couponCode} className="mt-1 w-full cursor-not-allowed rounded border border-background-300 bg-background-100 px-3 py-2 font-mono uppercase text-foreground-600" />
+              <span className="mt-1 block text-[10px] text-foreground-500">Locked so already-printed QR codes never break.</span>
             </label>
             <label className="text-xs text-foreground-600">Status
               <select name="status" defaultValue={affiliate.status} className="mt-1 w-full rounded border border-background-300 bg-background-50 px-3 py-2">
@@ -93,6 +97,32 @@ export default async function AffiliateDetailPage({ params }: { params: { id: st
       </div>
 
       <div className="space-y-6">
+        {storeBrand && (
+          <Card className="p-5">
+            <h2 className="text-sm font-semibold text-foreground-950">Printable referral QR</h2>
+            <p className="mt-1 text-xs text-foreground-500">This URL and code remain permanent when an owner is assigned.</p>
+            <AffiliateQrCode affiliateName={affiliate.name} affiliateCode={affiliate.couponCode} referralUrl={`https://${storeBrand.domain}/?ref=${encodeURIComponent(affiliate.couponCode)}`} />
+          </Card>
+        )}
+        <Card className="p-5">
+          <h2 className="text-sm font-semibold text-foreground-950">Owner / placement assignment</h2>
+          <p className="mt-1 text-xs text-foreground-500">Leave contact fields empty while this is a printed blank. Assign or replace the owner later without changing its QR.</p>
+          <form action={assignAffiliateOwner.bind(null, affiliate.id)} className="mt-4 space-y-3">
+            <label className="block text-xs text-foreground-600">Owner, shop, or placement name
+              <input name="name" required defaultValue={affiliate.name} className="mt-1 w-full rounded border border-background-300 bg-background-50 px-3 py-2" />
+            </label>
+            <label className="block text-xs text-foreground-600">Owner email <span className="text-foreground-400">(optional)</span>
+              <input name="email" type="email" defaultValue={affiliate.email ?? ""} className="mt-1 w-full rounded border border-background-300 bg-background-50 px-3 py-2" />
+            </label>
+            <label className="block text-xs text-foreground-600">Phone <span className="text-foreground-400">(optional)</span>
+              <input name="phone" defaultValue={affiliate.phone ?? ""} className="mt-1 w-full rounded border border-background-300 bg-background-50 px-3 py-2" />
+            </label>
+            <label className="block text-xs text-foreground-600">Website or social link <span className="text-foreground-400">(optional)</span>
+              <input name="socialLink" type="url" defaultValue={affiliate.socialLink ?? ""} className="mt-1 w-full rounded border border-background-300 bg-background-50 px-3 py-2" />
+            </label>
+            <button className="rounded-md bg-primary-500 px-3 py-2 text-xs font-medium text-background-50 hover:bg-primary-600">Save owner assignment</button>
+          </form>
+        </Card>
         <Card className="p-5"><h2 className="text-sm font-semibold text-foreground-950">Level progress</h2><div className="mt-4 flex items-end justify-between"><div><p className="text-2xl font-semibold">{level.current.name}</p><p className="text-xs text-foreground-500">Current program level</p></div><span className="text-xs font-medium text-primary-700">{level.progressPercent}%</span></div><div className="mt-3 h-2 overflow-hidden rounded-full bg-background-200"><div className="h-full rounded-full bg-primary-500" style={{ width: `${level.progressPercent}%` }} /></div><p className="mt-3 text-xs text-foreground-500">{level.next ? `${money(level.revenueToNextCents)} confirmed revenue until ${level.next.name}` : "Top level reached"}</p></Card>
         <Card className="p-5"><h2 className="text-sm font-semibold text-foreground-950">Partner profile</h2><dl className="mt-4 space-y-3 text-xs">
           <Info label="Email" value={affiliate.email} /><Info label="Phone" value={affiliate.phone} /><Info label="Country" value={affiliate.country} /><Info label="Referred by" value={affiliate.referredBy} />

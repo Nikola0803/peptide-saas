@@ -7,6 +7,8 @@ import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/slugify";
 import { sendTemplate } from "@/lib/email";
 import { AFFILIATE_CODE_RE, normalizeAffiliateCode } from "@/lib/affiliate-program";
+import { createId } from "@/lib/id";
+import { getActiveBrand } from "@/lib/active-brand";
 
 export async function createAffiliate(formData: FormData) {
   const { organization } = await requireOrg();
@@ -36,6 +38,70 @@ export async function createAffiliate(formData: FormData) {
 
   revalidatePath("/affiliates");
   redirect("/affiliates");
+}
+
+export async function createBlankAffiliateQr(formData: FormData) {
+  const { organization } = await requireOrg();
+  const label = String(formData.get("label") ?? "").trim();
+  const ratePercent = Number(formData.get("ratePercent") ?? 0);
+  const customerDiscountPercent = Number(formData.get("customerDiscountPercent") ?? 0);
+
+  if (!Number.isFinite(ratePercent) || ratePercent < 0 || ratePercent > 40) throw new Error("Rate must be between 0% and 40%");
+  if (!Number.isInteger(customerDiscountPercent) || customerDiscountPercent < 0 || customerDiscountPercent > Math.min(30, Math.floor(ratePercent))) {
+    throw new Error("Customer discount must be a whole number no greater than the total assigned rate or 30%");
+  }
+
+  const activeBrand = await getActiveBrand(organization.id);
+  let couponCode = "";
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const candidate = `SHOP-${createId().slice(0, 8).toUpperCase()}`;
+    const [affiliateCollision, couponCollision] = await Promise.all([
+      prisma.affiliate.findFirst({ where: { organizationId: organization.id, couponCode: candidate }, select: { id: true } }),
+      prisma.coupon.findFirst({ where: { organizationId: organization.id, code: candidate }, select: { id: true } }),
+    ]);
+    if (!affiliateCollision && !couponCollision) {
+      couponCode = candidate;
+      break;
+    }
+  }
+  if (!couponCode) throw new Error("Could not generate a unique QR code");
+
+  const affiliate = await prisma.affiliate.create({
+    data: {
+      organizationId: organization.id,
+      sourceBrandId: activeBrand?.id,
+      name: label ? `Unassigned QR · ${label}` : `Unassigned QR · ${couponCode}`,
+      slug: `unassigned-${couponCode.toLowerCase()}`,
+      couponCode,
+      ratePercent,
+      customerDiscountPercent,
+      status: "APPROVED",
+    },
+  });
+
+  revalidatePath("/affiliates");
+  redirect(`/affiliates/${affiliate.id}`);
+}
+
+export async function assignAffiliateOwner(affiliateId: string, formData: FormData) {
+  const { organization } = await requireOrg();
+  const name = String(formData.get("name") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase() || null;
+  const phone = String(formData.get("phone") ?? "").trim() || null;
+  const socialLink = String(formData.get("socialLink") ?? "").trim() || null;
+
+  if (!name) throw new Error("Owner or placement name is required");
+  if (email) {
+    const collision = await prisma.affiliate.findFirst({ where: { email, id: { not: affiliateId } }, select: { id: true } });
+    if (collision) throw new Error("That email already belongs to another affiliate");
+  }
+
+  await prisma.affiliate.update({
+    where: { id: affiliateId, organizationId: organization.id },
+    data: { name, email, phone, socialLink },
+  });
+  revalidatePath("/affiliates");
+  revalidatePath(`/affiliates/${affiliateId}`);
 }
 
 export async function updateAffiliateProgram(affiliateId: string, formData: FormData) {

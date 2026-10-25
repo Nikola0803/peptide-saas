@@ -73,9 +73,14 @@ export default async function AffiliatesPage({ searchParams }: { searchParams?: 
         title="Affiliates"
         subtitle={`Coupon-driven referral tracking · ${activeBrand?.name ?? "all stores"}`}
         actions={
-          <Link href="/affiliates/new" className="text-sm border border-background-300 rounded-md px-3 py-1.5 text-foreground-800 hover:bg-background-100">
-            New affiliate
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/affiliates/blank" className="rounded-md bg-primary-500 px-3 py-1.5 text-sm font-medium text-background-50 hover:bg-primary-600">
+              Blank shop QR
+            </Link>
+            <Link href="/affiliates/new" className="rounded-md border border-background-300 px-3 py-1.5 text-sm text-foreground-800 hover:bg-background-100">
+              New affiliate
+            </Link>
+          </div>
         }
       />
 
