@@ -17,6 +17,7 @@ import {
 import { affiliateDiscountCents } from "@/lib/affiliate-program";
 import { REFERRAL_REWARD_CENTS } from "@/lib/customer-referral";
 import { JOIN25_PREFIX } from "@/lib/welcome-coupon";
+import { evaluateHalloweenBogo, halloweenPromotionIsLive, HALLOWEEN_BOGO_PROMOTION_CODE } from "@/lib/halloween-bogo-promotion";
 
 // "YYYY-MM-DD" in UTC -- the calendar day used to decide whether a
 // StoreMapping's Deal of the Day is currently active and to bucket
@@ -161,7 +162,7 @@ export async function runCheckout(
       tx.organization.findUnique({ where: { id: organizationId } }),
       tx.brand.findUnique({
         where: { id: brandId },
-        select: { slug: true, domain: true, researchSetActive: true, researchSetStartsAt: true, researchSetEndsAt: true, glpPairActive: true },
+        select: { slug: true, domain: true, researchSetActive: true, researchSetStartsAt: true, researchSetEndsAt: true, glpPairActive: true, halloweenBogoActive: true, halloweenStartsAt: true, halloweenEndsAt: true, halloweenFreeShippingCents: true },
       }),
       tx.wholesalePartner.findUnique({ where: { contactId: contact.id }, select: { status: true } }),
       tx.order.findFirst({
@@ -332,9 +333,15 @@ export async function runCheckout(
     const marginPercent = org?.minMarginPercent ?? 30;
     const autoApplyCodes = await getAutoApplyCodes(organizationId, contact.id);
     const join25Codes = autoApplyCodes.filter((code) => code.toUpperCase().startsWith(JOIN25_PREFIX));
-    const hasExclusiveJoin25 = join25Codes.length > 0;
+    const halloweenPromotion = evaluateHalloweenBogo(couponCartItems, {
+      active: brand?.halloweenBogoActive ?? false,
+      startsAt: brand?.halloweenStartsAt,
+      endsAt: brand?.halloweenEndsAt,
+      isWholesale,
+    });
+    const hasExclusiveJoin25 = join25Codes.length > 0 && !halloweenPromotion.applies;
 
-    const glpPromotion = !hasExclusiveJoin25 && (brand?.glpPairActive ?? true)
+    const glpPromotion = !hasExclusiveJoin25 && !halloweenPromotion.applies && (brand?.glpPairActive ?? true)
       ? evaluateGlpPairPromotion(promotionItems, {
           alreadyRedeemed: Boolean(priorPromotionOrder),
           isWholesale,
@@ -359,7 +366,7 @@ export async function runCheckout(
       unitPriceCents: item.unitPriceCents,
       cogsCents: item.cogsCents,
     }));
-    const researchSetPromotion = !hasExclusiveJoin25 && !glpPromotion.applies
+    const researchSetPromotion = !hasExclusiveJoin25 && !halloweenPromotion.applies && !glpPromotion.applies
       ? evaluateResearchSetPromotion(researchSetItems, {
           active: brand?.researchSetActive ?? false,
           startsAt: brand?.researchSetStartsAt ?? null,
@@ -369,7 +376,7 @@ export async function runCheckout(
         })
       : { applies: false as const };
 
-    const promotion = glpPromotion.applies ? glpPromotion : researchSetPromotion;
+    const promotion = halloweenPromotion.applies ? halloweenPromotion : glpPromotion.applies ? glpPromotion : researchSetPromotion;
 
     let effectiveReferral = customerReferral;
     if (!hasExclusiveJoin25 && !effectiveReferral && referralCodeOwner && referralCodeOwner.id !== contact.id && !priorCustomerOrder) {
@@ -414,8 +421,9 @@ export async function runCheckout(
       ? REFERRAL_REWARD_CENTS
       : 0;
     let couponId: string | undefined;
-    let appliedCouponCodes: string | undefined = glpPromotion.applies
-      ? GLP_PAIR_PROMOTION_CODE
+    let appliedCouponCodes: string | undefined = halloweenPromotion.applies
+      ? HALLOWEEN_BOGO_PROMOTION_CODE
+      : glpPromotion.applies ? GLP_PAIR_PROMOTION_CODE
       : researchSetPromotion.applies
       ? RESEARCH_SET_PROMOTION_CODE
       : eligibleReferral
@@ -468,7 +476,15 @@ export async function runCheckout(
 
     // Calculated after discounts so the free-shipping threshold matches the
     // amount the customer actually owes for products.
-    const shippingCents = grossCentsTotal >= FREE_SHIPPING_THRESHOLD_CENTS ? 0 : FLAT_SHIPPING_CENTS;
+    const halloweenLive = halloweenPromotionIsLive({
+      active: brand?.halloweenBogoActive ?? false,
+      startsAt: brand?.halloweenStartsAt,
+      endsAt: brand?.halloweenEndsAt,
+    });
+    const freeShippingThresholdCents = halloweenLive
+      ? (brand?.halloweenFreeShippingCents ?? FREE_SHIPPING_THRESHOLD_CENTS)
+      : FREE_SHIPPING_THRESHOLD_CENTS;
+    const shippingCents = grossCentsTotal >= freeShippingThresholdCents ? 0 : FLAT_SHIPPING_CENTS;
 
     const merchantFeeCents = Math.round((grossCentsTotal * MERCHANT_FEE_PERCENT) / 100) + MERCHANT_FEE_FIXED_CENTS;
     const netProfitCents = grossCentsTotal - cogsCentsTotal - merchantFeeCents - commissionCents;

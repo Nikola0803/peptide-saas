@@ -67,6 +67,12 @@ export default async function PromotionsPage() {
           const rsEndsVal = brand.researchSetEndsAt
             ? brand.researchSetEndsAt.toISOString().slice(0, 16)
             : "";
+          const halloweenStartsVal = brand.halloweenStartsAt
+            ? brand.halloweenStartsAt.toISOString().slice(0, 16)
+            : "2026-10-26T06:00";
+          const halloweenEndsVal = brand.halloweenEndsAt
+            ? brand.halloweenEndsAt.toISOString().slice(0, 16)
+            : "2026-11-01T06:00";
 
           return (
             <div key={brand.id} className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -150,6 +156,35 @@ export default async function PromotionsPage() {
                   take effect immediately on the next cart validation, no deploy needed.
                 </p>
                 <form action={saveCampaignWithBrand} className="space-y-4">
+                  <fieldset className="rounded-lg border-2 border-orange-300 bg-gradient-to-br from-orange-50 to-purple-50 px-4 py-4 shadow-sm">
+                    <legend className="px-2 text-sm font-bold text-orange-900">
+                      Halloween Unlimited BOGO
+                    </legend>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <label className="flex items-center gap-2 text-xs font-semibold text-foreground-800">
+                        <input type="checkbox" name="halloweenBogoActive" defaultChecked={brand.halloweenBogoActive} />
+                        Activate unlimited same-item BOGO
+                      </label>
+                      <label className="flex items-center gap-2 text-xs font-semibold text-foreground-800">
+                        <input type="checkbox" name="halloweenThemeActive" defaultChecked={brand.halloweenThemeActive} />
+                        Activate Halloween storefront theme
+                      </label>
+                    </div>
+                    <p className="mt-2 text-xs leading-relaxed text-foreground-600">
+                      Every second unit of the same product and strength is free. Four units receive two free, six receive three free. The offer is retail-only and cannot stack.
+                    </p>
+                    <div className="mt-3 grid gap-2 md:grid-cols-2">
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-foreground-600">Starts (UTC)</label>
+                        <input name="halloweenStartsAt" type="datetime-local" defaultValue={halloweenStartsVal} className="w-full rounded border border-background-300 bg-white px-2 py-1.5 text-xs" />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-foreground-600">Ends (UTC)</label>
+                        <input name="halloweenEndsAt" type="datetime-local" defaultValue={halloweenEndsVal} className="w-full rounded border border-background-300 bg-white px-2 py-1.5 text-xs" />
+                      </div>
+                    </div>
+                    <p className="mt-2 text-xs font-medium text-foreground-600">Free priority shipping remains automatic at $300 after the BOGO discount.</p>
+                  </fieldset>
                   <fieldset className="border border-background-300 rounded-md px-3 py-2.5 space-y-2">
                     <legend className="text-xs font-semibold text-foreground-700 px-1">
                       Build Your Research Set (30% off — choose 3+)

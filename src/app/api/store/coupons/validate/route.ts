@@ -21,6 +21,7 @@ import {
 } from "@/lib/research-set-promotion";
 import { affiliateDiscountCents } from "@/lib/affiliate-program";
 import { JOIN25_PREFIX, JOIN25_PERCENT } from "@/lib/welcome-coupon";
+import { evaluateHalloweenBogo, HALLOWEEN_BOGO_PROMOTION_CODE, HALLOWEEN_BOGO_PROMOTION_ID, HALLOWEEN_BOGO_PROMOTION_LABEL } from "@/lib/halloween-bogo-promotion";
 
 const bodySchema = z.object({
   items: z.array(z.object({ slug: z.string().min(1), quantity: z.number().int().positive() })).min(1),
@@ -99,7 +100,7 @@ export async function POST(req: NextRequest) {
     prisma.organization.findUnique({ where: { id: store.organizationId } }),
     prisma.brand.findUnique({
       where: { id: store.brandId },
-      select: { researchSetActive: true, researchSetStartsAt: true, researchSetEndsAt: true, glpPairActive: true },
+      select: { researchSetActive: true, researchSetStartsAt: true, researchSetEndsAt: true, glpPairActive: true, halloweenBogoActive: true, halloweenStartsAt: true, halloweenEndsAt: true },
     }),
     contactId
       ? prisma.wholesalePartner.findUnique({ where: { contactId }, select: { status: true } })
@@ -119,11 +120,32 @@ export async function POST(req: NextRequest) {
   const isWholesale = wholesale?.status === "APPROVED";
   const marginPercent = org?.minMarginPercent ?? 30;
 
-  // /join25 is an account-bound acquisition offer. It always wins over
-  // event promotions, affiliate/referral codes, and manually entered
-  // coupons so the customer sees one deterministic, non-stackable total.
   const autoApplyCodes = await getAutoApplyCodes(store.organizationId, contactId);
   const join25Code = autoApplyCodes.find((code) => code.toUpperCase().startsWith(JOIN25_PREFIX));
+  const halloweenPromotion = evaluateHalloweenBogo(couponCartItems, {
+    active: brand?.halloweenBogoActive ?? false,
+    startsAt: brand?.halloweenStartsAt,
+    endsAt: brand?.halloweenEndsAt,
+    isWholesale,
+  });
+  if (halloweenPromotion.applies) {
+    return NextResponse.json({
+      valid: true,
+      discountCents: halloweenPromotion.discountCents,
+      subtotalCents: halloweenPromotion.subtotalCents,
+      totalCents: halloweenPromotion.totalCents,
+      appliedCoupons: [{ code: HALLOWEEN_BOGO_PROMOTION_CODE, label: HALLOWEEN_BOGO_PROMOTION_LABEL }],
+      automaticPromotion: HALLOWEEN_BOGO_PROMOTION_ID,
+      promotionLabel: `${HALLOWEEN_BOGO_PROMOTION_LABEL} · ${halloweenPromotion.freeUnits} free`,
+      flooredByMargin: false,
+      maximumDiscountPercent: 50,
+      stackingDisabled: true,
+      errors: [],
+    });
+  }
+
+  // Personal JOIN25 remains unused while the stronger seasonal BOGO is
+  // active, then resumes auto-applying after the event.
   if (join25Code) {
     const { coupons } = await resolveCoupons(store.organizationId, [join25Code], subtotalCents, contactId);
     const evaluation = evaluateCoupons(coupons, couponCartItems, marginPercent, 30);

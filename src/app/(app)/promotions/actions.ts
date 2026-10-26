@@ -67,6 +67,10 @@ export async function saveCampaignPromotion(brandId: string, formData: FormData)
   const glpPairActive = formData.get("glpPairActive") === "on";
   const researchSetStartsStr = str(formData, "researchSetStartsAt");
   const researchSetEndsStr = str(formData, "researchSetEndsAt");
+  const halloweenBogoActive = formData.get("halloweenBogoActive") === "on";
+  const halloweenThemeActive = formData.get("halloweenThemeActive") === "on";
+  const halloweenStartsStr = str(formData, "halloweenStartsAt");
+  const halloweenEndsStr = str(formData, "halloweenEndsAt");
 
   await prisma.brand.update({
     where: { id: brandId },
@@ -75,6 +79,11 @@ export async function saveCampaignPromotion(brandId: string, formData: FormData)
       glpPairActive,
       researchSetStartsAt: researchSetStartsStr ? new Date(researchSetStartsStr) : null,
       researchSetEndsAt: researchSetEndsStr ? new Date(researchSetEndsStr) : null,
+      halloweenBogoActive,
+      halloweenThemeActive,
+      halloweenStartsAt: halloweenStartsStr ? new Date(halloweenStartsStr) : null,
+      halloweenEndsAt: halloweenEndsStr ? new Date(halloweenEndsStr) : null,
+      halloweenFreeShippingCents: 30000,
     },
   });
 

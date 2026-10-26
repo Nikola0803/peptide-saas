@@ -198,6 +198,11 @@ model Brand {
   researchSetEndsAt   DateTime?
   // Force-disable the GLP pair event (overrides the hardcoded date window).
   glpPairActive       Boolean   @default(true)
+  halloweenBogoActive Boolean   @default(false)
+  halloweenThemeActive Boolean  @default(false)
+  halloweenStartsAt   DateTime?
+  halloweenEndsAt     DateTime?
+  halloweenFreeShippingCents Int @default(30000)
 
   @@unique([organizationId, slug])
 }
