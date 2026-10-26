@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { resolveHeaderOverride } from "@/lib/store-context";
 import { hashPassword, signCustomerToken } from "@/lib/customer-auth";
 import { sendTemplate } from "@/lib/email";
-import { ensureWelcomeCoupon } from "@/lib/welcome-coupon";
+import { ensureJoin25Coupon, ensureWelcomeCoupon, JOIN25_PERCENT } from "@/lib/welcome-coupon";
 import { attachReferralAtRegistration, ensureReferralCode } from "@/lib/customer-referral";
 
 const bodySchema = z.object({
@@ -13,6 +13,7 @@ const bodySchema = z.object({
   name: z.string().optional(),
   marketingOptIn: z.boolean().optional(),
   referralCode: z.string().trim().max(80).optional(),
+  offer: z.enum(["JOIN25"]).optional(),
 });
 
 // POST /api/store/auth/register
@@ -58,8 +59,13 @@ export async function POST(req: NextRequest) {
   });
   const referralCode = await ensureReferralCode(contact.id);
 
-  const couponCode = await ensureWelcomeCoupon(store.organizationId, contact.id, email);
-  const welcomeDiscountPercent = couponCode.toUpperCase().startsWith("WELCOME20-") ? 20 : 10;
+  const isJoin25 = parsed.data.offer === "JOIN25";
+  const couponCode = isJoin25
+    ? await ensureJoin25Coupon(store.organizationId, contact.id, email)
+    : await ensureWelcomeCoupon(store.organizationId, contact.id, email);
+  const welcomeDiscountPercent = isJoin25
+    ? JOIN25_PERCENT
+    : couponCode.toUpperCase().startsWith("WELCOME20-") ? 20 : 10;
 
   sendTemplate(store.organizationId, "welcome_customer", email, {
     customerName: contact.name || email,

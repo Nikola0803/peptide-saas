@@ -16,6 +16,7 @@ import {
 } from "@/lib/research-set-promotion";
 import { affiliateDiscountCents } from "@/lib/affiliate-program";
 import { REFERRAL_REWARD_CENTS } from "@/lib/customer-referral";
+import { JOIN25_PREFIX } from "@/lib/welcome-coupon";
 
 // "YYYY-MM-DD" in UTC -- the calendar day used to decide whether a
 // StoreMapping's Deal of the Day is currently active and to bucket
@@ -329,8 +330,11 @@ export async function runCheckout(
     }
 
     const marginPercent = org?.minMarginPercent ?? 30;
+    const autoApplyCodes = await getAutoApplyCodes(organizationId, contact.id);
+    const join25Codes = autoApplyCodes.filter((code) => code.toUpperCase().startsWith(JOIN25_PREFIX));
+    const hasExclusiveJoin25 = join25Codes.length > 0;
 
-    const glpPromotion = (brand?.glpPairActive ?? true)
+    const glpPromotion = !hasExclusiveJoin25 && (brand?.glpPairActive ?? true)
       ? evaluateGlpPairPromotion(promotionItems, {
           alreadyRedeemed: Boolean(priorPromotionOrder),
           isWholesale,
@@ -355,7 +359,7 @@ export async function runCheckout(
       unitPriceCents: item.unitPriceCents,
       cogsCents: item.cogsCents,
     }));
-    const researchSetPromotion = !glpPromotion.applies
+    const researchSetPromotion = !hasExclusiveJoin25 && !glpPromotion.applies
       ? evaluateResearchSetPromotion(researchSetItems, {
           active: brand?.researchSetActive ?? false,
           startsAt: brand?.researchSetStartsAt ?? null,
@@ -368,7 +372,7 @@ export async function runCheckout(
     const promotion = glpPromotion.applies ? glpPromotion : researchSetPromotion;
 
     let effectiveReferral = customerReferral;
-    if (!effectiveReferral && referralCodeOwner && referralCodeOwner.id !== contact.id && !priorCustomerOrder) {
+    if (!hasExclusiveJoin25 && !effectiveReferral && referralCodeOwner && referralCodeOwner.id !== contact.id && !priorCustomerOrder) {
       effectiveReferral = await tx.customerReferral.create({
         data: { organizationId, brandId, referrerContactId: referralCodeOwner.id, friendContactId: contact.id },
         select: { id: true, referrerContactId: true, referredOrderId: true },
@@ -378,12 +382,12 @@ export async function runCheckout(
       effectiveReferral && referralCodeOwner && effectiveReferral.referrerContactId === referralCodeOwner.id,
     );
     const maximumReferralDiscount = Math.max(0, grossCentsTotal - Math.ceil(cogsCentsTotal * (1 + marginPercent / 100)));
-    const eligibleReferral = !promotion.applies && referralCodeMatches && !effectiveReferral?.referredOrderId && !priorCustomerOrder
+    const eligibleReferral = !hasExclusiveJoin25 && !promotion.applies && referralCodeMatches && !effectiveReferral?.referredOrderId && !priorCustomerOrder
       && maximumReferralDiscount >= REFERRAL_REWARD_CENTS
       ? effectiveReferral
       : null;
 
-    const affiliate = input.couponCode && !promotion.applies && !eligibleReferral
+    const affiliate = input.couponCode && !hasExclusiveJoin25 && !promotion.applies && !eligibleReferral
       ? await tx.affiliate.findFirst({
           where: {
             organizationId,
@@ -431,8 +435,11 @@ export async function runCheckout(
     // contact -- see Coupon.assignedContactId) go first, so a non-stackable
     // personal deal wins over a generic code the customer happens to also
     // type in, and is applied even if they never enter anything at all.
-    const autoApplyCodes = promotion.applies || eligibleAffiliate || eligibleReferral ? [] : await getAutoApplyCodes(organizationId, contact.id);
-    const requestedCodes = promotion.applies || eligibleAffiliate || eligibleReferral ? [] : [...autoApplyCodes, ...(input.discountCodes?.filter(Boolean) ?? [])];
+    const requestedCodes = hasExclusiveJoin25
+      ? join25Codes
+      : promotion.applies || eligibleAffiliate || eligibleReferral
+      ? []
+      : [...autoApplyCodes, ...(input.discountCodes?.filter(Boolean) ?? [])];
     if (!promotion.applies && !eligibleAffiliate && !eligibleReferral && requestedCodes.length > 0) {
       const maximumDiscountPercent = wholesale?.status === "APPROVED" ? 40 : 30;
       const { coupons } = await resolveCoupons(organizationId, requestedCodes, grossCentsTotal, contact.id);

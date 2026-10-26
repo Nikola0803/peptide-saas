@@ -20,6 +20,7 @@ import {
   RESEARCH_SET_PROMOTION_LABEL,
 } from "@/lib/research-set-promotion";
 import { affiliateDiscountCents } from "@/lib/affiliate-program";
+import { JOIN25_PREFIX, JOIN25_PERCENT } from "@/lib/welcome-coupon";
 
 const bodySchema = z.object({
   items: z.array(z.object({ slug: z.string().min(1), quantity: z.number().int().positive() })).min(1),
@@ -117,6 +118,29 @@ export async function POST(req: NextRequest) {
     : false;
   const isWholesale = wholesale?.status === "APPROVED";
   const marginPercent = org?.minMarginPercent ?? 30;
+
+  // /join25 is an account-bound acquisition offer. It always wins over
+  // event promotions, affiliate/referral codes, and manually entered
+  // coupons so the customer sees one deterministic, non-stackable total.
+  const autoApplyCodes = await getAutoApplyCodes(store.organizationId, contactId);
+  const join25Code = autoApplyCodes.find((code) => code.toUpperCase().startsWith(JOIN25_PREFIX));
+  if (join25Code) {
+    const { coupons } = await resolveCoupons(store.organizationId, [join25Code], subtotalCents, contactId);
+    const evaluation = evaluateCoupons(coupons, couponCartItems, marginPercent, 30);
+    return NextResponse.json({
+      valid: true,
+      discountCents: evaluation.discountCents,
+      subtotalCents,
+      totalCents: Math.max(0, subtotalCents - evaluation.discountCents),
+      appliedCoupons: evaluation.appliedCoupons,
+      automaticPromotion: "JOIN25_FIRST_ORDER",
+      promotionLabel: `${JOIN25_PERCENT}% first-order flyer reward applied`,
+      flooredByMargin: evaluation.flooredByMargin,
+      maximumDiscountPercent: 30,
+      stackingDisabled: true,
+      errors: [],
+    });
+  }
 
   // GLP Pair event — second same-item 70% off. Overridden by glpPairActive flag.
   const glpPromotion = (brand?.glpPairActive ?? true)
@@ -244,7 +268,6 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const autoApplyCodes = await getAutoApplyCodes(store.organizationId, contactId);
   const codes = [
     ...autoApplyCodes,
     ...(parsed.data.code ? [parsed.data.code] : []),

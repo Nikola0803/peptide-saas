@@ -2,6 +2,8 @@ import { prisma } from "@/lib/prisma";
 
 const WELCOME_PREFIXES = ["WELCOME20-", "WELCOME10-"] as const;
 const NEW_WELCOME_PERCENT = 10;
+export const JOIN25_PREFIX = "JOIN25-";
+export const JOIN25_PERCENT = 25;
 
 /** One personal, single-use reward shared by signup and account creation. */
 export async function ensureWelcomeCoupon(organizationId: string, contactId: string, email: string) {
@@ -39,6 +41,64 @@ export async function ensureWelcomeCoupon(organizationId: string, contactId: str
       type: "PERCENT",
       percentOff: NEW_WELCOME_PERCENT,
       allowStacking: true,
+      maxRedemptions: 1,
+      assignedContactId: contactId,
+    },
+    select: { code: true },
+  });
+  return coupon.code;
+}
+
+/**
+ * Personal flyer offer issued only through /join25 registration.
+ *
+ * It is deliberately account-bound, single-use, and non-stackable. Any
+ * unused welcome coupon previously attached to the same contact is disabled
+ * so checkout has one unambiguous first-order reward to auto-apply.
+ */
+export async function ensureJoin25Coupon(organizationId: string, contactId: string, email: string) {
+  const existing = await prisma.coupon.findFirst({
+    where: {
+      organizationId,
+      assignedContactId: contactId,
+      code: { startsWith: JOIN25_PREFIX },
+    },
+  });
+
+  await prisma.coupon.updateMany({
+    where: {
+      organizationId,
+      assignedContactId: contactId,
+      redemptionCount: 0,
+      OR: WELCOME_PREFIXES.map((prefix) => ({ code: { startsWith: prefix } })),
+    },
+    data: { active: false },
+  });
+
+  if (existing) {
+    const updated = await prisma.coupon.update({
+      where: { id: existing.id },
+      data: {
+        active: existing.redemptionCount < 1,
+        description: `25% flyer first-purchase reward -- ${email}`,
+        type: "PERCENT",
+        percentOff: JOIN25_PERCENT,
+        allowStacking: false,
+        maxRedemptions: 1,
+      },
+      select: { code: true },
+    });
+    return updated.code;
+  }
+
+  const coupon = await prisma.coupon.create({
+    data: {
+      organizationId,
+      code: `${JOIN25_PREFIX}${contactId.slice(-8).toUpperCase()}`,
+      description: `25% flyer first-purchase reward -- ${email}`,
+      type: "PERCENT",
+      percentOff: JOIN25_PERCENT,
+      allowStacking: false,
       maxRedemptions: 1,
       assignedContactId: contactId,
     },
