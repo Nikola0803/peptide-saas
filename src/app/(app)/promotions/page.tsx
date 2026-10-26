@@ -155,7 +155,7 @@ export default async function PromotionsPage() {
                   Automatic storefront discounts — active flag is the real gate; date guards are optional. Changes
                   take effect immediately on the next cart validation, no deploy needed.
                 </p>
-                <form action={saveCampaignWithBrand} className="space-y-4">
+                <form action={saveCampaignWithBrand} className="grid grid-cols-1 gap-4 xl:grid-cols-3">
                   <fieldset className="rounded-lg border-2 border-orange-300 bg-gradient-to-br from-orange-50 to-purple-50 px-4 py-4 shadow-sm">
                     <legend className="px-2 text-sm font-bold text-orange-900">
                       Halloween Unlimited BOGO
@@ -225,7 +225,7 @@ export default async function PromotionsPage() {
                     </label>
                   </fieldset>
 
-                  <button className="text-sm bg-primary-500 text-background-50 rounded-md px-3 py-1.5 font-medium hover:bg-primary-600">
+                  <button className="justify-self-start text-sm bg-primary-500 text-background-50 rounded-md px-3 py-1.5 font-medium hover:bg-primary-600 xl:col-span-3">
                     Save campaign settings
                   </button>
                 </form>
