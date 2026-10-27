@@ -607,17 +607,20 @@ export async function runCheckout(
     email: contactEmail,
     createdAt: new Date().toISOString(),
     currency: "USD",
-    orderSum: parseFloat(((grossCentsTotal + shippingCents) / 100).toFixed(2)),
-    subTotalSum: parseFloat((grossCentsTotal / 100).toFixed(2)),
-    shippingSum: parseFloat((shippingCents / 100).toFixed(2)),
+    // Omnisend v3 money fields are integer cents. Sending decimal dollars
+    // produces a 422 and prevents order/revenue automations from updating.
+    orderSum: grossCentsTotal + shippingCents,
+    subTotalSum: grossCentsTotal,
+    shippingSum: shippingCents,
+    paymentMethod: input.paymentMethod,
     paymentStatus: "awaitingPayment",
     fulfillmentStatus: "unfulfilled",
     products: resolvedItems.map((item) => ({
       productID: item.productId,
       sku: item.sku,
-      name: item.name,
+      title: item.name,
       quantity: item.quantity,
-      price: parseFloat((item.unitPriceCents / 100).toFixed(2)),
+      price: item.unitPriceCents,
     })),
   }).catch((err) => console.error("Omnisend order push failed", err));
 

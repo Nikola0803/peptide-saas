@@ -36,8 +36,9 @@ export async function pushContactToOmnisend(email: string, opts?: { firstName?: 
 export interface OmnisendOrderItem {
   productID: string;
   sku: string;
-  name: string;
+  title: string;
   quantity: number;
+  // Omnisend v3 requires integer minor units, not decimal dollars.
   price: number;
 }
 
@@ -49,6 +50,9 @@ export interface OmnisendOrderInput {
   orderSum: number;
   subTotalSum: number;
   shippingSum: number;
+  discountSum?: number;
+  discountCode?: string;
+  paymentMethod?: string;
   paymentStatus: "awaitingPayment" | "paid" | "voided" | "partiallyRefunded" | "refunded";
   fulfillmentStatus: "unfulfilled" | "inProgress" | "fulfilled" | "restocked";
   products: OmnisendOrderItem[];
@@ -77,6 +81,9 @@ export async function pushOrderToOmnisend(input: OmnisendOrderInput): Promise<bo
         orderSum: input.orderSum,
         subTotalSum: input.subTotalSum,
         shippingSum: input.shippingSum,
+        discountSum: input.discountSum,
+        discountCode: input.discountCode,
+        paymentMethod: input.paymentMethod,
         paymentStatus: input.paymentStatus,
         fulfillmentStatus: input.fulfillmentStatus,
         products: input.products,
