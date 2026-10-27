@@ -21,7 +21,7 @@ import {
 } from "@/lib/research-set-promotion";
 import { affiliateDiscountCents } from "@/lib/affiliate-program";
 import { JOIN25_PREFIX, JOIN25_PERCENT } from "@/lib/welcome-coupon";
-import { evaluateHalloweenBogo, HALLOWEEN_BOGO_PROMOTION_CODE, HALLOWEEN_BOGO_PROMOTION_ID, HALLOWEEN_BOGO_PROMOTION_LABEL } from "@/lib/halloween-bogo-promotion";
+import { evaluateHalloweenBogo, evlvHalloweenPromotionOptions, HALLOWEEN_BOGO_PROMOTION_CODE, HALLOWEEN_BOGO_PROMOTION_ID, HALLOWEEN_BOGO_PROMOTION_LABEL } from "@/lib/halloween-bogo-promotion";
 
 const bodySchema = z.object({
   items: z.array(z.object({ slug: z.string().min(1), quantity: z.number().int().positive() })).min(1),
@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
     prisma.organization.findUnique({ where: { id: store.organizationId } }),
     prisma.brand.findUnique({
       where: { id: store.brandId },
-      select: { researchSetActive: true, researchSetStartsAt: true, researchSetEndsAt: true, glpPairActive: true, halloweenBogoActive: true, halloweenStartsAt: true, halloweenEndsAt: true },
+      select: { domain: true, researchSetActive: true, researchSetStartsAt: true, researchSetEndsAt: true, glpPairActive: true, halloweenBogoActive: true, halloweenStartsAt: true, halloweenEndsAt: true },
     }),
     contactId
       ? prisma.wholesalePartner.findUnique({ where: { contactId }, select: { status: true } })
@@ -123,9 +123,12 @@ export async function POST(req: NextRequest) {
   const autoApplyCodes = await getAutoApplyCodes(store.organizationId, contactId);
   const join25Code = autoApplyCodes.find((code) => code.toUpperCase().startsWith(JOIN25_PREFIX));
   const halloweenPromotion = evaluateHalloweenBogo(couponCartItems, {
-    active: brand?.halloweenBogoActive ?? false,
-    startsAt: brand?.halloweenStartsAt,
-    endsAt: brand?.halloweenEndsAt,
+    ...evlvHalloweenPromotionOptions({
+      active: brand?.halloweenBogoActive ?? false,
+      startsAt: brand?.halloweenStartsAt,
+      endsAt: brand?.halloweenEndsAt,
+      brandDomain: brand?.domain,
+    }),
     isWholesale,
   });
   if (halloweenPromotion.applies) {

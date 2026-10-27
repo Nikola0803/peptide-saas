@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveHeaderOverride } from "@/lib/store-context";
 import { prisma } from "@/lib/prisma";
-import { halloweenPromotionIsLive } from "@/lib/halloween-bogo-promotion";
+import { evlvHalloweenPromotionOptions, halloweenPromotionIsLive } from "@/lib/halloween-bogo-promotion";
 
 export async function GET(req: NextRequest) {
   const store = await resolveHeaderOverride(req);
@@ -15,20 +15,24 @@ export async function GET(req: NextRequest) {
       halloweenStartsAt: true,
       halloweenEndsAt: true,
       halloweenFreeShippingCents: true,
+      domain: true,
     },
   });
-  const live = Boolean(brand && halloweenPromotionIsLive({
+  if (!brand) return NextResponse.json({ error: "Brand not found" }, { status: 404 });
+  const halloween = evlvHalloweenPromotionOptions({
     active: brand.halloweenBogoActive,
     startsAt: brand.halloweenStartsAt,
     endsAt: brand.halloweenEndsAt,
-  }));
+    brandDomain: brand.domain,
+  });
+  const live = halloweenPromotionIsLive(halloween);
 
   return NextResponse.json({
     halloween: {
       live,
-      themeActive: live && Boolean(brand?.halloweenThemeActive),
-      startsAt: brand?.halloweenStartsAt?.toISOString() ?? null,
-      endsAt: brand?.halloweenEndsAt?.toISOString() ?? null,
+      themeActive: live && Boolean(halloween.forceLiveFromCode || brand?.halloweenThemeActive),
+      startsAt: halloween.startsAt?.toISOString() ?? null,
+      endsAt: halloween.endsAt?.toISOString() ?? null,
       freeShippingThresholdCents: brand?.halloweenFreeShippingCents ?? 30000,
       promotionId: "HALLOWEEN_BOGO_2026",
       headline: "Buy one, get one free",

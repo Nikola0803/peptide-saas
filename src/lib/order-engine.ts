@@ -17,7 +17,7 @@ import {
 import { affiliateDiscountCents } from "@/lib/affiliate-program";
 import { REFERRAL_REWARD_CENTS } from "@/lib/customer-referral";
 import { JOIN25_PREFIX } from "@/lib/welcome-coupon";
-import { evaluateHalloweenBogo, halloweenPromotionIsLive, HALLOWEEN_BOGO_PROMOTION_CODE } from "@/lib/halloween-bogo-promotion";
+import { evaluateHalloweenBogo, evlvHalloweenPromotionOptions, halloweenPromotionIsLive, HALLOWEEN_BOGO_PROMOTION_CODE } from "@/lib/halloween-bogo-promotion";
 
 // "YYYY-MM-DD" in UTC -- the calendar day used to decide whether a
 // StoreMapping's Deal of the Day is currently active and to bucket
@@ -333,10 +333,14 @@ export async function runCheckout(
     const marginPercent = org?.minMarginPercent ?? 30;
     const autoApplyCodes = await getAutoApplyCodes(organizationId, contact.id);
     const join25Codes = autoApplyCodes.filter((code) => code.toUpperCase().startsWith(JOIN25_PREFIX));
-    const halloweenPromotion = evaluateHalloweenBogo(couponCartItems, {
+    const halloweenWindow = evlvHalloweenPromotionOptions({
       active: brand?.halloweenBogoActive ?? false,
       startsAt: brand?.halloweenStartsAt,
       endsAt: brand?.halloweenEndsAt,
+      brandDomain: brand?.domain,
+    });
+    const halloweenPromotion = evaluateHalloweenBogo(couponCartItems, {
+      ...halloweenWindow,
       isWholesale,
     });
     const hasExclusiveJoin25 = join25Codes.length > 0 && !halloweenPromotion.applies;
@@ -476,11 +480,7 @@ export async function runCheckout(
 
     // Calculated after discounts so the free-shipping threshold matches the
     // amount the customer actually owes for products.
-    const halloweenLive = halloweenPromotionIsLive({
-      active: brand?.halloweenBogoActive ?? false,
-      startsAt: brand?.halloweenStartsAt,
-      endsAt: brand?.halloweenEndsAt,
-    });
+    const halloweenLive = halloweenPromotionIsLive(halloweenWindow);
     const freeShippingThresholdCents = halloweenLive
       ? (brand?.halloweenFreeShippingCents ?? FREE_SHIPPING_THRESHOLD_CENTS)
       : FREE_SHIPPING_THRESHOLD_CENTS;
