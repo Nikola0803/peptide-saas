@@ -32,6 +32,7 @@ const bodySchema = z.object({
   // assigned to this exact customer (Coupon.assignedContactId) is detected
   // and previewed automatically -- no code needs to be typed for that one.
   customerEmail: z.string().email().optional(),
+  wholesaleCheckout: z.boolean().optional(),
 });
 
 // POST /api/store/coupons/validate — a dry-run preview for the storefront's
@@ -117,7 +118,7 @@ export async function POST(req: NextRequest) {
         select: { id: true },
       }))
     : false;
-  const isWholesale = wholesale?.status === "APPROVED";
+  const isWholesale = parsed.data.wholesaleCheckout === true && wholesale?.status === "APPROVED";
   const marginPercent = org?.minMarginPercent ?? 30;
 
   const autoApplyCodes = await getAutoApplyCodes(store.organizationId, contactId);

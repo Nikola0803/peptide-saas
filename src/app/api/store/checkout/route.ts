@@ -8,6 +8,7 @@ const bodySchema = z.object({
   items: z.array(z.object({ slug: z.string().min(1), quantity: z.number().int().positive() })).min(1),
   customerEmail: z.string().email().optional(),
   customerName: z.string().optional(),
+  wholesaleCheckout: z.boolean().optional(),
   // Sent by evlv-site when the customer is signed in — not currently used
   // to resolve the contact (the token already does that), accepted so the
   // request doesn't need to be stripped down before it reaches here.
@@ -88,6 +89,7 @@ export async function POST(req: NextRequest) {
       items: parsed.data.items,
       customerEmail,
       customerName: parsed.data.customerName,
+      wholesaleCheckout: parsed.data.wholesaleCheckout,
       couponCode: parsed.data.couponCode,
       discountCodes: [
         ...(parsed.data.discountCode ? [parsed.data.discountCode] : []),

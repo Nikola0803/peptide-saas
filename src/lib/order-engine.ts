@@ -57,6 +57,10 @@ export interface CheckoutBillingInput {
 export interface CheckoutInput {
   items: CheckoutItemInput[];
   customerEmail: string;
+  // Wholesale status alone must not force every purchase from this email
+  // into 10-vial case pricing. The storefront sets this only when the cart
+  // was built from the approved wholesale catalogue.
+  wholesaleCheckout?: boolean;
   customerName?: string;
   couponCode?: string;
   // Real price-discount coupon code(s) -- separate from couponCode above,
@@ -211,7 +215,7 @@ export async function runCheckout(
       brand?.slug.toLowerCase() === "zoonetics" ||
       brand?.domain.toLowerCase().replace(/^www\./, "") === "zoonetics.co";
 
-    const isWholesale = wholesale?.status === "APPROVED";
+    const isWholesale = input.wholesaleCheckout === true && wholesale?.status === "APPROVED";
 
     for (const item of input.items) {
       const quantity = Math.max(1, Math.floor(item.quantity));
