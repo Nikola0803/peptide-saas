@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
       freeShippingThresholdCents: brand?.halloweenFreeShippingCents ?? 30000,
       promotionId: "HALLOWEEN_BOGO_2026",
       headline: "Buy one, get one free",
-      detail: "Every second matching product and strength is free. No pair limit.",
+      detail: "Mix any two vials: the lower-priced one in each pair is free. No pair limit.",
     },
   });
 }
