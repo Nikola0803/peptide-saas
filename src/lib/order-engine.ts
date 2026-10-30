@@ -2,8 +2,6 @@ import { prisma } from "@/lib/prisma";
 import { createId } from "@/lib/id";
 import { sendTemplate, escapeHtml } from "@/lib/email";
 import { pushNotifyNewOrder } from "@/lib/push-notify";
-import { pushOrderToOmnisend } from "@/lib/omnisend";
-import { isEvlvBrandId } from "@/lib/omnisend-order-sync";
 import { resolveCoupons, evaluateCoupons, getAutoApplyCodes, type CouponCartItem } from "@/lib/coupon-engine";
 import { getQuantityUnitPriceCents } from "@/lib/quantity-pricing";
 import {
@@ -199,8 +197,6 @@ export async function runCheckout(
     let cogsCentsTotal = 0;
     const resolvedItems: {
       productId: string;
-      // Storefront slug -- also the product/variant ID in the Omnisend catalog.
-      slug: string;
       sku: string;
       name: string;
       quantity: number;
@@ -320,7 +316,6 @@ export async function runCheckout(
 
       resolvedItems.push({
         productId: product.id,
-        slug: item.slug,
         sku: product.sku,
         name: product.chemicalName,
         quantity,
@@ -604,34 +599,10 @@ export async function runCheckout(
 
   notifySuppliers(organizationId, result.number, resolvedItems).catch((err) => console.error("Supplier notification email failed", err));
 
-  // Report the order to Omnisend for revenue attribution / email flows.
-  // Best-effort: a failed push never fails a completed checkout. Only EVLV
-  // orders -- the Omnisend account is EVLV's, other storefronts share this
-  // checkout. Later status changes are reported by omnisend-order-sync.ts.
-  isEvlvBrandId(brandId).then((isEvlv) => isEvlv && pushOrderToOmnisend({
-    orderID: result.number,
-    email: contactEmail,
-    createdAt: new Date().toISOString(),
-    currency: "USD",
-    // Omnisend v3 money fields are integer cents. Sending decimal dollars
-    // produces a 422 and prevents order/revenue automations from updating.
-    orderSum: grossCentsTotal + shippingCents,
-    subTotalSum: grossCentsTotal,
-    shippingSum: shippingCents,
-    paymentMethod: input.paymentMethod,
-    paymentStatus: "awaitingPayment",
-    fulfillmentStatus: "unfulfilled",
-    // Omnisend rejects (422) any line without variantID. The storefront slug
-    // is what the Omnisend product catalog is keyed by, so use it for both.
-    products: resolvedItems.map((item) => ({
-      productID: item.slug,
-      variantID: item.slug,
-      sku: item.sku,
-      title: item.name,
-      quantity: item.quantity,
-      price: Math.round(item.unitPriceCents),
-    })),
-  })).catch((err) => console.error("Omnisend order push failed", err));
+  // Not reported to Omnisend here: every storefront order starts ON_HOLD
+  // until staff confirm the manual payment, and Omnisend's "placed order"
+  // flows (thank-you, post-purchase, replenishment) must not email someone
+  // who never paid. omnisend-order-sync.ts reports it once it's paid.
 
   enterGiveawayIfQualifying(brandId, contactEmail, grossCentsTotal, result.orderId).catch((err) =>
     console.error("Giveaway entry failed", err)

@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { releaseOrderStock } from "@/lib/stock-release-job";
 import { sendPaymentConfirmedEmail } from "@/lib/automation-job";
 import { qualifyReferral } from "@/lib/customer-referral";
+import { syncOrdersToOmnisend } from "@/lib/omnisend-order-sync";
 
 async function assertOrderOwnership(orderId: string) {
   const { organization } = await requireOrg();
@@ -77,6 +78,9 @@ export async function confirmPayment(orderId: string) {
   });
 
   sendPaymentConfirmedEmail(order.organizationId, orderId).catch((err) => console.error("Payment confirmed email failed", err));
+  // Paid is when Omnisend first hears of the order -- report it now rather
+  // than on the sync job's next tick.
+  syncOrdersToOmnisend().catch((err) => console.error("Omnisend order sync failed", err));
   await qualifyReferral(orderId).catch((err) => console.error("Referral reward issue failed", err));
 
   if (order.stockReleasedAt) {
