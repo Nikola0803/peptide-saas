@@ -10,5 +10,8 @@ export async function register() {
 
     const { startAutomationJob } = await import("@/lib/automation-job");
     startAutomationJob();
+
+    const { startOmnisendOrderSyncJob } = await import("@/lib/omnisend-order-sync");
+    startOmnisendOrderSyncJob();
   }
 }

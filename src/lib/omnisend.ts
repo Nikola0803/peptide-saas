@@ -48,6 +48,7 @@ export interface OmnisendOrderInput {
   orderID: string;
   email: string;
   createdAt: string;
+  updatedAt?: string;
   currency: string;
   orderSum: number;
   subTotalSum: number;
@@ -68,17 +69,11 @@ export async function pushOrderToOmnisend(input: OmnisendOrderInput): Promise<bo
   }
 
   try {
-    const res = await fetch("https://api.omnisend.com/v3/orders", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-API-KEY": process.env.OMNISEND_API_KEY!,
-      },
-      body: JSON.stringify({
+    const body = JSON.stringify({
         orderID: input.orderID,
         email: input.email,
         createdAt: input.createdAt,
-        updatedAt: input.createdAt,
+        updatedAt: input.updatedAt ?? input.createdAt,
         currency: input.currency,
         orderSum: input.orderSum,
         subTotalSum: input.subTotalSum,
@@ -90,8 +85,14 @@ export async function pushOrderToOmnisend(input: OmnisendOrderInput): Promise<bo
         fulfillmentStatus: input.fulfillmentStatus,
         products: input.products,
         tags: input.tags,
-      }),
-    });
+      });
+    const headers = { "Content-Type": "application/json", "X-API-KEY": process.env.OMNISEND_API_KEY! };
+    let res = await fetch("https://api.omnisend.com/v3/orders", { method: "POST", headers, body });
+    // Already in Omnisend (pushed at checkout, now shipped/cancelled/refunded):
+    // replace it so the new payment/fulfillment status reaches the flows.
+    if (res.status === 409) {
+      res = await fetch(`https://api.omnisend.com/v3/orders/${encodeURIComponent(input.orderID)}`, { method: "PUT", headers, body });
+    }
     if (!res.ok) {
       console.error(`[omnisend] Order push failed for ${input.orderID}: ${res.status} ${await res.text().catch(() => "")}`);
       return false;

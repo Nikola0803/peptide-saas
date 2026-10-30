@@ -555,6 +555,10 @@ model Order {
   trackingNumber     String?
   shippedAt          DateTime?
 
+  // Last "<paymentStatus>|<fulfillmentStatus>" reported to Omnisend by
+  // src/lib/omnisend-order-sync.ts -- null means the job never synced it.
+  omnisendSyncedState String?
+
   // Captured straight from the WooCommerce webhook's `shipping` object —
   // needed to push a usable order (with a printable label) to ShipStation.
   shipToName       String?

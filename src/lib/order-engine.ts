@@ -3,6 +3,7 @@ import { createId } from "@/lib/id";
 import { sendTemplate, escapeHtml } from "@/lib/email";
 import { pushNotifyNewOrder } from "@/lib/push-notify";
 import { pushOrderToOmnisend } from "@/lib/omnisend";
+import { isEvlvBrandId } from "@/lib/omnisend-order-sync";
 import { resolveCoupons, evaluateCoupons, getAutoApplyCodes, type CouponCartItem } from "@/lib/coupon-engine";
 import { getQuantityUnitPriceCents } from "@/lib/quantity-pricing";
 import {
@@ -604,8 +605,10 @@ export async function runCheckout(
   notifySuppliers(organizationId, result.number, resolvedItems).catch((err) => console.error("Supplier notification email failed", err));
 
   // Report the order to Omnisend for revenue attribution / email flows.
-  // Best-effort: a failed push never fails a completed checkout.
-  pushOrderToOmnisend({
+  // Best-effort: a failed push never fails a completed checkout. Only EVLV
+  // orders -- the Omnisend account is EVLV's, other storefronts share this
+  // checkout. Later status changes are reported by omnisend-order-sync.ts.
+  isEvlvBrandId(brandId).then((isEvlv) => isEvlv && pushOrderToOmnisend({
     orderID: result.number,
     email: contactEmail,
     createdAt: new Date().toISOString(),
@@ -628,7 +631,7 @@ export async function runCheckout(
       quantity: item.quantity,
       price: Math.round(item.unitPriceCents),
     })),
-  }).catch((err) => console.error("Omnisend order push failed", err));
+  })).catch((err) => console.error("Omnisend order push failed", err));
 
   enterGiveawayIfQualifying(brandId, contactEmail, grossCentsTotal, result.orderId).catch((err) =>
     console.error("Giveaway entry failed", err)
