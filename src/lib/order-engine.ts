@@ -617,6 +617,7 @@ export async function runCheckout(
     fulfillmentStatus: "unfulfilled",
     products: resolvedItems.map((item) => ({
       productID: item.productId,
+      variantID: item.sku || item.productId,
       sku: item.sku,
       title: item.name,
       quantity: item.quantity,
