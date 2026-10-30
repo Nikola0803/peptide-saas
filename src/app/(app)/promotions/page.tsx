@@ -171,7 +171,7 @@ export default async function PromotionsPage() {
                       </label>
                     </div>
                     <p className="mt-2 text-xs leading-relaxed text-foreground-600">
-                      Every second unit of the same product and strength is free. Four units receive two free, six receive three free. The offer is retail-only and cannot stack.
+                      Items pair up by price, any products mixed: the lower-priced item in each pair is free. Four units receive two free, six receive three free. The offer is retail-only and cannot stack.
                     </p>
                     <div className="mt-3 grid gap-2 md:grid-cols-2">
                       <div>
