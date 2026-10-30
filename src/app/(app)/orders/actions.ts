@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { releaseOrderStock } from "@/lib/stock-release-job";
 import { sendPaymentConfirmedEmail } from "@/lib/automation-job";
 import { qualifyReferral } from "@/lib/customer-referral";
+import { fireOrderCanceled } from "@/lib/evlv-webhook";
 
 async function assertOrderOwnership(orderId: string) {
   const { organization } = await requireOrg();
@@ -134,6 +135,7 @@ export async function cancelAndReleaseStock(orderId: string) {
     await prisma.orderNote.create({ data: { orderId, body: "Order cancelled by staff — stock released back to available." } });
   }
 
+  fireOrderCanceled(orderId).catch((err) => console.error("[evlv-webhook] order.canceled failed", err));
   revalidatePath(`/orders/${orderId}`);
   revalidatePath("/orders");
 }
