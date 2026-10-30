@@ -35,6 +35,8 @@ export async function pushContactToOmnisend(email: string, opts?: { firstName?: 
 
 export interface OmnisendOrderItem {
   productID: string;
+  // Required by Omnisend v3 -- an order with any line missing it is rejected.
+  variantID: string;
   sku: string;
   title: string;
   quantity: number;
