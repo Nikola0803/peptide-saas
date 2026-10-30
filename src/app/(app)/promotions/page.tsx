@@ -72,7 +72,7 @@ export default async function PromotionsPage() {
             : "2026-10-26T06:00";
           const halloweenEndsVal = brand.halloweenEndsAt
             ? brand.halloweenEndsAt.toISOString().slice(0, 16)
-            : "2026-11-01T06:00";
+            : "2026-11-02T08:00";
 
           return (
             <div key={brand.id} className="grid grid-cols-1 lg:grid-cols-2 gap-4">
