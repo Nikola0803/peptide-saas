@@ -47,17 +47,26 @@ export function evaluateHalloweenBogo(
   if (!halloweenPromotionIsLive(options)) return empty("Promotion is not active");
   if (options.isWholesale) return empty("Wholesale pricing cannot be combined with this promotion");
 
-  const discountCents = items.reduce(
-    (sum, item) => sum + Math.floor(Math.max(0, item.quantity) / 2) * item.unitPriceCents,
-    0,
-  );
-  if (discountCents <= 0) return empty("Add a matching second item to unlock BOGO");
+  // Expand every unit across all products, sort descending, and make every
+  // unit at an odd index (the cheaper half of each adjacent pair) free.
+  // This gives the correct cross-product "2nd cheapest of the two is FREE"
+  // result: e.g. [$96.67, $66.50, $46.67, $40.00] → pairs (96.67+66.50)
+  // and (46.67+40.00) → free $66.50 + $40.00.
+  const allPrices: number[] = [];
+  for (const item of items) {
+    for (let i = 0; i < Math.max(0, item.quantity); i++) {
+      allPrices.push(item.unitPriceCents);
+    }
+  }
+  allPrices.sort((a, b) => b - a);
+  const discountCents = allPrices.reduce((sum, price, idx) => (idx % 2 === 1 ? sum + price : sum), 0);
+  if (discountCents <= 0) return empty("Add at least 2 items to unlock BOGO");
 
   return {
     applies: true as const,
     discountCents,
     subtotalCents,
     totalCents: Math.max(0, subtotalCents - discountCents),
-    freeUnits: items.reduce((sum, item) => sum + Math.floor(Math.max(0, item.quantity) / 2), 0),
+    freeUnits: Math.floor(allPrices.length / 2),
   };
 }
