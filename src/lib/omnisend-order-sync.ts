@@ -2,12 +2,11 @@
 // Omnisend flows that key off order state actually start:
 //   - "order fulfilled"  -> Review & Referral
 //   - cancelled/refunded -> exits Post-purchase / Review
-// This job is the only thing that reports orders: first once an order is
-// paid (storefront payments are confirmed by hand, see confirmPayment),
-// then again whenever its payment or fulfillment state changes. On its
-// first run it also backfills recent paid orders that never made it (every
-// push before the variantID fix was rejected). Same single-process interval
-// pattern as stock-release-job.ts.
+// runCheckout() only reports an order once, at checkout (awaiting payment,
+// unfulfilled). This job re-reports an order whenever its payment or
+// fulfillment state changes, and on its first run also backfills recent
+// orders that never made it (every push before the variantID fix was
+// rejected). Same single-process interval pattern as stock-release-job.ts.
 import { prisma } from "@/lib/prisma";
 import { omnisendConfigured, pushOrderToOmnisend, type OmnisendOrderInput } from "@/lib/omnisend";
 
@@ -23,6 +22,10 @@ type FulfillmentStatus = OmnisendOrderInput["fulfillmentStatus"];
 function isEvlvBrand(brand: { slug: string; domain: string } | null | undefined): boolean {
   if (!brand) return false;
   return brand.slug.toLowerCase() === "evlv" || brand.domain.toLowerCase().replace(/^www\./, "") === "evlvpeptides.com";
+}
+
+export async function isEvlvBrandId(brandId: string): Promise<boolean> {
+  return isEvlvBrand(await prisma.brand.findUnique({ where: { id: brandId }, select: { slug: true, domain: true } }));
 }
 
 function omnisendState(order: { status: string; shippedAt: Date | null }): { paymentStatus: PaymentStatus; fulfillmentStatus: FulfillmentStatus } {
@@ -55,10 +58,6 @@ export async function syncOrdersToOmnisend(): Promise<void> {
     const { paymentStatus, fulfillmentStatus } = omnisendState(order);
     const state = `${paymentStatus}|${fulfillmentStatus}`;
     if (order.omnisendSyncedState === state) continue;
-    // Payments are confirmed by hand, so Omnisend first hears of an order
-    // once it's paid -- its "placed order" flows must never email someone
-    // who didn't pay, or whose unpaid order was cancelled.
-    if (!order.omnisendSyncedState && (paymentStatus === "awaitingPayment" || paymentStatus === "voided")) continue;
 
     // Omnisend's catalog is keyed by storefront slug -- same IDs runCheckout sends.
     const productIds = order.items.map((i) => i.productId).filter((id): id is string => Boolean(id));
