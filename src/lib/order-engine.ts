@@ -198,6 +198,8 @@ export async function runCheckout(
     let cogsCentsTotal = 0;
     const resolvedItems: {
       productId: string;
+      // Storefront slug -- also the product/variant ID in the Omnisend catalog.
+      slug: string;
       sku: string;
       name: string;
       quantity: number;
@@ -317,6 +319,7 @@ export async function runCheckout(
 
       resolvedItems.push({
         productId: product.id,
+        slug: item.slug,
         sku: product.sku,
         name: product.chemicalName,
         quantity,
@@ -615,13 +618,15 @@ export async function runCheckout(
     paymentMethod: input.paymentMethod,
     paymentStatus: "awaitingPayment",
     fulfillmentStatus: "unfulfilled",
+    // Omnisend rejects (422) any line without variantID. The storefront slug
+    // is what the Omnisend product catalog is keyed by, so use it for both.
     products: resolvedItems.map((item) => ({
-      productID: item.productId,
-      variantID: item.sku || item.productId,
+      productID: item.slug,
+      variantID: item.slug,
       sku: item.sku,
       title: item.name,
       quantity: item.quantity,
-      price: item.unitPriceCents,
+      price: Math.round(item.unitPriceCents),
     })),
   }).catch((err) => console.error("Omnisend order push failed", err));
 
