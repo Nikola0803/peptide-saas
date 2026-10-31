@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import type { OrderStatus } from "@prisma/client";
 import { sendTemplate } from "@/lib/email";
+import { fireOrderFulfilled } from "@/lib/evlv-webhook";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -289,6 +290,10 @@ async function handleShipNotify(req: NextRequest): Promise<NextResponse> {
     where: { orderId: order.id },
     data: { fulfillmentStatus: "SHIPPED", shippedAt: new Date(), trackingNumber, carrierCode },
   });
+
+  fireOrderFulfilled(order.id, { trackingCode: trackingNumber, carrier: carrierCode }).catch((err) =>
+    console.error("[evlv-webhook] order.fulfilled failed", err)
+  );
 
   // Best-effort, same pattern as every other order-lifecycle email in
   // this app -- the automation job (automation-job.ts's

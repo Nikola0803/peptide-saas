@@ -3,6 +3,7 @@ import { z } from "zod";
 import { resolveHeaderOverride } from "@/lib/store-context";
 import { bearerToken, verifyCustomerToken } from "@/lib/customer-auth";
 import { runCheckout, CheckoutError } from "@/lib/order-engine";
+import { fireOrderPlaced } from "@/lib/evlv-webhook";
 
 const bodySchema = z.object({
   items: z.array(z.object({ slug: z.string().min(1), quantity: z.number().int().positive() })).min(1),
@@ -104,6 +105,7 @@ export async function POST(req: NextRequest) {
       ipAddress: parsed.data.ipAddress || req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || undefined,
       userAgent: parsed.data.userAgent || req.headers.get("user-agent") || undefined,
     });
+    fireOrderPlaced(result.orderId).catch((err) => console.error("[evlv-webhook] order.placed failed", err));
     return NextResponse.json(result, { status: 201 });
   } catch (err) {
     if (err instanceof CheckoutError) {
