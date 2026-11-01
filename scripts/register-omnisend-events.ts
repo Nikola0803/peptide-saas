@@ -1,11 +1,12 @@
 import { ensureEvlvEventSchemas, pushCustomEventToOmnisend } from "../src/lib/omnisend";
 import { prisma } from "../src/lib/prisma";
 
-const ok = await ensureEvlvEventSchemas();
-if (!ok) {
+async function main() {
+  const ok = await ensureEvlvEventSchemas();
+  if (!ok) {
   console.warn("Omnisend event schemas were not registered (API key missing or request failed).");
   process.exitCode = 1;
-} else {
+  } else {
   console.log("Omnisend event schemas are ready.");
   const organization = await prisma.organization.findFirst({
     where: { notifyEmail: { not: null } },
@@ -28,6 +29,12 @@ if (!ok) {
     }
     console.log("Omnisend custom-event smoke tests sent to the internal notification contact.");
   }
+  }
 }
 
-await prisma.$disconnect();
+main()
+  .catch((error) => {
+    console.error("Omnisend event registration failed:", error);
+    process.exitCode = 1;
+  })
+  .finally(() => prisma.$disconnect());
