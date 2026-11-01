@@ -6,6 +6,40 @@ export function omnisendConfigured(): boolean {
 
 export type OmnisendEventProperty = string | number | boolean | null | OmnisendEventProperty[] | { [key: string]: OmnisendEventProperty };
 
+const EVLV_EVENT_SCHEMAS = [
+  { name: "back-in-stock", displayName: "Back in Stock" },
+  { name: "new-batch-released", displayName: "New Batch Released" },
+] as const;
+
+export async function ensureEvlvEventSchemas(): Promise<boolean> {
+  if (!omnisendConfigured()) return false;
+  const properties = {
+    productName: { type: "string", displayName: "Product name" },
+    productSKU: { type: "string", displayName: "Product SKU" },
+    productURL: { type: "string", displayName: "Product URL" },
+    productImageURL: { type: "string", displayName: "Product image URL" },
+    documentationURL: { type: "string", displayName: "Documentation URL" },
+    batchNumber: { type: "string", displayName: "Batch number" },
+  };
+  for (const schema of EVLV_EVENT_SCHEMAS) {
+    const res = await fetch("https://api.omnisend.com/api/event-metadata", {
+      method: "POST",
+      headers: {
+        "Authorization": `Omnisend-API-Key ${process.env.OMNISEND_API_KEY!}`,
+        "Omnisend-Version": "2026-03-15",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ ...schema, origin: "api", properties }),
+    });
+    // 409 means the schema already exists, which is the desired steady state.
+    if (!res.ok && res.status !== 409) {
+      console.error(`[omnisend] Could not register ${schema.name}: ${res.status} ${await res.text().catch(() => "")}`);
+      return false;
+    }
+  }
+  return true;
+}
+
 export async function pushCustomEventToOmnisend(input: {
   eventName: string;
   email: string;

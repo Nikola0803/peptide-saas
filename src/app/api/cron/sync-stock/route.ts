@@ -3,6 +3,7 @@ import { createSign } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { getStorefrontUrl } from "@/lib/storefront-url";
 import { drainOmnisendEventQueue, enqueueOmnisendEvent } from "@/lib/omnisend-event-queue";
+import { ensureEvlvEventSchemas } from "@/lib/omnisend";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -149,6 +150,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const { rows, source } = await loadStockroomRows();
+    const omnisendSchemasReady = await ensureEvlvEventSchemas();
     if (rows.length < 5) throw new Error(`Refusing suspiciously small feed (${rows.length} rows)`);
 
     const brand = await prisma.brand.findFirst({
@@ -235,6 +237,7 @@ export async function GET(req: NextRequest) {
       restocked: restocked.map((product) => product.sku),
       alertsSent,
       omnisendQueue,
+      omnisendSchemasReady,
       timestamp: new Date().toISOString(),
     };
     console.log("[stock-sync]", JSON.stringify(summary));
