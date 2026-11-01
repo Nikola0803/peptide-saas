@@ -80,6 +80,8 @@ model Organization {
   zooProtocolCases        ZooProtocolCase[]
   zooProtocolAuditEvents  ZooProtocolAuditEvent[]
   customerReferrals       CustomerReferral[]
+  stockAlertSubscriptions StockAlertSubscription[]
+  omnisendEventQueue      OmnisendEventQueue[]
 }
 
 enum Plan {
@@ -90,11 +92,11 @@ enum Plan {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  passwordHash String
-  name         String?
-  createdAt    DateTime @default(now())
+  id                     String    @id @default(cuid())
+  email                  String    @unique
+  passwordHash           String
+  name                   String?
+  createdAt              DateTime  @default(now())
   credentialInviteSentAt DateTime?
 
   memberships              Membership[]
@@ -267,13 +269,14 @@ model Product {
   // real number as soon as it's known.
   weightOz Float?
 
-  coas             CoaDocument[]
-  storeMappings    StoreMapping[]
-  orderItems       OrderItem[]
-  lots             ProductLot[]
-  supplierProducts SupplierProduct[]
-  bogoTriggerFor   Coupon[]          @relation("CouponBogoTrigger")
-  bogoRewardFor    Coupon[]          @relation("CouponBogoReward")
+  coas                    CoaDocument[]
+  storeMappings           StoreMapping[]
+  orderItems              OrderItem[]
+  lots                    ProductLot[]
+  supplierProducts        SupplierProduct[]
+  bogoTriggerFor          Coupon[]                 @relation("CouponBogoTrigger")
+  bogoRewardFor           Coupon[]                 @relation("CouponBogoReward")
+  stockAlertSubscriptions StockAlertSubscription[]
 
   createdAt DateTime @default(now())
 
@@ -340,13 +343,13 @@ model CoaDocument {
 
 // Links a master Product to its listing on one specific brand's store.
 model StoreMapping {
-  id                String  @id @default(cuid())
-  product           Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-  productId         String
-  brand             Brand   @relation(fields: [brandId], references: [id], onDelete: Cascade)
-  brandId           String
-  externalProductId String // WooCommerce product ID on that store
-  storePriceCents   Int?
+  id                      String  @id @default(cuid())
+  product                 Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId               String
+  brand                   Brand   @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  brandId                 String
+  externalProductId       String // WooCommerce product ID on that store
+  storePriceCents         Int?
   // Approved wholesale partners buy sealed 10-vial cases only. This is
   // the total price for one case, scoped to this brand just like retail.
   wholesaleCasePriceCents Int?
@@ -456,23 +459,60 @@ model Contact {
   lastVisitorId     String?
   lastVisitorSeenAt DateTime?
 
-  brandLinks             ContactBrandLink[]
-  orders                 Order[]
-  automationSends        EmailAutomationSend[]
-  affiliate              Affiliate?
-  wholesalePartner       WholesalePartner?
-  personalCoupons        Coupon[]
-  membershipRequest      MembershipRequest?
-  verification           CustomerVerification?
-  accountDeletionRequest AccountDeletionRequest?
-  zooProtocolDogs        ZooProtocolDog[]
-  referralsMade          CustomerReferral[]      @relation("ReferralReferrer")
-  referralReceived       CustomerReferral?       @relation("ReferralFriend")
+  brandLinks              ContactBrandLink[]
+  orders                  Order[]
+  automationSends         EmailAutomationSend[]
+  affiliate               Affiliate?
+  wholesalePartner        WholesalePartner?
+  personalCoupons         Coupon[]
+  membershipRequest       MembershipRequest?
+  verification            CustomerVerification?
+  accountDeletionRequest  AccountDeletionRequest?
+  zooProtocolDogs         ZooProtocolDog[]
+  referralsMade           CustomerReferral[]       @relation("ReferralReferrer")
+  referralReceived        CustomerReferral?        @relation("ReferralFriend")
+  stockAlertSubscriptions StockAlertSubscription[]
 
   @@unique([organizationId, email])
   @@index([organizationId, createdAt])
   @@index([organizationId, marketingOptIn])
   @@index([organizationId, lastVisitorId])
+}
+
+// A customer explicitly asking to hear when one storefront product returns.
+// Kept in the CRM (rather than inferred from marketing consent) so a restock
+// event only reaches people who requested that exact product.
+model StockAlertSubscription {
+  id             String       @id @default(cuid())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+  product        Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId      String
+  contact        Contact      @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  contactId      String
+  createdAt      DateTime     @default(now())
+  notifiedAt     DateTime?
+
+  @@unique([productId, contactId])
+  @@index([organizationId, notifiedAt])
+}
+
+// Durable handoff to Omnisend. Business actions enqueue quickly; the stock
+// cron drains in bounded batches so a large launch cannot exceed API limits.
+model OmnisendEventQueue {
+  id             String       @id @default(cuid())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+  eventName      String
+  email          String
+  properties     Json
+  createdAt      DateTime     @default(now())
+  processedAt    DateTime?
+  attempts       Int          @default(0)
+  lastError      String?
+
+  @@index([processedAt, createdAt])
+  @@index([organizationId, eventName])
 }
 
 // Per-brand customer identity, so the same email on two WooCommerce stores

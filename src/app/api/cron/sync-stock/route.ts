@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSign } from "node:crypto";
 import { prisma } from "@/lib/prisma";
+import { getStorefrontUrl } from "@/lib/storefront-url";
+import { drainOmnisendEventQueue, enqueueOmnisendEvent } from "@/lib/omnisend-event-queue";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -162,8 +164,32 @@ export async function GET(req: NextRequest) {
         organizationId: brand.organizationId,
         storeMappings: { some: { brandId: brand.id } },
       },
-      select: { id: true, sku: true, masterStock: true },
+      select: { id: true, sku: true, chemicalName: true, imageUrl: true, masterStock: true, storeMappings: { where: { brandId: brand.id }, select: { slug: true } } },
     });
+
+    const restocked = products.filter((product) => {
+      const row = rows.find((candidate) => normalizedSku(candidate.sku) === normalizedSku(product.sku));
+      return product.masterStock <= 0 && !!row && row.stockQty > 0 && row.status === "publish" && row.stockStatus === "instock";
+    });
+    let alertsSent = 0;
+    for (const product of restocked) {
+      const subscriptions = await prisma.stockAlertSubscription.findMany({
+        where: { productId: product.id, notifiedAt: null },
+        include: { contact: { select: { email: true } } },
+      });
+      const productUrl = getStorefrontUrl(brandDomain, `/shop/${product.storeMappings[0]?.slug ?? ""}`);
+      for (const subscription of subscriptions) {
+        await enqueueOmnisendEvent({
+          organizationId: brand.organizationId,
+          eventName: "back-in-stock",
+          email: subscription.contact.email,
+          properties: { productName: product.chemicalName, productSKU: product.sku, productURL: productUrl, productImageURL: product.imageUrl },
+        });
+        await prisma.stockAlertSubscription.update({ where: { id: subscription.id }, data: { notifiedAt: new Date() } });
+        alertsSent += 1;
+      }
+    }
+    const omnisendQueue = await drainOmnisendEventQueue();
     const productsBySku = new Map(products.map((product) => [normalizedSku(product.sku), product]));
     const notFound = rows.filter((row) => !productsBySku.has(normalizedSku(row.sku))).map((row) => row.sku);
 
@@ -206,6 +232,9 @@ export async function GET(req: NextRequest) {
       processed: rows.length,
       changedOrChecked: applied.length,
       notFound: notFound.length ? notFound : undefined,
+      restocked: restocked.map((product) => product.sku),
+      alertsSent,
+      omnisendQueue,
       timestamp: new Date().toISOString(),
     };
     console.log("[stock-sync]", JSON.stringify(summary));

@@ -6,6 +6,37 @@ import { requireOrg } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { saveUploadedFile } from "@/lib/upload";
 import { stripDoseSuffix, doseNumber } from "@/lib/dose";
+import { getStorefrontUrl } from "@/lib/storefront-url";
+
+type BatchProduct = {
+  sku: string;
+  chemicalName: string;
+  imageUrl: string | null;
+  storeMappings: Array<{ slug: string | null; brand: { domain: string } }>;
+};
+
+async function queueNewBatchReleased(organizationId: string, product: BatchProduct, documentationUrl: string, batchNumber: string | null) {
+  const mapping = product.storeMappings[0];
+  if (!mapping?.slug) return;
+  const contacts = await prisma.contact.findMany({ where: { organizationId, marketingOptIn: true }, select: { email: true } });
+  if (!contacts.length) return;
+  const productUrl = getStorefrontUrl(mapping.brand.domain, `/shop/${mapping.slug}`);
+  await prisma.omnisendEventQueue.createMany({
+    data: contacts.map(({ email }) => ({
+      organizationId,
+      eventName: "new-batch-released",
+      email,
+      properties: {
+        productName: product.chemicalName,
+        productSKU: product.sku,
+        productURL: productUrl,
+        productImageURL: product.imageUrl ?? "",
+        documentationURL: documentationUrl,
+        batchNumber: batchNumber ?? "",
+      },
+    })),
+  });
+}
 
 function dollarsToCents(value: string): number {
   const n = Number(value);
@@ -295,16 +326,17 @@ export async function deleteProduct(productId: string) {
 
 export async function addCoaDocument(productId: string, formData: FormData) {
   const { organization } = await requireOrg();
-  const product = await prisma.product.findFirst({ where: { id: productId, organizationId: organization.id } });
+  const product = await prisma.product.findFirst({ where: { id: productId, organizationId: organization.id }, include: { storeMappings: { include: { brand: true } } } });
   if (!product) throw new Error("Not found");
 
   const url = String(formData.get("url") ?? "").trim();
   const label = String(formData.get("label") ?? "").trim();
   if (!url) throw new Error("A URL is required");
 
-  await prisma.coaDocument.create({
+  const coa = await prisma.coaDocument.create({
     data: { productId, url, label: label || null },
   });
+  await queueNewBatchReleased(organization.id, product, coa.url, coa.label);
 
   revalidatePath(`/products/${productId}`);
 }
@@ -314,7 +346,7 @@ export async function addCoaDocument(productId: string, formData: FormData) {
 // already-hosted URL to paste in.
 export async function addCoaDocumentFile(productId: string, formData: FormData) {
   const { organization } = await requireOrg();
-  const product = await prisma.product.findFirst({ where: { id: productId, organizationId: organization.id } });
+  const product = await prisma.product.findFirst({ where: { id: productId, organizationId: organization.id }, include: { storeMappings: { include: { brand: true } } } });
   if (!product) throw new Error("Not found");
 
   const file = formData.get("file");
@@ -324,9 +356,10 @@ export async function addCoaDocumentFile(productId: string, formData: FormData) 
   const result = await saveUploadedFile(organization.id, file);
   if (!result.ok) throw new Error(result.reason);
 
-  await prisma.coaDocument.create({
+  const coa = await prisma.coaDocument.create({
     data: { productId, url: result.media.url, label: label || null, mediaId: result.media.id },
   });
+  await queueNewBatchReleased(organization.id, product, coa.url, coa.label);
 
   revalidatePath(`/products/${productId}`);
   revalidatePath("/media");
@@ -348,11 +381,12 @@ export async function removeCoaDocument(productId: string, coaId: string) {
 // needs pulling without deleting it outright.
 export async function setCoaPublished(productId: string, coaId: string, published: boolean) {
   const { organization } = await requireOrg();
-  const product = await prisma.product.findFirst({ where: { id: productId, organizationId: organization.id } });
+  const product = await prisma.product.findFirst({ where: { id: productId, organizationId: organization.id }, include: { storeMappings: { include: { brand: true } } } });
   if (!product) throw new Error("Not found");
   const coa = await prisma.coaDocument.findFirst({ where: { id: coaId, productId } });
   if (!coa) throw new Error("Not found");
   await prisma.coaDocument.update({ where: { id: coaId }, data: { published } });
+  if (published && !coa.published) await queueNewBatchReleased(organization.id, product, coa.url, coa.label);
   revalidatePath(`/products/${productId}`);
 }
 

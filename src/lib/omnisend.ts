@@ -4,6 +4,44 @@ export function omnisendConfigured(): boolean {
   return Boolean(process.env.OMNISEND_API_KEY);
 }
 
+export type OmnisendEventProperty = string | number | boolean | null | OmnisendEventProperty[] | { [key: string]: OmnisendEventProperty };
+
+export async function pushCustomEventToOmnisend(input: {
+  eventName: string;
+  email: string;
+  properties?: Record<string, OmnisendEventProperty>;
+}): Promise<boolean> {
+  if (!omnisendConfigured()) {
+    console.warn(`[omnisend] Not configured (OMNISEND_API_KEY missing) — skipped event ${input.eventName}`);
+    return false;
+  }
+
+  try {
+    const res = await fetch("https://api.omnisend.com/api/events", {
+      method: "POST",
+      headers: {
+        "Authorization": `Omnisend-API-Key ${process.env.OMNISEND_API_KEY!}`,
+        "Omnisend-Version": "2026-03-15",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        eventName: input.eventName,
+        origin: "api",
+        contact: { email: input.email },
+        properties: input.properties ?? {},
+      }),
+    });
+    if (!res.ok) {
+      console.error(`[omnisend] Event ${input.eventName} failed for ${input.email}: ${res.status} ${await res.text().catch(() => "")}`);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error(`[omnisend] Event ${input.eventName} errored for ${input.email}:`, err);
+    return false;
+  }
+}
+
 export async function pushContactToOmnisend(email: string, opts?: { firstName?: string }): Promise<boolean> {
   if (!omnisendConfigured()) {
     console.warn(`[omnisend] Not configured (OMNISEND_API_KEY missing) — skipped pushing ${email}`);
