@@ -435,6 +435,15 @@ model Contact {
   passwordHash String?
   name         String?
 
+  // Storefront account profile fields captured during researcher registration.
+  // They are intentionally separate from checkout data: a customer may have
+  // several shipping addresses, but only one account profile per Contact.
+  dateOfBirth     DateTime?
+  company          String?
+  businessType     String?
+  phone            String?
+  ruoAttestedAt    DateTime?
+
   // Set from the register form's marketingOptIn checkbox (see
   // /api/store/auth/register). Newsletter sends only ever go to contacts
   // where this is true -- there's no separate "unsubscribed" list, opting

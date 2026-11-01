@@ -10,7 +10,16 @@ import { attachReferralAtRegistration, ensureReferralCode } from "@/lib/customer
 const bodySchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
-  name: z.string().optional(),
+  name: z.string().trim().min(2).max(160),
+  dateOfBirth: z.coerce.date().refine((value) => {
+    const cutoff = new Date();
+    cutoff.setFullYear(cutoff.getFullYear() - 21);
+    return value <= cutoff;
+  }, "You must be at least 21 years old to register."),
+  company: z.string().trim().max(160).optional(),
+  businessType: z.enum(["RESEARCHER", "CLINIC", "UNIVERSITY", "DISTRIBUTOR", "OTHER"]),
+  phone: z.string().trim().min(7).max(40),
+  ruoAttested: z.literal(true),
   marketingOptIn: z.boolean().optional(),
   referralCode: z.string().trim().max(80).optional(),
   offer: z.enum(["JOIN25"]).optional(),
@@ -40,10 +49,18 @@ export async function POST(req: NextRequest) {
 
   const passwordHash = await hashPassword(parsed.data.password);
   const marketingOptIn = parsed.data.marketingOptIn ?? false;
+  const profile = {
+    name: parsed.data.name,
+    dateOfBirth: parsed.data.dateOfBirth,
+    company: parsed.data.company || null,
+    businessType: parsed.data.businessType,
+    phone: parsed.data.phone,
+    ruoAttestedAt: new Date(),
+  };
   const contact = await prisma.contact.upsert({
     where: { organizationId_email: { organizationId: store.organizationId, email } },
-    update: { passwordHash, name: parsed.data.name, marketingOptIn },
-    create: { organizationId: store.organizationId, email, passwordHash, name: parsed.data.name, marketingOptIn },
+    update: { passwordHash, marketingOptIn, ...profile },
+    create: { organizationId: store.organizationId, email, passwordHash, marketingOptIn, ...profile },
   });
   await prisma.contactBrandLink.upsert({
     where: { contactId_brandId: { contactId: contact.id, brandId: store.brandId } },
