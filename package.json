@@ -16,7 +16,8 @@
     "admin:provision-warrior": "tsx scripts/provision-warrior-admin.ts",
     "db:seed:zoonetics": "tsx prisma/seed-zoonetics.ts",
     "db:studio": "prisma studio",
-    "email:sync-defaults": "tsx scripts/sync-email-templates.ts"
+    "email:sync-defaults": "tsx scripts/sync-email-templates.ts",
+    "omnisend:register-events": "tsx scripts/register-omnisend-events.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.20.0",

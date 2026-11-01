@@ -18,6 +18,9 @@ npm run build
 echo "==> Applying schema changes..."
 npx prisma db push
 
+echo "==> Registering Omnisend automation events..."
+npm run omnisend:register-events
+
 echo "==> Syncing EVLV catalog, images, and wholesale case prices..."
 npm run db:sync:evlv-catalog
 
