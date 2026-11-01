@@ -4,9 +4,19 @@ import "./globals.css";
 import { Providers } from "@/components/providers";
 
 export const metadata: Metadata = {
-  title: "Peptide Command Center — Multi-Brand CRM",
-  description:
-    "Centralized eCommerce command center for a multi-brand research peptide network. Unified orders, contacts, master inventory, and affiliates across all storefronts.",
+  title: "EVLV CRM",
+  description: "Private EVLV operations portal.",
+  robots: {
+    index: false,
+    follow: false,
+    nocache: true,
+    googleBot: {
+      index: false,
+      follow: false,
+      noimageindex: true,
+      nosnippet: true,
+    },
+  },
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,

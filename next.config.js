@@ -3,6 +3,12 @@ const nextConfig = {
   async headers() {
     return [
       {
+        source: "/:path*",
+        headers: [
+          { key: "X-Robots-Tag", value: "noindex, nofollow, noarchive, nosnippet, noimageindex" },
+        ],
+      },
+      {
         source: "/api/chat/:path*",
         headers: [
           { key: "Access-Control-Allow-Origin", value: "*" },
