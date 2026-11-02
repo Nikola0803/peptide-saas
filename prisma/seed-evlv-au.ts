@@ -9,7 +9,7 @@ const AU_PRICES: Array<{ slug: string; vialCents?: number; case10Cents?: number 
   { slug: "bpc-157-5mg", vialCents: 12000, case10Cents: 85000 },
   { slug: "bpc-157-10mg", vialCents: 18000, case10Cents: 125000 },
   { slug: "evlv-3-10mg", vialCents: 35000, case10Cents: 155000 },
-  { slug: "evlv-3-20mg", case10Cents: 215000 },
+  { slug: "evlv-3-20mg", vialCents: 50000, case10Cents: 215000 },
   { slug: "evlv-2-10mg", vialCents: 20000, case10Cents: 135000 },
   { slug: "evlv-1-5mg", vialCents: 20000 },
   { slug: "evlv-1-10mg", vialCents: 30000 },
