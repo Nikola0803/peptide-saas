@@ -3,17 +3,35 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
 // Exact-strength AUD prices verified from the live Australian comparison
-// catalog on 2026-11-02. Rows are included only when both 1-vial and 10-pack
-// prices were explicitly published; no missing strength is inferred.
-const AU_PRICES = [
+// catalog on 2026-11-02. Each format is optional and no missing format is
+// calculated from the other.
+const AU_PRICES: Array<{ slug: string; vialCents?: number; case10Cents?: number }> = [
   { slug: "bpc-157-5mg", vialCents: 12000, case10Cents: 85000 },
   { slug: "bpc-157-10mg", vialCents: 18000, case10Cents: 125000 },
   { slug: "evlv-3-10mg", vialCents: 35000, case10Cents: 155000 },
+  { slug: "evlv-3-20mg", case10Cents: 215000 },
   { slug: "evlv-2-10mg", vialCents: 20000, case10Cents: 135000 },
+  { slug: "evlv-1-5mg", vialCents: 20000 },
+  { slug: "evlv-1-10mg", vialCents: 30000 },
   { slug: "mots-c-10mg", vialCents: 20000, case10Cents: 85000 },
   { slug: "tb-500-10mg", vialCents: 35000, case10Cents: 165000 },
   { slug: "tesamorelin-10mg", vialCents: 30000, case10Cents: 245000 },
-] as const;
+  { slug: "ghk-cu-50mg", case10Cents: 85000 },
+  { slug: "ghk-cu-100mg", case10Cents: 115000 },
+  { slug: "selank-10mg", vialCents: 25000 },
+  { slug: "semax-10mg", case10Cents: 105000 },
+  { slug: "cjc-ipa-blend-10mg", case10Cents: 115000 },
+  { slug: "aod-9604-5mg", case10Cents: 105000 },
+  { slug: "aod-9604-10mg", case10Cents: 185000 },
+  { slug: "dsip-10mg", case10Cents: 95000 },
+  { slug: "epitalon-10mg", case10Cents: 75000 },
+  { slug: "epitalon-50mg", case10Cents: 195000 },
+  { slug: "nad-500mg", case10Cents: 95000 },
+  { slug: "nad-1000mg", case10Cents: 125000 },
+  { slug: "kpv-10mg", case10Cents: 105000 },
+  { slug: "igf-1-lr3-1mg", case10Cents: 175000 },
+  { slug: "ipamorelin-10mg", case10Cents: 105000 },
+];
 
 async function main() {
   const organization = await prisma.organization.findUnique({ where: { slug: "evlv" } });
@@ -38,6 +56,7 @@ async function main() {
   });
 
   for (const price of AU_PRICES) {
+    const storePriceCents = price.vialCents ?? Math.round((price.case10Cents as number) / 10);
     const source = await prisma.storeMapping.findUnique({
       where: { brandId_slug: { brandId: usBrand.id, slug: price.slug } },
     });
@@ -46,8 +65,8 @@ async function main() {
       where: { brandId_slug: { brandId: brand.id, slug: price.slug } },
       update: {
         productId: source.productId,
-        storePriceCents: price.vialCents,
-        retailCasePriceCents: price.case10Cents,
+        storePriceCents,
+        retailCasePriceCents: price.case10Cents ?? null,
         active: true,
       },
       create: {
@@ -55,8 +74,8 @@ async function main() {
         productId: source.productId,
         externalProductId: `au-${price.slug}`,
         slug: price.slug,
-        storePriceCents: price.vialCents,
-        retailCasePriceCents: price.case10Cents,
+        storePriceCents,
+        retailCasePriceCents: price.case10Cents ?? null,
         active: true,
       },
     });
@@ -68,8 +87,7 @@ async function main() {
   console.log(`CRM_ORG_API_KEY=${organization.apiKey}`);
   console.log(`CRM_CONTACT_FORM_KEY=${tracking.publicKey}`);
   console.log(`NEXT_PUBLIC_CRM_TRACKING_KEY=${tracking.publicKey}`);
-  console.log(`Imported ${AU_PRICES.length} reviewed AU vial + 10-pack price pairs.`);
-  console.log(`AU_CATALOG_SLUGS=${AU_PRICES.map((item) => item.slug).join(",")}`);
+  console.log(`Imported ${AU_PRICES.length} reviewed AU product-format prices.`);
 }
 
 main().finally(() => prisma.$disconnect());
