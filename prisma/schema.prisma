@@ -350,6 +350,10 @@ model StoreMapping {
   brandId                 String
   externalProductId       String // WooCommerce product ID on that store
   storePriceCents         Int?
+  // Optional public 10-vial kit total. When present, retail checkout charges
+  // this exact total for quantities divisible by 10 instead of applying the
+  // generic quantity-discount ladder.
+  retailCasePriceCents    Int?
   // Approved wholesale partners buy sealed 10-vial cases only. This is
   // the total price for one case, scoped to this brand just like retail.
   wholesaleCasePriceCents Int?

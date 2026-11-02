@@ -92,6 +92,7 @@ export async function GET(req: NextRequest) {
     // a crossed-out "was" price, matching what checkout actually charges.
     isDeal?: boolean;
     regularPriceCents?: number;
+    retailCasePriceCents?: number;
   };
   type Group = { groupSlug: string; name: string; variants: Variant[] };
 
@@ -126,6 +127,7 @@ export async function GET(req: NextRequest) {
       reconstitutionInstructions: product.reconstitutionInstructions ?? undefined,
       isDeal: isDeal || undefined,
       regularPriceCents: isDeal ? regularPriceCents : undefined,
+      retailCasePriceCents: m.retailCasePriceCents ?? undefined,
     });
 
     groups.set(groupSlug, existing);

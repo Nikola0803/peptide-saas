@@ -5,7 +5,7 @@ import { pushNotifyNewOrder } from "@/lib/push-notify";
 import { pushOrderToOmnisend } from "@/lib/omnisend";
 import { isEvlvBrandId } from "@/lib/omnisend-order-sync";
 import { resolveCoupons, evaluateCoupons, getAutoApplyCodes, type CouponCartItem } from "@/lib/coupon-engine";
-import { getQuantityUnitPriceCents } from "@/lib/quantity-pricing";
+import { getRetailUnitPriceCents } from "@/lib/quantity-pricing";
 import {
   evaluateGlpPairPromotion,
   GLP_PAIR_PROMOTION_CODE,
@@ -281,7 +281,7 @@ export async function runCheckout(
       const retailUnitPriceCents = dealActive ? (mapping.dealPriceCents as number) : mapping.storePriceCents;
       const unitPriceCents = isWholesale
         ? (mapping.wholesaleCasePriceCents as number) / 10
-        : getQuantityUnitPriceCents(retailUnitPriceCents, quantity);
+        : getRetailUnitPriceCents(retailUnitPriceCents, quantity, mapping.retailCasePriceCents);
       grossCentsTotal += unitPriceCents * quantity;
       cogsCentsTotal += product.cogsCents * quantity;
 

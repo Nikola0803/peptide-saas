@@ -5,7 +5,7 @@ import { resolveHeaderOverride } from "@/lib/store-context";
 import { prisma } from "@/lib/prisma";
 import { utcDateString } from "@/lib/order-engine";
 import { resolveCoupons, evaluateCoupons, getAutoApplyCodes, type CouponCartItem } from "@/lib/coupon-engine";
-import { getQuantityUnitPriceCents } from "@/lib/quantity-pricing";
+import { getRetailUnitPriceCents } from "@/lib/quantity-pricing";
 import {
   evaluateGlpPairPromotion,
   GLP_PAIR_PROMOTION_CODE,
@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
 
     const dealActive = mapping.dealDate === utcDateString() && mapping.dealPriceCents != null;
     const retailUnitPriceCents = dealActive ? (mapping.dealPriceCents as number) : mapping.storePriceCents;
-    const unitPriceCents = getQuantityUnitPriceCents(retailUnitPriceCents, quantity);
+    const unitPriceCents = getRetailUnitPriceCents(retailUnitPriceCents, quantity, mapping.retailCasePriceCents);
 
     subtotalCents += unitPriceCents * quantity;
     couponCartItems.push({
