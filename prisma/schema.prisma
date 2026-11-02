@@ -1158,6 +1158,7 @@ model WebhookEvent {
   brandId        String?
 
   topic          String
+  providerEventId String?      @unique
   payload        Json
   signatureValid Boolean
   processedAt    DateTime?
