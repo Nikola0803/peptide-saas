@@ -552,7 +552,15 @@ export async function runCheckout(
         shipToState: input.shipTo?.state ?? input.billing?.state,
         shipToPostalCode: input.shipTo?.postalCode ?? input.billing?.zip,
         shipToCountry: input.shipTo?.country ?? input.billing?.country,
-        items: { createMany: { data: resolvedItems } },
+        // `slug` identifies the storefront variant for downstream Omnisend
+        // events, but OrderItem intentionally stores the durable product ID,
+        // SKU and name instead. Do not pass the transient storefront field to
+        // Prisma because it is not part of the OrderItem schema.
+        items: {
+          createMany: {
+            data: resolvedItems.map(({ slug: _slug, ...item }) => item),
+          },
+        },
         notes: input.customerNote ? { create: { body: `Customer note: ${input.customerNote}` } } : undefined,
       },
     });
