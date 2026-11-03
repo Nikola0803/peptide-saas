@@ -210,13 +210,15 @@ export async function runCheckout(
     }[] = [];
     const couponCartItems: CouponCartItem[] = [];
     const promotionItems: GlpPairPromotionItem[] = [];
-    // ZOONETICS and EVLV are fulfilled as always-available catalogs —
+    // ZOONETICS and both EVLV markets are fulfilled as always-available catalogs —
     // inventory counts must never block or be decremented by their orders.
     const bypassInventory =
       brand?.slug.toLowerCase() === "zoonetics" ||
       brand?.domain.toLowerCase().replace(/^www\./, "") === "zoonetics.co" ||
       brand?.slug.toLowerCase() === "evlv" ||
-      brand?.domain.toLowerCase().replace(/^www\./, "") === "evlvpeptides.com";
+      brand?.domain.toLowerCase().replace(/^www\./, "") === "evlvpeptides.com" ||
+      brand?.slug.toLowerCase() === "evlv-au" ||
+      brand?.domain.toLowerCase().replace(/^www\./, "") === "evlvpeptides.com.au";
 
     const isWholesale = input.wholesaleCheckout === true && wholesale?.status === "APPROVED";
 
