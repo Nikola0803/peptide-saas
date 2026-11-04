@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { PageHeader, Card, StatCard, Badge, EmptyState } from "@/components/ui";
 import { shortDate } from "@/lib/format";
 import { approveHeroesDiscount, rejectHeroesDiscount } from "./actions";
+import { ManualAssignForm } from "./ManualAssignForm";
 
 export default async function HeroesDiscountPage() {
   const { organization } = await requireOrg();
@@ -24,7 +25,7 @@ export default async function HeroesDiscountPage() {
 
   return (
     <div>
-      <PageHeader title="Service Discount" subtitle="Military and first responder applications" />
+      <PageHeader title="Service Discount" subtitle="Military and first responder applications" actions={<ManualAssignForm />} />
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <StatCard label="Pending review" value={String(pending.length)} hint={pending.length > 0 ? "Needs review" : undefined} />
