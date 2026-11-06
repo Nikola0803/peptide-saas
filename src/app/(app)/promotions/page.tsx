@@ -156,18 +156,18 @@ export default async function PromotionsPage() {
                   take effect immediately on the next cart validation, no deploy needed.
                 </p>
                 <form action={saveCampaignWithBrand} className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-                  <fieldset className="rounded-lg border-2 border-orange-300 bg-gradient-to-br from-orange-50 to-purple-50 px-4 py-4 shadow-sm">
-                    <legend className="px-2 text-sm font-bold text-orange-900">
-                      Halloween Unlimited BOGO
+                  <fieldset className="rounded-lg border-2 border-yellow-300 bg-gradient-to-br from-yellow-50 to-amber-50 px-4 py-4 shadow-sm">
+                    <legend className="px-2 text-sm font-bold text-yellow-900">
+                      Black Friday Unlimited BOGO
                     </legend>
                     <div className="grid gap-3 md:grid-cols-2">
                       <label className="flex items-center gap-2 text-xs font-semibold text-foreground-800">
                         <input type="checkbox" name="halloweenBogoActive" defaultChecked={brand.halloweenBogoActive} />
-                        Activate unlimited same-item BOGO
+                        Activate unlimited BOGO (code: BOGOFRIDAY)
                       </label>
                       <label className="flex items-center gap-2 text-xs font-semibold text-foreground-800">
                         <input type="checkbox" name="halloweenThemeActive" defaultChecked={brand.halloweenThemeActive} />
-                        Activate Halloween storefront theme
+                        Activate Black Friday storefront theme
                       </label>
                     </div>
                     <p className="mt-2 text-xs leading-relaxed text-foreground-600">

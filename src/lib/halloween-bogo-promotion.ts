@@ -1,8 +1,9 @@
 export const HALLOWEEN_BOGO_PROMOTION_ID = "HALLOWEEN_BOGO_2026";
-export const HALLOWEEN_BOGO_PROMOTION_CODE = "HALLOWEEN-BOGO";
-export const HALLOWEEN_BOGO_PROMOTION_LABEL = "Halloween BOGO applied";
-export const EVLV_HALLOWEEN_STARTS_AT = new Date("2026-10-26T06:00:00.000Z");
-export const EVLV_HALLOWEEN_ENDS_AT = new Date("2026-11-02T07:59:59.000Z");
+export const HALLOWEEN_BOGO_PROMOTION_CODE = "BOGOFRIDAY";
+export const HALLOWEEN_BOGO_PROMOTION_LABEL = "Black Friday BOGO applied";
+// Black Friday / Cyber Monday extension — runs Nov 6 through Nov 30 (Cyber Monday)
+export const EVLV_HALLOWEEN_STARTS_AT = new Date("2026-11-06T06:00:00.000Z");
+export const EVLV_HALLOWEEN_ENDS_AT = new Date("2026-12-01T07:59:59.000Z");
 
 export function evlvHalloweenPromotionOptions(options: {
   active: boolean;
