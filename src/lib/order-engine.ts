@@ -154,8 +154,11 @@ export async function runCheckout(
 
     const contact = await tx.contact.upsert({
       where: { organizationId_email: { organizationId, email } },
-      update: input.customerName ? { name: input.customerName } : {},
-      create: { organizationId, email, name: input.customerName },
+      update: {
+        ...(input.customerName ? { name: input.customerName } : {}),
+        ...(input.billing?.phone ? { phone: input.billing.phone } : {}),
+      },
+      create: { organizationId, email, name: input.customerName, ...(input.billing?.phone ? { phone: input.billing.phone } : {}) },
     });
     await tx.contactBrandLink.upsert({
       where: { contactId_brandId: { contactId: contact.id, brandId } },
