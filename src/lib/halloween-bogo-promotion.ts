@@ -1,5 +1,5 @@
 export const HALLOWEEN_BOGO_PROMOTION_ID = "HALLOWEEN_BOGO_2026";
-export const HALLOWEEN_BOGO_PROMOTION_CODE = "BLACKFRIDAY-BOGO";
+export const HALLOWEEN_BOGO_PROMOTION_CODE = "BOGOFRIDAY";
 export const HALLOWEEN_BOGO_PROMOTION_LABEL = "Black Friday BOGO applied";
 // Black Friday / Cyber Monday extension — runs Nov 6 through Nov 30 (Cyber Monday)
 export const EVLV_HALLOWEEN_STARTS_AT = new Date("2026-11-06T06:00:00.000Z");

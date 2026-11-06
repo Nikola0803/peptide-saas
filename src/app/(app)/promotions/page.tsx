@@ -163,7 +163,7 @@ export default async function PromotionsPage() {
                     <div className="grid gap-3 md:grid-cols-2">
                       <label className="flex items-center gap-2 text-xs font-semibold text-foreground-800">
                         <input type="checkbox" name="halloweenBogoActive" defaultChecked={brand.halloweenBogoActive} />
-                        Activate unlimited BOGO (code: BLACKFRIDAY-BOGO)
+                        Activate unlimited BOGO (code: BOGOFRIDAY)
                       </label>
                       <label className="flex items-center gap-2 text-xs font-semibold text-foreground-800">
                         <input type="checkbox" name="halloweenThemeActive" defaultChecked={brand.halloweenThemeActive} />
