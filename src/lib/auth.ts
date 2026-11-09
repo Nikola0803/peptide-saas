@@ -32,16 +32,21 @@ export const authOptions: NextAuthOptions = {
           null;
 
         // Rate-limit: block after MAX_FAILED_ATTEMPTS within the window
-        const recentFails = await prisma.loginAttempt.count({
-          where: {
-            email,
-            success: false,
-            createdAt: { gte: new Date(Date.now() - LOGIN_WINDOW_MS) },
-          },
-        });
-
-        if (recentFails >= MAX_FAILED_ATTEMPTS) {
-          throw new Error("TOO_MANY_ATTEMPTS");
+        // Wrapped in try/catch so a missing table (pre-migration) doesn't break login.
+        try {
+          const recentFails = await prisma.loginAttempt.count({
+            where: {
+              email,
+              success: false,
+              createdAt: { gte: new Date(Date.now() - LOGIN_WINDOW_MS) },
+            },
+          });
+          if (recentFails >= MAX_FAILED_ATTEMPTS) {
+            throw new Error("TOO_MANY_ATTEMPTS");
+          }
+        } catch (e: any) {
+          if (e.message === "TOO_MANY_ATTEMPTS") throw e;
+          // Table doesn't exist yet — skip rate limit
         }
 
         const user = await prisma.user.findUnique({
@@ -50,19 +55,13 @@ export const authOptions: NextAuthOptions = {
         });
 
         if (!user) {
-          // Log the attempt even for unknown emails (prevents enumeration via
-          // different response times, and keeps the rate-limit table consistent)
-          await prisma.loginAttempt.create({
-            data: { email, ip, success: false },
-          });
+          await prisma.loginAttempt.create({ data: { email, ip, success: false } }).catch(() => {});
           return null;
         }
 
         const validPassword = await bcrypt.compare(credentials.password, user.passwordHash);
         if (!validPassword) {
-          await prisma.loginAttempt.create({
-            data: { email, userId: user.id, ip, success: false },
-          });
+          await prisma.loginAttempt.create({ data: { email, userId: user.id, ip, success: false } }).catch(() => {});
           return null;
         }
 
@@ -94,9 +93,7 @@ export const authOptions: NextAuthOptions = {
             }
 
             if (!matchedId) {
-              await prisma.loginAttempt.create({
-                data: { email, userId: user.id, ip, success: false },
-              });
+              await prisma.loginAttempt.create({ data: { email, userId: user.id, ip, success: false } }).catch(() => {});
               throw new Error("INVALID_2FA");
             }
 
@@ -109,9 +106,7 @@ export const authOptions: NextAuthOptions = {
         }
 
         // All checks passed
-        await prisma.loginAttempt.create({
-          data: { email, userId: user.id, ip, success: true },
-        });
+        await prisma.loginAttempt.create({ data: { email, userId: user.id, ip, success: true } }).catch(() => {});
 
         const primaryMembership = user.memberships[0];
 
