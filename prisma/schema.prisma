@@ -99,10 +99,46 @@ model User {
   createdAt              DateTime  @default(now())
   credentialInviteSentAt DateTime?
 
+  // Two-factor authentication (TOTP). totpSecret is AES-256-GCM encrypted
+  // at rest using TOTP_ENCRYPTION_KEY; never stored in plaintext.
+  totpSecret    String?
+  totpEnabled   Boolean   @default(false)
+  totpVerifiedAt DateTime?
+
   memberships              Membership[]
   assignedZooProtocolCases ZooProtocolCase[]             @relation("ZooProtocolAssignee")
   zooProtocolNotes         ZooProtocolProfessionalNote[]
   zooProtocolAuditEvents   ZooProtocolAuditEvent[]
+  recoveryCodes            TotpRecoveryCode[]
+  loginAttempts            LoginAttempt[]
+}
+
+// Single-use backup codes generated during 2FA setup. Stored as bcrypt hashes;
+// shown to the user exactly once. Use one if the authenticator app is lost.
+model TotpRecoveryCode {
+  id        String    @id @default(cuid())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  codeHash  String
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+// Tracks failed login attempts per email for rate-limiting. Cleaned up
+// nightly by the existing cron job.
+model LoginAttempt {
+  id        String   @id @default(cuid())
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId    String?
+  email     String
+  ip        String?
+  success   Boolean
+  createdAt DateTime @default(now())
+
+  @@index([email, createdAt])
+  @@index([userId, createdAt])
 }
 
 model Membership {
