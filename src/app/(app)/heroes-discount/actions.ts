@@ -101,6 +101,17 @@ export async function manualAssignHeroesDiscount(formData: FormData) {
       },
     });
 
+    // If a HEROES- coupon already exists for this contact, unlink any previous
+    // HeroesDiscountRequest that holds couponId = existingCoupon.id before we
+    // link the new request row. HeroesDiscountRequest.couponId is @unique, so
+    // leaving the old link in place causes a constraint violation.
+    if (existingCoupon) {
+      await tx.heroesDiscountRequest.updateMany({
+        where: { couponId: existingCoupon.id },
+        data: { couponId: null },
+      });
+    }
+
     const requestRecord = await tx.heroesDiscountRequest.create({
       data: {
         organizationId: organization.id,
