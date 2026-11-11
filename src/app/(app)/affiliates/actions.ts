@@ -132,16 +132,32 @@ export async function updateAffiliateProgram(affiliateId: string, formData: Form
   revalidatePath(`/affiliates/${affiliateId}`);
 }
 
-export async function approveAffiliate(affiliateId: string) {
+export async function approveAffiliate(affiliateId: string, formData: FormData) {
   const { organization } = await requireOrg();
-  const affiliate = await prisma.affiliate.update({
-    where: { id: affiliateId, organizationId: organization.id },
-    data: { status: "APPROVED" },
-  });
+  const ratePercent = Number(formData.get("ratePercent") ?? 0);
+  const customerDiscountPercent = Number(formData.get("customerDiscountPercent") ?? 0);
+
+  if (!Number.isFinite(ratePercent) || ratePercent < 0 || ratePercent > 40) throw new Error("Rate must be between 0% and 40%");
+  if (!Number.isInteger(customerDiscountPercent) || customerDiscountPercent < 0 || customerDiscountPercent > Math.min(30, Math.floor(ratePercent))) {
+    throw new Error("Customer discount must be a whole number no greater than the partner rate or 30%");
+  }
+
+  const [affiliate, brand] = await Promise.all([
+    prisma.affiliate.update({
+      where: { id: affiliateId, organizationId: organization.id },
+      data: { status: "APPROVED", ratePercent, customerDiscountPercent },
+    }),
+    prisma.brand.findFirst({ where: { organizationId: organization.id, verifiedAt: { not: null } }, select: { domain: true } }),
+  ]);
+
   if (affiliate.email) {
-    sendTemplate(organization.id, "affiliate_approved", affiliate.email, { affiliateName: affiliate.name }).catch((err) =>
-      console.error("Affiliate approval email failed", err)
-    );
+    const domain = brand?.domain ?? "www.evlvpeptides.com";
+    const referralUrl = `https://${domain}/?ref=${encodeURIComponent(affiliate.couponCode)}`;
+    sendTemplate(organization.id, "affiliate_approved", affiliate.email, {
+      affiliateName: affiliate.name,
+      couponCode: affiliate.couponCode,
+      referralUrl,
+    }).catch((err) => console.error("Affiliate approval email failed", err));
   }
   revalidatePath("/affiliates");
 }
