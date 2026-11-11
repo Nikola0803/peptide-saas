@@ -4,25 +4,39 @@ import { prisma } from "@/lib/prisma";
 
 // POST /api/email/inbound
 //
-// Resend inbound email webhook. Set up:
-//   1. Add an MX record on your inbound subdomain pointing to Resend's
-//      inbound servers (see Resend dashboard → Inbound).
-//   2. Configure the inbound route in Resend to POST to this URL.
-//   3. Set INBOUND_EMAIL_DOMAIN=<your subdomain> and
-//      INBOUND_EMAIL_ORG_ID=<your org id> and
-//      RESEND_INBOUND_SECRET=<signing secret from Resend>.
+// Accepts inbound email webhooks from Mailgun HTTP routes or a JSON forwarder.
 //
-// Thread matching: reply emails from the CRM include a Reply-To header of
-//   support+<conversationId>@<INBOUND_EMAIL_DOMAIN>
-// Email clients preserve the Reply-To address when the customer hits Reply,
-// so the conversation ID arrives in the To/Delivered-To fields here.
+// Mailgun setup (recommended — subdomain-only MX, doesn't touch root domain):
+//   1. Add domain inbound.evlvpeptides.com in Mailgun dashboard.
+//   2. Add Mailgun's MX records for `inbound` in Cloudflare DNS only.
+//   3. Create a Mailgun Receiving Route: catch-all → forward to this URL.
+//   4. Set MAILGUN_WEBHOOK_SECRET=<signing key from Mailgun → Webhooks>.
+//   5. Set INBOUND_EMAIL_DOMAIN=inbound.evlvpeptides.com and
+//      INBOUND_EMAIL_ORG_ID=<org id> in the VPS .env, then rebuild.
+//
+// Thread matching: CRM reply emails set Reply-To: support+<conversationId>@<INBOUND_EMAIL_DOMAIN>
+// When a customer replies, their email client preserves that address in To/recipient,
+// so the conversation ID arrives here and the reply threads into the right conversation.
 
-function verifySignature(payload: string, header: string | null, secret: string): boolean {
+function verifyHmac(payload: string, header: string | null, secret: string): boolean {
   if (!header) return false;
   const sig = header.startsWith("sha256=") ? header.slice(7) : header;
   const expected = createHmac("sha256", secret).update(payload).digest("hex");
   try {
     return timingSafeEqual(Buffer.from(sig, "hex"), Buffer.from(expected, "hex"));
+  } catch {
+    return false;
+  }
+}
+
+function verifyMailgunSignature(params: URLSearchParams, secret: string): boolean {
+  const timestamp = params.get("timestamp") ?? "";
+  const token = params.get("token") ?? "";
+  const signature = params.get("signature") ?? "";
+  if (!timestamp || !token || !signature) return false;
+  const expected = createHmac("sha256", secret).update(timestamp + token).digest("hex");
+  try {
+    return timingSafeEqual(Buffer.from(signature, "hex"), Buffer.from(expected, "hex"));
   } catch {
     return false;
   }
@@ -48,34 +62,75 @@ function plainText(data: { text?: string; html?: string }): string {
   return "";
 }
 
-export async function POST(req: NextRequest) {
-  const rawBody = await req.text();
+interface NormalizedEmail {
+  toAddresses: string[];
+  fromEmail: string;
+  subject: string | null;
+  body: string;
+}
 
-  const secret = process.env.RESEND_INBOUND_SECRET;
-  if (secret) {
-    const sig = req.headers.get("resend-signature") || req.headers.get("x-resend-signature");
-    if (!verifySignature(rawBody, sig, secret)) {
-      return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
-    }
-  }
+function parseMailgunParams(params: URLSearchParams): NormalizedEmail {
+  const recipient = params.get("recipient") ?? "";
+  const sender = params.get("sender") ?? "";
+  // Prefer stripped-text: Mailgun removes quoted reply history from it
+  const bodyText = params.get("stripped-text") || params.get("body-plain") || "";
+  const bodyHtml = params.get("stripped-html") || params.get("body-html") || "";
+  return {
+    toAddresses: recipient ? [recipient] : [],
+    fromEmail: extractAddress(sender),
+    subject: params.get("subject") || null,
+    body: plainText({ text: bodyText || undefined, html: bodyHtml || undefined }).slice(0, 5000),
+  };
+}
 
-  let data: Record<string, unknown>;
-  try {
-    data = JSON.parse(rawBody);
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
-
+function parseJsonPayload(data: Record<string, unknown>): NormalizedEmail {
   const toAddresses: string[] = Array.isArray(data.to)
     ? (data.to as string[])
     : typeof data.to === "string"
       ? [data.to]
       : [];
-
   const fromRaw = typeof data.from === "string" ? data.from : "";
-  const fromEmail = extractAddress(fromRaw);
-  const subject = typeof data.subject === "string" ? data.subject : null;
-  const body = plainText(data as { text?: string; html?: string }).slice(0, 5000);
+  return {
+    toAddresses,
+    fromEmail: extractAddress(fromRaw),
+    subject: typeof data.subject === "string" ? data.subject : null,
+    body: plainText(data as { text?: string; html?: string }).slice(0, 5000),
+  };
+}
+
+export async function POST(req: NextRequest) {
+  const contentType = req.headers.get("content-type") ?? "";
+  const rawBody = await req.text();
+
+  let normalized: NormalizedEmail;
+
+  if (contentType.includes("application/x-www-form-urlencoded")) {
+    // Mailgun HTTP route payload
+    const params = new URLSearchParams(rawBody);
+    const mailgunSecret = process.env.MAILGUN_WEBHOOK_SECRET;
+    if (mailgunSecret && !verifyMailgunSignature(params, mailgunSecret)) {
+      return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+    }
+    normalized = parseMailgunParams(params);
+  } else {
+    // JSON payload (Cloudflare Worker forwarder or future provider)
+    const secret = process.env.RESEND_INBOUND_SECRET;
+    if (secret) {
+      const sig = req.headers.get("resend-signature") || req.headers.get("x-resend-signature");
+      if (!verifyHmac(rawBody, sig, secret)) {
+        return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+      }
+    }
+    let data: Record<string, unknown>;
+    try {
+      data = JSON.parse(rawBody);
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    }
+    normalized = parseJsonPayload(data);
+  }
+
+  const { toAddresses, fromEmail, subject, body } = normalized;
 
   if (!body) {
     return NextResponse.json({ ok: true, action: "empty" });
