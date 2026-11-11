@@ -81,10 +81,12 @@ export async function sendReply(conversationId: string, formData: FormData): Pro
       .split(/\n+/)
       .map((line) => `<p>${line}</p>`)
       .join("");
+    const inboundDomain = process.env.INBOUND_EMAIL_DOMAIN;
+    const replyTo = inboundDomain ? `support+${conversationId}@${inboundDomain}` : undefined;
     const emailSent = await sendTemplate(organization.id, "support_reply", conversation.contactEmail, {
       subject: conversation.subject ?? "your message",
       replyHtml,
-    });
+    }, { replyTo });
     if (!emailSent) {
       return { emailWarning: "Reply saved — but the email failed to send. Check Resend logs." };
     }
