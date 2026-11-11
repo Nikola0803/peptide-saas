@@ -19,11 +19,9 @@ function requireSeedPassword(name: "EVLV_STAFF_SEED_PASSWORD" | "EVLV_AFFILIATE_
 // a real Product + StoreMapping row here, with real marketing content
 // (photo, descriptions, purity, storage/recon copy) so the CRM is an
 // actual source of truth for the storefront instead of a checkout-only
-// price/stock shadow of it. cogsCents/masterStock are still estimates (30%
-// of price, 150 units) since real cost/inventory numbers weren't available
-// here -- correct those two columns (or edit them per-product in the CRM
-// UI) once you have the real figures. Safe to re-run any time, it's all
-// upserts.
+// price/stock shadow of it. cogsCents is read from the catalog's cogsCents
+// field when present; otherwise falls back to 30% of price (estimate).
+// Safe to re-run any time, it's all upserts.
 import catalogJson from "./evlv-catalog.json";
 
 interface StaticProduct {
@@ -31,6 +29,7 @@ interface StaticProduct {
   sku: string;
   name: string;
   price: number;
+  cogsCents?: number;
   image?: string;
   purity?: string;
   categoryLabel?: string;
@@ -48,6 +47,7 @@ const PRODUCTS = catalog.map((p) => ({
   sku: p.sku,
   chemicalName: p.name,
   priceCents: Math.round(p.price * 100),
+  cogsCents: p.cogsCents ?? Math.round(p.price * 100 * 0.3),
   imageUrl: p.image ? ("https://" + STORE_DOMAIN + p.image) : undefined,
   shortDescription: p.shortDescription as string | undefined,
   description: p.description as string | undefined,
@@ -67,6 +67,7 @@ PRODUCTS.push({
   sku: "BAC-WATER-30ML",
   chemicalName: "Bacteriostatic Water 30mL",
   priceCents: 1500,
+  cogsCents: 300,
   imageUrl: undefined,
   shortDescription: "Sterile bacteriostatic water for reconstituting lyophilized research peptides.",
   description: "Bacteriostatic water, 30mL, for laboratory reconstitution use only.",
@@ -122,14 +123,11 @@ async function main() {
   });
 
   for (const p of PRODUCTS) {
-    const masterStock = 150;
-    const cogsCents = Math.round(p.priceCents * 0.3);
-
     const product = await prisma.product.upsert({
       where: { organizationId_sku: { organizationId: org.id, sku: p.sku } },
       update: {
         chemicalName: p.chemicalName,
-        cogsCents,
+        cogsCents: p.cogsCents,
         imageUrl: p.imageUrl,
         shortDescription: p.shortDescription,
         description: p.description,
@@ -142,8 +140,8 @@ async function main() {
         organizationId: org.id,
         sku: p.sku,
         chemicalName: p.chemicalName,
-        cogsCents,
-        masterStock,
+        cogsCents: p.cogsCents,
+        masterStock: 150,
         imageUrl: p.imageUrl,
         shortDescription: p.shortDescription,
         description: p.description,
@@ -173,8 +171,8 @@ async function main() {
       create: {
         productId: product.id,
         lotNumber: `LOT-${p.sku}-001`,
-        quantityReceived: masterStock,
-        quantityRemaining: masterStock,
+        quantityReceived: 150,
+        quantityRemaining: 150,
       },
     });
   }
@@ -194,7 +192,7 @@ async function main() {
   // deployment secret and is also rotated when this seed is rerun.
   const affiliatePassword = requireSeedPassword("EVLV_AFFILIATE_SEED_PASSWORD");
   const affiliatePasswordHash = await bcrypt.hash(affiliatePassword, 10);
-  const affiliate = await prisma.affiliate.upsert({
+  await prisma.affiliate.upsert({
     where: { email: "nikolazivkovic0803@gmail.com" },
     update: { status: "APPROVED", passwordHash: affiliatePasswordHash },
     create: {
