@@ -369,10 +369,10 @@ export const DEFAULT_TEMPLATES: EmailTemplateDefault[] = [
     name: "New contact form message (office)",
     description: "Sent internally whenever a visitor submits the storefront contact form -- the only email copy of a lead if nobody happens to check the Support inbox or have push notifications set up.",
     subject: "New contact form message{{subjectSuffix}}",
-    sampleVars: { contactName: "Jordan", contactEmail: "jordan@lab.edu", subjectLine: "Order Question", messageHtml: "Where's my order?", subjectSuffix: ": Order Question", conversationUrl: "https://crm.evlvpeptides.com/support/abc123" },
+    sampleVars: { contactName: "Jordan", contactEmail: "jordan@lab.edu", contactPhone: "+1 555-000-0000", subjectLine: "Order Question", messageHtml: "Where's my order?", subjectSuffix: ": Order Question", conversationUrl: "https://crm.evlvpeptides.com/support/abc123" },
     html: LAYOUT(`
       <h1 style="font-size: 20px;">New contact form message</h1>
-      <p>{{contactName}} ({{contactEmail}})</p>
+      <p>{{contactName}} ({{contactEmail}}){{#contactPhone}} · {{contactPhone}}{{/contactPhone}}</p>
       <p>Subject: {{subjectLine}}</p>
       <p style="white-space: pre-line;">{{{messageHtml}}}</p>
       <p style="margin-top: 20px;"><a href="{{conversationUrl}}" style="display: inline-block; background: #1c1c1c; color: #fff; padding: 10px 20px; text-decoration: none; border-radius: 4px; font-size: 14px; font-weight: 500;">View in Support →</a></p>

@@ -19,24 +19,42 @@ export default async function OrdersPage({
 }: {
   searchParams: { brand?: string; status?: string };
 }) {
-  const { organization } = await requireOrg();
+  const { organization, allowedBrandIds } = await requireOrg();
   const activeBrand = await getActiveBrand(organization.id);
-  const selectedBrandId = searchParams.brand || activeBrand?.id;
+
+  // Intersect selectedBrand with allowedBrandIds to prevent URL-param bypass
+  const selectedBrandIdRaw = searchParams.brand || activeBrand?.id;
+  const selectedBrandId = selectedBrandIdRaw && allowedBrandIds && !allowedBrandIds.includes(selectedBrandIdRaw)
+    ? undefined
+    : selectedBrandIdRaw;
+
+  // Brand filter: use selectedBrandId if set; otherwise restrict to allowed brands
+  const brandFilter = selectedBrandId
+    ? { brandId: selectedBrandId }
+    : allowedBrandIds
+      ? { brandId: { in: allowedBrandIds } }
+      : {};
 
   const [brands, orders, totalOrderCount, chargebackCount] = await Promise.all([
-    prisma.brand.findMany({ where: { organizationId: organization.id }, orderBy: { name: "asc" } }),
+    prisma.brand.findMany({
+      where: {
+        organizationId: organization.id,
+        ...(allowedBrandIds ? { id: { in: allowedBrandIds } } : {}),
+      },
+      orderBy: { name: "asc" },
+    }),
     prisma.order.findMany({
       where: {
         organizationId: organization.id,
-        ...(selectedBrandId ? { brandId: selectedBrandId } : {}),
+        ...brandFilter,
         ...(searchParams.status ? { status: STATUS_MAP[searchParams.status] } : {}),
       },
       orderBy: { placedAt: "desc" },
       include: { brand: true, contact: true },
       take: 100,
     }),
-    prisma.order.count({ where: { organizationId: organization.id, ...(selectedBrandId ? { brandId: selectedBrandId } : {}) } }),
-    prisma.refund.count({ where: { type: "CHARGEBACK", order: { organizationId: organization.id, ...(selectedBrandId ? { brandId: selectedBrandId } : {}) } } }),
+    prisma.order.count({ where: { organizationId: organization.id, ...brandFilter } }),
+    prisma.refund.count({ where: { type: "CHARGEBACK", order: { organizationId: organization.id, ...brandFilter } } }),
   ]);
 
   const chargebackRate = totalOrderCount > 0 ? ((chargebackCount / totalOrderCount) * 100).toFixed(2) : "0.00";

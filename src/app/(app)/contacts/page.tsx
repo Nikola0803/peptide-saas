@@ -5,18 +5,38 @@ import { PageHeader, StatCard, EmptyState } from "@/components/ui";
 import { money, shortDate, initials } from "@/lib/format";
 import { getActiveBrand } from "@/lib/active-brand";
 
+function countryBadge(isoCode: string | null | undefined, brandDomain?: string): { flag: string; label: string } {
+  const code = isoCode?.toUpperCase();
+  if (code === "GB" || (!code && brandDomain?.endsWith(".co.uk"))) return { flag: "🇬🇧", label: "UK" };
+  if (code === "AU" || (!code && brandDomain?.endsWith(".com.au"))) return { flag: "🇦🇺", label: "AU" };
+  if (code === "CA") return { flag: "🇨🇦", label: "CA" };
+  return { flag: "🇺🇸", label: "US" };
+}
+
 export default async function ContactsPage() {
-  const { organization } = await requireOrg();
+  const { organization, allowedBrandIds } = await requireOrg();
   const activeBrand = await getActiveBrand(organization.id);
+
+  // Merge activeBrand filter with brand-access restriction
+  const effectiveBrandIds = allowedBrandIds
+    ? activeBrand
+      ? allowedBrandIds.includes(activeBrand.id) ? [activeBrand.id] : allowedBrandIds
+      : allowedBrandIds
+    : activeBrand
+      ? [activeBrand.id]
+      : null;
 
   const contacts = await prisma.contact.findMany({
     where: {
       organizationId: organization.id,
-      ...(activeBrand ? { brandLinks: { some: { brandId: activeBrand.id } } } : {}),
+      ...(effectiveBrandIds ? { brandLinks: { some: { brandId: { in: effectiveBrandIds } } } } : {}),
     },
     include: {
       brandLinks: { include: { brand: true } },
-      orders: { where: activeBrand ? { brandId: activeBrand.id } : undefined, orderBy: { placedAt: "desc" } },
+      orders: {
+        where: effectiveBrandIds ? { brandId: { in: effectiveBrandIds } } : undefined,
+        orderBy: { placedAt: "desc" },
+      },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -24,7 +44,11 @@ export default async function ContactsPage() {
   const rows = contacts.map((c) => {
     const ltv = c.orders.reduce((sum, o) => sum + o.grossCents, 0);
     const lastOrder = c.orders[0]?.placedAt;
-    return { contact: c, ltv, lastOrder, orderCount: c.orders.length };
+    // Country from most recent order's shipping address (primary source).
+    // Falls back to brand domain when no order yet.
+    const primaryBrandDomain = c.brandLinks[0]?.brand.domain;
+    const country = countryBadge(c.orders[0]?.shipToCountry, primaryBrandDomain);
+    return { contact: c, ltv, lastOrder, orderCount: c.orders.length, country };
   });
 
   const combinedLtv = rows.reduce((s, r) => s + r.ltv, 0);
@@ -53,7 +77,7 @@ export default async function ContactsPage() {
             <thead>
               <tr className="text-left text-xs text-foreground-500 border-b border-background-200">
                 <th className="py-2.5 px-4 font-medium">Customer</th>
-                <th className="py-2.5 px-4 font-medium">Brands purchased from</th>
+                <th className="py-2.5 px-4 font-medium">Site &amp; Country</th>
                 <th className="py-2.5 px-4 font-medium">Marketing</th>
                 <th className="py-2.5 px-4 font-medium text-right">Orders</th>
                 <th className="py-2.5 px-4 font-medium text-right">Lifetime value</th>
@@ -62,7 +86,7 @@ export default async function ContactsPage() {
               </tr>
             </thead>
             <tbody>
-              {rows.map(({ contact, ltv, lastOrder, orderCount }) => (
+              {rows.map(({ contact, ltv, lastOrder, orderCount, country }) => (
                 <tr key={contact.id} className="border-b border-background-100 last:border-0 hover:bg-background-100">
                   <td className="py-3 px-4">
                     <Link href={`/contacts/${contact.id}`} className="flex items-center gap-2.5">
@@ -72,8 +96,24 @@ export default async function ContactsPage() {
                       <span className="text-foreground-800 hover:underline">{contact.name || contact.email}</span>
                     </Link>
                   </td>
-                  <td className="py-3 px-4 text-foreground-600 text-xs">
-                    {contact.brandLinks.map((l) => l.brand.name).join(", ") || "—"}
+                  <td className="py-3 px-4">
+                    <div className="flex flex-wrap items-center gap-1">
+                      <span className="inline-flex items-center gap-0.5 rounded bg-background-200 px-1.5 py-0.5 text-[10px] font-semibold text-foreground-700">
+                        {country.flag} {country.label}
+                      </span>
+                      {contact.brandLinks.length === 0 ? (
+                        <span className="text-foreground-400 text-xs">—</span>
+                      ) : (
+                        contact.brandLinks.map((l) => (
+                          <span
+                            key={l.brand.id}
+                            className="inline-flex items-center gap-1 rounded bg-secondary-100 px-1.5 py-0.5 text-[10px] font-medium text-secondary-800"
+                          >
+                            {l.brand.name}
+                          </span>
+                        ))
+                      )}
+                    </div>
                   </td>
                   <td className="py-3 px-4 text-xs">
                     {contact.marketingOptIn ? (

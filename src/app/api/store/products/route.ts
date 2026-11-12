@@ -92,12 +92,17 @@ export async function GET(req: NextRequest) {
     // a crossed-out "was" price, matching what checkout actually charges.
     isDeal?: boolean;
     regularPriceCents?: number;
+    retailCasePriceCents?: number;
   };
   type Group = { groupSlug: string; name: string; variants: Variant[] };
 
   const groups = new Map<string, Group>();
   const today = utcDateString();
-  const bypassInventory = store.brandDomain.toLowerCase().replace(/^www\./, "") === "zoonetics.co";
+  const inventoryDomain = store.brandDomain.toLowerCase().replace(/^www\./, "");
+  const bypassInventory =
+    inventoryDomain === "zoonetics.co" ||
+    inventoryDomain === "evlvpeptides.com" ||
+    inventoryDomain === "evlvpeptides.com.au";
 
   for (const m of mappings) {
     const product = m.product;
@@ -126,6 +131,7 @@ export async function GET(req: NextRequest) {
       reconstitutionInstructions: product.reconstitutionInstructions ?? undefined,
       isDeal: isDeal || undefined,
       regularPriceCents: isDeal ? regularPriceCents : undefined,
+      retailCasePriceCents: m.retailCasePriceCents ?? undefined,
     });
 
     groups.set(groupSlug, existing);

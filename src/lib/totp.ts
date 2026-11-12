@@ -1,8 +1,9 @@
-import { authenticator } from "otplib";
+import { generateSecret, generateURI, generateSync, verifySync } from "otplib";
 import { createCipheriv, createDecipheriv, randomBytes } from "crypto";
 import bcrypt from "bcryptjs";
 
 const ALGO = "aes-256-gcm";
+const TOTP_OPTS = { algorithm: "sha1" as const, digits: 6, period: 30 };
 
 function getKey(): Buffer {
   const key = process.env.TOTP_ENCRYPTION_KEY;
@@ -33,15 +34,22 @@ export function decryptSecret(stored: string): string {
 }
 
 export function generateTotpSecret(email: string) {
-  const secret = authenticator.generateSecret(20);
-  const otpauth = authenticator.keyuri(email, "EVLV Command Center", secret);
+  const secret = generateSecret({ length: 20 });
+  const otpauth = generateURI({
+    strategy: "totp",
+    issuer: "EVLV Command Center",
+    label: email,
+    secret,
+    ...TOTP_OPTS,
+  });
   return { secret, otpauth };
 }
 
 export function verifyTotp(encryptedSecret: string, token: string): boolean {
   try {
     const secret = decryptSecret(encryptedSecret);
-    return authenticator.verify({ token, secret });
+    const result = verifySync({ token, secret, ...TOTP_OPTS });
+    return result.valid === true;
   } catch {
     return false;
   }

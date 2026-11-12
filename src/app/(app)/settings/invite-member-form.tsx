@@ -4,14 +4,24 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { inviteMember } from "./actions";
 
-export function InviteMemberForm() {
+type Brand = { id: string; name: string; domain: string };
+
+export function InviteMemberForm({ brands }: { brands: Brand[] }) {
   const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("MEMBER");
+  const [selectedBrandIds, setSelectedBrandIds] = useState<string[]>([]);
   const [result, setResult] = useState<{ email: string; password: string; delivered: boolean } | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const isOwnerRole = role === "OWNER";
+  const canSubmit = isOwnerRole || selectedBrandIds.length > 0;
+
+  function toggleBrand(id: string) {
+    setSelectedBrandIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+  }
 
   if (result) {
     return (
@@ -26,6 +36,7 @@ export function InviteMemberForm() {
             setResult(null);
             setName("");
             setEmail("");
+            setSelectedBrandIds([]);
           }}
           className="mt-2 text-xs text-primary-600 hover:underline"
         >
@@ -37,9 +48,13 @@ export function InviteMemberForm() {
 
   return (
     <form
-      className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1.2fr_auto_auto]"
+      className="space-y-3"
       onSubmit={async (e) => {
         e.preventDefault();
+        if (!isOwnerRole && selectedBrandIds.length === 0) {
+          setError("Select at least one site for this user");
+          return;
+        }
         setError("");
         setLoading(true);
         try {
@@ -47,6 +62,7 @@ export function InviteMemberForm() {
           formData.set("name", name);
           formData.set("email", email);
           formData.set("role", role);
+          selectedBrandIds.forEach((id) => formData.append("brandIds[]", id));
           const res = await inviteMember(formData);
           setResult(res);
           router.refresh();
@@ -57,31 +73,66 @@ export function InviteMemberForm() {
         }
       }}
     >
-      <input
-        type="text"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        placeholder="Full name"
-        className="text-sm border border-background-300 rounded px-2.5 py-1.5 bg-background-50"
-      />
-      <input
-        type="email"
-        required
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        placeholder="teammate@company.com"
-        className="text-sm border border-background-300 rounded px-2.5 py-1.5 bg-background-50"
-      />
-      <select value={role} onChange={(e) => setRole(e.target.value)} className="text-sm border border-background-300 rounded px-2 py-1.5 bg-background-50">
-        <option value="MEMBER">Member</option>
-        <option value="CARE_AGENT">Care Agent</option>
-        <option value="VETERINARY_PROFESSIONAL">Veterinary Professional</option>
-        <option value="ADMIN">Admin</option>
-        <option value="OWNER">Owner</option>
-      </select>
-      <button disabled={loading} className="text-sm bg-primary-500 text-background-50 rounded-md px-3 py-1.5 font-medium hover:bg-primary-600 disabled:opacity-60">
-        {loading ? "…" : "Add"}
-      </button>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1.2fr_auto_auto]">
+        <input
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Full name"
+          className="text-sm border border-background-300 rounded px-2.5 py-1.5 bg-background-50"
+        />
+        <input
+          type="email"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="teammate@company.com"
+          className="text-sm border border-background-300 rounded px-2.5 py-1.5 bg-background-50"
+        />
+        <select
+          value={role}
+          onChange={(e) => { setRole(e.target.value); if (e.target.value === "OWNER") setSelectedBrandIds([]); }}
+          className="text-sm border border-background-300 rounded px-2 py-1.5 bg-background-50"
+        >
+          <option value="MEMBER">Member</option>
+          <option value="CARE_AGENT">Care Agent</option>
+          <option value="VETERINARY_PROFESSIONAL">Veterinary Professional</option>
+          <option value="ADMIN">Admin</option>
+          <option value="OWNER">Owner</option>
+        </select>
+        <button
+          disabled={loading || !canSubmit}
+          className="text-sm bg-primary-500 text-background-50 rounded-md px-3 py-1.5 font-medium hover:bg-primary-600 disabled:opacity-60"
+        >
+          {loading ? "…" : "Add"}
+        </button>
+      </div>
+      {!isOwnerRole && (
+        <div>
+          <p className="text-xs font-medium text-foreground-700 mb-1.5">
+            Site access <span className="text-accent-600">*</span>
+            <span className="ml-1 font-normal text-foreground-400">(required)</span>
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {brands.map((b) => {
+              const checked = selectedBrandIds.includes(b.id);
+              return (
+                <label
+                  key={b.id}
+                  className={`flex items-center gap-1.5 cursor-pointer rounded border px-2.5 py-1 text-xs transition-colors ${
+                    checked
+                      ? "border-primary-400 bg-primary-50 text-primary-800"
+                      : "border-background-300 bg-background-50 text-foreground-700 hover:border-background-400"
+                  }`}
+                >
+                  <input type="checkbox" className="sr-only" checked={checked} onChange={() => toggleBrand(b.id)} />
+                  {b.name}
+                </label>
+              );
+            })}
+          </div>
+        </div>
+      )}
       {error && <span className="text-xs text-accent-700">{error}</span>}
     </form>
   );

@@ -270,7 +270,7 @@ async function handleShipNotify(req: NextRequest): Promise<NextResponse> {
     return xmlResponse('<?xml version="1.0" encoding="utf-8"?>\n<Result><Success>false</Success><Message>Missing order_number</Message></Result>');
   }
 
-  const order = await prisma.order.findFirst({ where: { externalOrderNumber: orderNumber } });
+  const order = await prisma.order.findFirst({ where: { orderSeq: parseInt(orderNumber, 10) } });
   if (!order) {
     return xmlResponse('<?xml version="1.0" encoding="utf-8"?>\n<Result><Success>false</Success><Message>Order not found</Message></Result>');
   }
