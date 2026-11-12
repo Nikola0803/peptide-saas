@@ -15,6 +15,7 @@ export async function requireOrg() {
   const session = await getServerSession(authOptions);
   const organizationId = (session?.user as any)?.organizationId as string | undefined;
   const role = (session?.user as any)?.role as string | undefined;
+  const userId = (session?.user as any)?.id as string | undefined;
   const totpEnabled = (session?.user as any)?.totpEnabled as boolean | undefined;
 
   if (!session || !organizationId) {
@@ -41,7 +42,22 @@ export async function requireOrg() {
     redirect("/settings/security?setup=required");
   }
 
-  return { session, organization: organization! };
+  // Brand-scoped access: OWNER always sees all. Other roles see only the
+  // brands explicitly granted via MembershipBrandAccess, or all brands if
+  // no rows exist for their membership (backwards-compatible default for
+  // existing admins who predate this feature).
+  let allowedBrandIds: string[] | null = null;
+  if (role !== "OWNER" && userId) {
+    const membership = await prisma.membership.findUnique({
+      where: { userId_organizationId: { userId, organizationId } },
+      include: { brandAccess: { select: { brandId: true } } },
+    });
+    if (membership && membership.brandAccess.length > 0) {
+      allowedBrandIds = membership.brandAccess.map((a) => a.brandId);
+    }
+  }
+
+  return { session, organization: organization!, allowedBrandIds };
 }
 
 // Lighter gate used only by pages that must be accessible during 2FA setup
