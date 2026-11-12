@@ -1,5 +1,6 @@
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isAdminIpAllowed } from "@/lib/geo";
@@ -37,9 +38,13 @@ export async function requireOrg() {
 
   // 2FA enforcement: if 2FA is not yet set up, force the user to the
   // security settings page before they can access anything else.
-  // (The security page itself calls requireSession() to avoid a loop.)
+  // Skip when already on that page (middleware injects x-pathname) to
+  // prevent an infinite redirect loop.
   if (!totpEnabled) {
-    redirect("/settings/security?setup=required");
+    const pathname = headers().get("x-pathname") ?? "";
+    if (!pathname.startsWith("/settings/security")) {
+      redirect("/settings/security?setup=required");
+    }
   }
 
   // Brand-scoped access: OWNER always sees all. Other roles see only the
