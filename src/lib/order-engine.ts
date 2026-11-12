@@ -5,7 +5,7 @@ import { pushNotifyNewOrder } from "@/lib/push-notify";
 import { pushOrderToOmnisend } from "@/lib/omnisend";
 import { isEvlvBrandId } from "@/lib/omnisend-order-sync";
 import { resolveCoupons, evaluateCoupons, getAutoApplyCodes, type CouponCartItem } from "@/lib/coupon-engine";
-import { getQuantityUnitPriceCents } from "@/lib/quantity-pricing";
+import { getRetailUnitPriceCents } from "@/lib/quantity-pricing";
 import {
   evaluateGlpPairPromotion,
   GLP_PAIR_PROMOTION_CODE,
@@ -213,13 +213,15 @@ export async function runCheckout(
     }[] = [];
     const couponCartItems: CouponCartItem[] = [];
     const promotionItems: GlpPairPromotionItem[] = [];
-    // ZOONETICS and EVLV are fulfilled as always-available catalogs —
+    // ZOONETICS and both EVLV markets are fulfilled as always-available catalogs —
     // inventory counts must never block or be decremented by their orders.
     const bypassInventory =
       brand?.slug.toLowerCase() === "zoonetics" ||
       brand?.domain.toLowerCase().replace(/^www\./, "") === "zoonetics.co" ||
       brand?.slug.toLowerCase() === "evlv" ||
-      brand?.domain.toLowerCase().replace(/^www\./, "") === "evlvpeptides.com";
+      brand?.domain.toLowerCase().replace(/^www\./, "") === "evlvpeptides.com" ||
+      brand?.slug.toLowerCase() === "evlv-au" ||
+      brand?.domain.toLowerCase().replace(/^www\./, "") === "evlvpeptides.com.au";
 
     const isWholesale = input.wholesaleCheckout === true && wholesale?.status === "APPROVED";
 
@@ -284,7 +286,7 @@ export async function runCheckout(
       const retailUnitPriceCents = dealActive ? (mapping.dealPriceCents as number) : mapping.storePriceCents;
       const unitPriceCents = isWholesale
         ? (mapping.wholesaleCasePriceCents as number) / 10
-        : getQuantityUnitPriceCents(retailUnitPriceCents, quantity);
+        : getRetailUnitPriceCents(retailUnitPriceCents, quantity, mapping.retailCasePriceCents);
       grossCentsTotal += unitPriceCents * quantity;
       cogsCentsTotal += product.cogsCents * quantity;
 
@@ -555,7 +557,15 @@ export async function runCheckout(
         shipToState: input.shipTo?.state ?? input.billing?.state,
         shipToPostalCode: input.shipTo?.postalCode ?? input.billing?.zip,
         shipToCountry: input.shipTo?.country ?? input.billing?.country,
-        items: { createMany: { data: resolvedItems } },
+        // `slug` identifies the storefront variant for downstream Omnisend
+        // events, but OrderItem intentionally stores the durable product ID,
+        // SKU and name instead. Do not pass the transient storefront field to
+        // Prisma because it is not part of the OrderItem schema.
+        items: {
+          createMany: {
+            data: resolvedItems.map(({ slug: _slug, ...item }) => item),
+          },
+        },
         notes: input.customerNote ? { create: { body: `Customer note: ${input.customerNote}` } } : undefined,
       },
     });
