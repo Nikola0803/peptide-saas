@@ -56,9 +56,18 @@ export async function inviteMember(formData: FormData): Promise<{ email: string;
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const name = String(formData.get("name") ?? "").trim();
   const role = String(formData.get("role") ?? "MEMBER") as "OWNER" | "ADMIN" | "MEMBER" | "CARE_AGENT" | "VETERINARY_PROFESSIONAL";
+  const rawBrandIds = formData.getAll("brandIds[]").map(String).filter(Boolean);
   if (!email) throw new Error("Email is required");
   if (!["OWNER", "ADMIN", "MEMBER", "CARE_AGENT", "VETERINARY_PROFESSIONAL"].includes(role)) throw new Error("Invalid role");
   if (role === "OWNER" && (session.user as any)?.role !== "OWNER") throw new Error("Only an owner can add another owner");
+  // Non-OWNER members must be assigned at least one site.
+  if (role !== "OWNER" && rawBrandIds.length === 0) throw new Error("Select at least one site for this user");
+
+  // Verify all supplied brandIds belong to this org.
+  const validBrands = rawBrandIds.length > 0
+    ? await prisma.brand.findMany({ where: { id: { in: rawBrandIds }, organizationId: organization.id }, select: { id: true } })
+    : [];
+  const brandIds = validBrands.map((b) => b.id);
 
   const password = createId().slice(0, 16);
   const passwordHash = await bcrypt.hash(password, 10);
@@ -74,9 +83,15 @@ export async function inviteMember(formData: FormData): Promise<{ email: string;
   });
   if (existingMembership) throw new Error("That person is already a member of this organization");
 
-  await prisma.membership.create({
+  const membership = await prisma.membership.create({
     data: { userId: user.id, organizationId: organization.id, role },
   });
+
+  if (role !== "OWNER" && brandIds.length > 0) {
+    await prisma.membershipBrandAccess.createMany({
+      data: brandIds.map((brandId) => ({ membershipId: membership.id, brandId })),
+    });
+  }
 
   const delivered = await sendEmail(
     email,
@@ -104,6 +119,32 @@ export async function updateMemberRole(membershipId: string, role: "OWNER" | "AD
   }
   await prisma.membership.update({ where: { id: membership.id }, data: { role } });
   revalidatePath("/settings");
+  revalidatePath("/users");
+}
+
+// Replace a membership's brand-access set. Pass an empty array to remove
+// all restrictions (unrestricted again). OWNER memberships are skipped
+// since they always bypass brand access checks.
+export async function updateMemberBrandAccess(membershipId: string, brandIds: string[]) {
+  const { organization } = await requireAdmin();
+  const membership = await prisma.membership.findFirst({
+    where: { id: membershipId, organizationId: organization.id },
+  });
+  if (!membership || membership.role === "DROPSHIP_AGENT") throw new Error("User not found");
+  if (membership.role === "OWNER") return; // owners always see all
+
+  // Validate supplied brand ids belong to this org.
+  const valid = brandIds.length > 0
+    ? await prisma.brand.findMany({ where: { id: { in: brandIds }, organizationId: organization.id }, select: { id: true } })
+    : [];
+  const validIds = valid.map((b) => b.id);
+
+  await prisma.$transaction([
+    prisma.membershipBrandAccess.deleteMany({ where: { membershipId } }),
+    ...(validIds.length > 0
+      ? [prisma.membershipBrandAccess.createMany({ data: validIds.map((brandId) => ({ membershipId, brandId })) })]
+      : []),
+  ]);
   revalidatePath("/users");
 }
 

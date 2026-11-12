@@ -5,18 +5,36 @@ import { PageHeader, StatCard, EmptyState } from "@/components/ui";
 import { money, shortDate, initials } from "@/lib/format";
 import { getActiveBrand } from "@/lib/active-brand";
 
+function domainFlag(domain: string): string {
+  if (domain.endsWith(".co.uk")) return "🇬🇧";
+  if (domain.endsWith(".com.au")) return "🇦🇺";
+  return "🇺🇸";
+}
+
 export default async function ContactsPage() {
-  const { organization } = await requireOrg();
+  const { organization, allowedBrandIds } = await requireOrg();
   const activeBrand = await getActiveBrand(organization.id);
+
+  // Merge activeBrand filter with brand-access restriction
+  const effectiveBrandIds = allowedBrandIds
+    ? activeBrand
+      ? allowedBrandIds.includes(activeBrand.id) ? [activeBrand.id] : allowedBrandIds
+      : allowedBrandIds
+    : activeBrand
+      ? [activeBrand.id]
+      : null;
 
   const contacts = await prisma.contact.findMany({
     where: {
       organizationId: organization.id,
-      ...(activeBrand ? { brandLinks: { some: { brandId: activeBrand.id } } } : {}),
+      ...(effectiveBrandIds ? { brandLinks: { some: { brandId: { in: effectiveBrandIds } } } } : {}),
     },
     include: {
       brandLinks: { include: { brand: true } },
-      orders: { where: activeBrand ? { brandId: activeBrand.id } : undefined, orderBy: { placedAt: "desc" } },
+      orders: {
+        where: effectiveBrandIds ? { brandId: { in: effectiveBrandIds } } : undefined,
+        orderBy: { placedAt: "desc" },
+      },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -72,8 +90,21 @@ export default async function ContactsPage() {
                       <span className="text-foreground-800 hover:underline">{contact.name || contact.email}</span>
                     </Link>
                   </td>
-                  <td className="py-3 px-4 text-foreground-600 text-xs">
-                    {contact.brandLinks.map((l) => l.brand.name).join(", ") || "—"}
+                  <td className="py-3 px-4">
+                    <div className="flex flex-wrap gap-1">
+                      {contact.brandLinks.length === 0 ? (
+                        <span className="text-foreground-400 text-xs">—</span>
+                      ) : (
+                        contact.brandLinks.map((l) => (
+                          <span
+                            key={l.brand.id}
+                            className="inline-flex items-center gap-1 rounded bg-secondary-100 px-1.5 py-0.5 text-[10px] font-medium text-secondary-800"
+                          >
+                            {domainFlag(l.brand.domain)} {l.brand.name}
+                          </span>
+                        ))
+                      )}
+                    </div>
                   </td>
                   <td className="py-3 px-4 text-xs">
                     {contact.marketingOptIn ? (

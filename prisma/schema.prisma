@@ -157,7 +157,28 @@ model Membership {
   supplier   Supplier? @relation(fields: [supplierId], references: [id], onDelete: Cascade)
   supplierId String?
 
+  // Per-brand access control (non-OWNER roles only). Empty = unrestricted
+  // (backwards-compatible). One or more rows = only those brands are visible.
+  // OWNER role ignores this entirely — always sees all brands.
+  brandAccess MembershipBrandAccess[]
+
   @@unique([userId, organizationId])
+}
+
+// Controls which brands a non-OWNER membership can see. OWNER memberships
+// always bypass this. A membership with zero rows here sees all brands
+// (backwards-compatible default). A membership with one or more rows sees
+// only those brands' orders, contacts and conversations.
+model MembershipBrandAccess {
+  id           String     @id @default(cuid())
+  membership   Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  membershipId String
+  brand        Brand      @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  brandId      String
+  createdAt    DateTime   @default(now())
+
+  @@unique([membershipId, brandId])
+  @@index([membershipId])
 }
 
 enum Role {
@@ -228,6 +249,7 @@ model Brand {
   zooProtocolCases      ZooProtocolCase[]
   affiliateApplications Affiliate[]        @relation("AffiliateSourceBrand")
   wholesaleInquiries    WholesaleInquiry[]
+  membershipAccess      MembershipBrandAccess[]
 
   // Campaign promotion toggles — set from the Promotions page.
   // Active flag is the gate; startsAt/endsAt are optional guards.
