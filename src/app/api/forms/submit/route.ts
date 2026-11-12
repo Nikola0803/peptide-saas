@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
       channel: "CONTACT_FORM",
       contactName: body.name || null,
       contactEmail: body.email || null,
-      contactPhone: null,
+      contactPhone: body.phone || null,
       subject: body.subject || null,
       status: "OPEN",
       messages: {
@@ -76,6 +76,7 @@ export async function POST(req: NextRequest) {
       {
         contactName: body.name || "Unknown",
         contactEmail: body.email || "",
+        contactPhone: body.phone || "",
         subjectLine: body.subject || "(no subject)",
         messageHtml: escapeHtml(String(body.message)),
         subjectSuffix: body.subject ? `: ${body.subject}` : "",
