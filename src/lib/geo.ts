@@ -1,5 +1,12 @@
-import geoip from "geoip-lite";
 import { headers } from "next/headers";
+
+// geoip-lite reads its .dat files synchronously at module-load time.
+// Wrapping in a try/catch prevents a build crash when the data files are
+// absent (CI, cloud containers). The check fails open, so no real traffic
+// is blocked if geoip is unavailable.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+let geoip: null | { lookup: (ip: string) => { country: string } | null } = null;
+try { geoip = require("geoip-lite"); } catch { /* data files absent */ }
 
 // Countries whose staff may access the CRM admin dashboard.
 const ADMIN_ALLOWED_COUNTRIES = new Set(["RS"]); // Serbia
