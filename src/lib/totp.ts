@@ -1,4 +1,4 @@
-import { authenticator } from "otplib";
+import { generateSecret, generateSync, verifySync, generateURI } from "otplib";
 import { createCipheriv, createDecipheriv, randomBytes } from "crypto";
 import bcrypt from "bcryptjs";
 
@@ -33,15 +33,16 @@ export function decryptSecret(stored: string): string {
 }
 
 export function generateTotpSecret(email: string) {
-  const secret = authenticator.generateSecret(20);
-  const otpauth = authenticator.keyuri(email, "EVLV Command Center", secret);
+  const secret = generateSecret();
+  const otpauth = generateURI({ issuer: "EVLV Command Center", label: email, secret });
   return { secret, otpauth };
 }
 
 export function verifyTotp(encryptedSecret: string, token: string): boolean {
   try {
     const secret = decryptSecret(encryptedSecret);
-    return authenticator.verify({ token, secret });
+    const result = verifySync({ token, secret });
+    return result.valid;
   } catch {
     return false;
   }

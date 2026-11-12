@@ -88,7 +88,7 @@ export default async function SettingsPage() {
             ))}
           </div>
 
-          <InviteMemberForm />
+          <InviteMemberForm brands={brands} />
         </Card>
 
         <Card className="p-4">
