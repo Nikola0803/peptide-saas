@@ -132,6 +132,34 @@ export const authOptions: NextAuthOptions = {
         token.role = (user as any).role;
         token.supplierId = (user as any).supplierId;
         token.totpEnabled = (user as any).totpEnabled;
+        return token;
+      }
+
+      // Refresh role / org / 2FA state from the database on every request so
+      // changes made in the CRM (role, removed membership, 2FA enrollment)
+      // apply to people who are already logged in, without a forced re-login.
+      if (token.id) {
+        try {
+          const fresh = await prisma.user.findUnique({
+            where: { id: token.id as string },
+            select: {
+              totpEnabled: true,
+              memberships: {
+                select: { organizationId: true, role: true, supplierId: true, organization: { select: { name: true } } },
+              },
+            },
+          });
+          if (!fresh) return { ...token, organizationId: null, role: null };
+          const membership =
+            fresh.memberships.find((m) => m.organizationId === token.organizationId) ?? fresh.memberships[0];
+          token.organizationId = membership?.organizationId ?? null;
+          token.organizationName = membership?.organization.name ?? null;
+          token.role = membership?.role ?? null;
+          token.supplierId = membership?.supplierId ?? null;
+          token.totpEnabled = fresh.totpEnabled;
+        } catch {
+          // DB hiccup: keep the existing token rather than logging everyone out.
+        }
       }
       return token;
     },
