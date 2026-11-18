@@ -20,6 +20,7 @@ import {
 import { affiliateDiscountCents } from "@/lib/affiliate-program";
 import { CUSTOMER_REFERRAL_REWARD_ENABLED, REFERRAL_REWARD_CENTS } from "@/lib/customer-referral";
 import { JOIN25_PREFIX } from "@/lib/welcome-coupon";
+import { stockGateEnabled } from "@/lib/stock-gate";
 import { evaluateHalloweenBogo, evlvHalloweenPromotionOptions, halloweenPromotionIsLive, HALLOWEEN_BOGO_PROMOTION_CODE } from "@/lib/halloween-bogo-promotion";
 
 // "YYYY-MM-DD" in UTC -- the calendar day used to decide whether a
@@ -218,6 +219,9 @@ export async function runCheckout(
       brand?.domain.toLowerCase().replace(/^www\./, "") === "evlvpeptides.com" ||
       brand?.slug.toLowerCase() === "evlv-au" ||
       brand?.domain.toLowerCase().replace(/^www\./, "") === "evlvpeptides.com.au";
+    // Stock gate (see lib/stock-gate.ts): still no decrement for these
+    // brands, but a product with no stock left is refused.
+    const stockGate = stockGateEnabled(brand);
 
     const isWholesale = WHOLESALE_ENABLED && input.wholesaleCheckout === true && wholesale?.status === "APPROVED";
 
@@ -268,6 +272,13 @@ export async function runCheckout(
       });
 
       const availableStock = supplierProduct ? supplierProduct.stock : product.masterStock;
+      if (stockGate && availableStock <= 0) {
+        throw new CheckoutError(
+          `${product.chemicalName} is sold out right now. Remove it from your cart, or tap Notify me on its page to hear when it is back.`,
+          "OUT_OF_STOCK",
+          { slug: item.slug, available: 0 },
+        );
+      }
       if (!bypassInventory && availableStock < quantity) {
         throw new CheckoutError(`Insufficient stock for ${product.sku}`, "OUT_OF_STOCK", {
           slug: item.slug,
