@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { requireOrg } from "@/lib/session";
 import { PageHeader } from "@/components/ui";
 import { DashboardKpis, DashboardKpisSkeleton } from "./kpis";
+import { DashboardEarnings, DashboardEarningsSkeleton } from "./earnings";
 import { DashboardRevenueChart, DashboardRevenueChartSkeleton } from "./revenue-chart";
 import { DashboardRecentOrders, DashboardRecentOrdersSkeleton } from "./recent-orders";
 import { DashboardBrandsPanel, DashboardBrandsPanelSkeleton } from "./brands-panel";
@@ -29,6 +30,10 @@ export default async function DashboardPage() {
 
       <Suspense fallback={<DashboardKpisSkeleton />}>
         <DashboardKpis organizationId={organization.id} brandId={brandId} />
+      </Suspense>
+
+      <Suspense fallback={<DashboardEarningsSkeleton />}>
+        <DashboardEarnings organizationId={organization.id} brandId={brandId} />
       </Suspense>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">

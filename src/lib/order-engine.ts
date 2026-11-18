@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { computeProductProfit } from "./order-profit";
 import { DROPSHIP_ENABLED, WHOLESALE_ENABLED } from "@/lib/features";
 import { createId } from "@/lib/id";
 import { sendTemplate, escapeHtml } from "@/lib/email";
@@ -29,12 +30,6 @@ export function utcDateString(d: Date = new Date()): string {
   return d.toISOString().slice(0, 10);
 }
 
-// Flat-rate assumption for a card processor fee — matches the WooCommerce
-// webhook ingestion path in src/app/api/webhooks/woocommerce/route.ts. Not
-// actually charged here (storefront checkout is pay-by-memo, see below),
-// kept only so netProfitCents stays comparable across both order sources.
-const MERCHANT_FEE_PERCENT = 2.9;
-const MERCHANT_FEE_FIXED_CENTS = 30;
 const FLAT_SHIPPING_CENTS = 1500;
 const FREE_SHIPPING_THRESHOLD_CENTS = 30000;
 
@@ -510,8 +505,14 @@ export async function runCheckout(
       : FREE_SHIPPING_THRESHOLD_CENTS;
     const shippingCents = grossCentsTotal >= freeShippingThresholdCents ? 0 : FLAT_SHIPPING_CENTS;
 
-    const merchantFeeCents = Math.round((grossCentsTotal * MERCHANT_FEE_PERCENT) / 100) + MERCHANT_FEE_FIXED_CENTS;
-    const netProfitCents = grossCentsTotal - cogsCentsTotal - merchantFeeCents - commissionCents;
+    // Card fee only for card payments; P2P orders get the storefront's 5%
+    // P2P discount taken off instead (see src/lib/order-profit.ts).
+    const { netProfitCents } = computeProductProfit({
+      grossCents: grossCentsTotal,
+      paymentMethod: input.paymentMethod,
+      cogsCents: cogsCentsTotal,
+      commissionCents,
+    });
 
     const externalOrderNumber = `STORE-${createId()}`;
 
