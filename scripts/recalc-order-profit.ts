@@ -1,9 +1,16 @@
 import { PrismaClient } from "@prisma/client";
 import { computeProductProfit } from "../src/lib/order-profit";
+import supplierCosts from "../prisma/evlv-supplier-costs.json";
 
-// Recalculates the saved "Net profit (products)" on existing EVLV orders
-// using today's product costs (the supplier sheet costs from
-// npm run db:costs:evlv), no card fee on P2P orders and the 5% P2P discount.
+const SHEET = (supplierCosts as { costsCentsBySlug: Record<string, number> }).costsCentsBySlug;
+
+// Recalculates the saved "Net profit (products)" on every existing EVLV
+// order from what the order actually charged for products (after BOGO,
+// coupons and the 5% P2P discount) minus the supplier sheet cost of each
+// item, the card fee (card payments only) and the recorded affiliate
+// commission. Costs come from prisma/evlv-supplier-costs.json through the
+// product's store slug, so old product rows (older SKUs) get the sheet cost
+// too; a product not on the sheet uses its CRM cost.
 // It only rewrites Order.netProfitCents. Prices, totals, commissions,
 // statuses and emails are not touched.
 //
@@ -12,7 +19,8 @@ import { computeProductProfit } from "../src/lib/order-profit";
 //   npm run db:recalc-profit -- --before=2026-11-18T15:00:00Z
 //       only orders placed before that time (default: now)
 //
-// Run db:costs:evlv -- --apply first, so the costs are the real ones.
+// Run db:costs:evlv -- --apply first, so products not on the sheet and new
+// orders use the same costs.
 
 const prisma = new PrismaClient();
 const apply = process.argv.includes("--apply");
@@ -28,10 +36,17 @@ async function main() {
 
   const products = await prisma.product.findMany({
     where: { organizationId: org.id },
-    select: { id: true, sku: true, cogsCents: true },
+    select: { id: true, sku: true, cogsCents: true, storeMappings: { select: { slug: true } } },
   });
-  const costById = new Map(products.map((p) => [p.id, p.cogsCents]));
-  const costBySku = new Map(products.map((p) => [p.sku.toUpperCase(), p.cogsCents]));
+  // Sheet cost through any store slug of the product, else the CRM cost.
+  const unitCost = (p: (typeof products)[number]) => {
+    for (const m of p.storeMappings) {
+      if (m.slug && SHEET[m.slug] != null) return SHEET[m.slug];
+    }
+    return p.cogsCents;
+  };
+  const costById = new Map(products.map((p) => [p.id, unitCost(p)]));
+  const costBySku = new Map(products.map((p) => [p.sku.toUpperCase(), unitCost(p)]));
 
   const orders = await prisma.order.findMany({
     where: { organizationId: org.id, placedAt: { lt: before } },

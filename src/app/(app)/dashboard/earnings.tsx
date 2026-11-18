@@ -2,10 +2,11 @@ import { prisma } from "@/lib/prisma";
 import { money } from "@/lib/format";
 import { computeProductProfit } from "@/lib/order-profit";
 
-// Earnings from paid orders (completed + processing), worked out live from
-// each item's current product cost, so it always uses the latest costs.
-// Same rules as checkout: 5% P2P discount, card fee on card payments only,
-// affiliate commission as recorded on the order.
+// Earnings from paid orders (completed + processing). Net profit is the sum
+// of each order's saved "Net profit" -- the same number the Orders list
+// shows. Revenue, card fees and commission use the same rule as checkout
+// (src/lib/order-profit.ts); product cost is what is left, so the rows
+// always add up to the saved net profit.
 
 type Totals = { orders: number; revenue: number; cogs: number; fees: number; commission: number; net: number };
 
@@ -18,7 +19,7 @@ export async function DashboardEarnings({ organizationId, brandId }: { organizat
       placedAt: true,
       grossCents: true,
       paymentMethod: true,
-      items: { select: { quantity: true, product: { select: { cogsCents: true } } } },
+      netProfitCents: true,
       attribution: { select: { commissionCents: true } },
     },
   });
@@ -27,21 +28,22 @@ export async function DashboardEarnings({ organizationId, brandId }: { organizat
   const allTime = empty();
   const lastWeek = empty();
   for (const order of orders) {
-    const cogsCents = order.items.reduce((sum, item) => sum + (item.product?.cogsCents ?? 0) * item.quantity, 0);
     const r = computeProductProfit({
       grossCents: order.grossCents,
       paymentMethod: order.paymentMethod,
-      cogsCents,
+      cogsCents: 0,
       commissionCents: order.attribution?.commissionCents ?? 0,
     });
+    const net = order.netProfitCents ?? 0;
+    const cogs = r.productsPaidCents - r.feeCents - r.commissionCents - net;
     const targets = order.placedAt.getTime() >= weekAgo ? [allTime, lastWeek] : [allTime];
     for (const t of targets) {
       t.orders += 1;
       t.revenue += r.productsPaidCents;
-      t.cogs += r.cogsCents;
+      t.cogs += cogs;
       t.fees += r.feeCents;
       t.commission += r.commissionCents;
-      t.net += r.netProfitCents;
+      t.net += net;
     }
   }
 
@@ -56,7 +58,7 @@ export async function DashboardEarnings({ organizationId, brandId }: { organizat
     <div className="rounded-lg border border-background-200 bg-background-50 p-4 mb-6">
       <div className="flex items-baseline justify-between mb-3">
         <h2 className="text-sm font-semibold text-foreground-950">Earnings</h2>
-        <span className="text-xs text-foreground-500">Paid orders, current product costs</span>
+        <span className="text-xs text-foreground-500">Paid orders · net profit matches the Orders list</span>
       </div>
       <table className="w-full text-sm tabular-nums">
         <thead>
