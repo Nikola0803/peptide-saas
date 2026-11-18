@@ -3,7 +3,8 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { resolveHeaderOverride } from "@/lib/store-context";
 import { saveProofFromDataUrl } from "@/lib/heroes-discount-upload";
-import { sendTemplate } from "@/lib/email";
+import { escapeHtml, sendEmail, sendTemplate } from "@/lib/email";
+import { pushNotifyHeroesDiscountRequest } from "@/lib/push-notify";
 
 export const runtime = "nodejs";
 
@@ -52,6 +53,28 @@ export async function POST(req: NextRequest) {
       proofStoragePath: saved.storagePath,
     },
   });
+
+  // Owner alerts: phone push plus an email to the organization's notify
+  // address, same pattern as wholesale inquiries. Best-effort, never
+  // blocks the customer's submission.
+  await pushNotifyHeroesDiscountRequest({ name, email, status, branch }).catch((err) =>
+    console.error("Heroes discount push failed", err)
+  );
+  await prisma.organization
+    .findUnique({ where: { id: store.organizationId }, select: { notifyEmail: true } })
+    .then((organization) => {
+      if (!organization?.notifyEmail) {
+        console.warn("[heroes-discount] organization.notifyEmail not set; owner email skipped");
+        return;
+      }
+      const base = process.env.NEXTAUTH_URL || "";
+      return sendEmail(
+        organization.notifyEmail,
+        `New heroes discount application: ${name}`,
+        `<h1>New heroes discount application</h1><p><strong>${escapeHtml(name)}</strong> (${escapeHtml(email)})</p><p>${escapeHtml(status)}, ${escapeHtml(branch)}</p><p>Proof of service is attached in the CRM.</p><p><a href="${escapeHtml(base)}/heroes-discount">Review and approve</a></p>`
+      );
+    })
+    .catch((err) => console.error("Heroes discount owner email failed", err));
 
   await sendTemplate(store.organizationId, "heroes_discount_received", email, { name }).catch((err) =>
     console.error("Heroes discount confirmation email failed", err)

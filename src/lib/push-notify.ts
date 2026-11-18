@@ -42,7 +42,7 @@ export async function pushNotifyNewOrder(input: { orderNumber: string; customerN
 
 // The two highest-priority alert types (per the person running this CRM):
 // sales, then contact-form leads. Everything else (wholesale, affiliate,
-// heroes discount, membership, verification) already has its own admin
+// membership, verification) already has its own admin
 // page a staff member checks periodically -- not worth buzzing a phone for.
 export async function pushNotifyContactForm(input: { name: string; email: string; subject?: string; preview: string; conversationId: string }): Promise<void> {
   const base = getBaseUrl();
@@ -74,5 +74,16 @@ export async function pushNotifyWholesaleInquiry(input: { companyName: string; c
     tags: "briefcase",
     priority: "high",
     click: base ? `${base}/wholesale` : undefined,
+  });
+}
+
+export async function pushNotifyHeroesDiscountRequest(input: { name: string; email: string; status: string; branch: string }): Promise<void> {
+  const base = getBaseUrl();
+  await pushNotify({
+    title: "New heroes discount application",
+    message: `${input.name} — ${input.email} — ${input.status}, ${input.branch}`,
+    tags: "medal_military",
+    priority: "high",
+    click: base ? `${base}/heroes-discount` : undefined,
   });
 }

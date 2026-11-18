@@ -133,7 +133,14 @@ export async function POST(req: NextRequest) {
     isWholesale,
   });
   if (halloweenPromotion.applies) {
+    // The verified service (HEROES-) discount never stacks with BOGO: the
+    // real checkout in order-engine.ts drops every coupon while a sitewide
+    // event applies. Flag it here so the storefront can tell a verified
+    // customer why their 25% is not on this order.
+    const typedForBogo = [parsed.data.code, ...(parsed.data.codes ?? [])].filter(Boolean) as string[];
+    const heroesDiscountPaused = [...autoApplyCodes, ...typedForBogo].some((c) => /^HEROES-/i.test(c.trim()));
     return NextResponse.json({
+      heroesDiscountPaused,
       valid: true,
       discountCents: halloweenPromotion.discountCents,
       subtotalCents: halloweenPromotion.subtotalCents,

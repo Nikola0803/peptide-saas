@@ -6,7 +6,7 @@ import { getActiveBrand } from "@/lib/active-brand";
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const { organization } = await requireOrg();
 
-  const [brands, activeBrand, openConversations, pendingAffiliateApplications, pendingAffiliatePayouts, pendingWholesaleInquiries] = await Promise.all([
+  const [brands, activeBrand, openConversations, pendingAffiliateApplications, pendingAffiliatePayouts, pendingWholesaleInquiries, pendingHeroesRequests] = await Promise.all([
     prisma.brand.findMany({ where: { organizationId: organization.id }, orderBy: { createdAt: "asc" } }),
     getActiveBrand(organization.id),
     prisma.conversation.findMany({
@@ -18,6 +18,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       where: { affiliate: { organizationId: organization.id }, status: "REQUESTED" },
     }),
     prisma.wholesaleInquiry.count({ where: { organizationId: organization.id, status: "NEW" } }),
+    prisma.heroesDiscountRequest.count({ where: { organizationId: organization.id, reviewStatus: "PENDING" } }),
   ]);
 
   const pendingEnquiries = openConversations.filter(
@@ -35,6 +36,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           support: pendingEnquiries,
           affiliates: pendingAffiliateApplications + pendingAffiliatePayouts,
           wholesale: pendingWholesaleInquiries,
+          "heroes-discount": pendingHeroesRequests,
         }}
       />
       {/* pt-14 on mobile to clear the fixed top bar; no top padding on desktop */}

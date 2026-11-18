@@ -462,6 +462,10 @@ export async function runCheckout(
       discountCents = affiliateDiscount.discountCents;
       appliedCouponCodes = eligibleAffiliate.couponCode;
     }
+    // While a sitewide event (BOGO, GLP pair, Research Set) applies, no
+    // coupon is evaluated at all -- this is what keeps the lifetime HEROES-
+    // service discount from stacking on top of BOGO. Do not loosen this
+    // without an explicit HEROES- exclusion.
     // Auto-apply codes (a personal/lifetime deal assigned to this exact
     // contact -- see Coupon.assignedContactId) go first, so a non-stackable
     // personal deal wins over a generic code the customer happens to also
