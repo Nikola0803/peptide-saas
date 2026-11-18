@@ -1,7 +1,12 @@
 import { PrismaClient } from "@prisma/client";
+import supplierCosts from "../prisma/evlv-supplier-costs.json";
 
 const prisma = new PrismaClient();
 const STORE_DOMAIN = "evlvpeptides.com";
+// Real per-vial costs from the supplier sheet (kit price / 10). Used only when
+// a product is first created; an existing product's cost is never touched, so
+// edits made on the CRM Products page stay.
+const SUPPLIER_COSTS = (supplierCosts as { costsCentsBySlug: Record<string, number> }).costsCentsBySlug;
 
 function canonicalStorefrontImageUrl(image: string | undefined): string | null {
   if (!image) return null;
@@ -47,12 +52,19 @@ async function main() {
   if (!Array.isArray(catalog) || catalog.length === 0) {
     throw new Error("EVLV catalog response did not contain products");
   }
+  const missingCost: string[] = [];
   for (const item of catalog) {
     const priceCents = Math.round(item.price * 100);
     const wholesaleCasePriceCents = Math.round(
       (item.bulkOption?.qty === 10 ? item.bulkOption.price : item.price * 9) * 100,
     );
     const imageUrl = canonicalStorefrontImageUrl(item.image);
+    const existing = await prisma.product.findUnique({
+      where: { organizationId_sku: { organizationId: org.id, sku: item.sku } },
+      select: { id: true },
+    });
+    const knownCost = SUPPLIER_COSTS[item.slug];
+    if (!existing && knownCost == null) missingCost.push(`${item.slug} (${item.sku})`);
     const product = await prisma.product.upsert({
       where: { organizationId_sku: { organizationId: org.id, sku: item.sku } },
       update: {
@@ -70,7 +82,9 @@ async function main() {
         organizationId: org.id,
         sku: item.sku,
         chemicalName: item.name,
-        cogsCents: Math.round(priceCents * 0.3),
+        // No more guessing 30% of retail: unknown costs start at $0 and are
+        // listed at the end of the run so they can be set on the Products page.
+        cogsCents: knownCost ?? 0,
         masterStock: item.stockQty ?? 0,
         imageUrl,
         shortDescription: item.shortDescription,
@@ -102,6 +116,11 @@ async function main() {
     });
   }
 
+  if (missingCost.length) {
+    console.warn(
+      `New products created with no known cost ($0). Set their cost on the CRM Products page: ${missingCost.join(", ")}`,
+    );
+  }
   console.log(`Synced ${catalog.length} EVLV products, images, retail prices, and 10-vial case prices.`);
 }
 

@@ -20,9 +20,13 @@ function requireSeedPassword(name: "EVLV_STAFF_SEED_PASSWORD" | "EVLV_AFFILIATE_
 // (photo, descriptions, purity, storage/recon copy) so the CRM is an
 // actual source of truth for the storefront instead of a checkout-only
 // price/stock shadow of it. cogsCents is read from the catalog's cogsCents
-// field when present; otherwise falls back to 30% of price (estimate).
+// field when present; the supplier sheet (evlv-supplier-costs.json) wins
+// over it, and a product with neither starts at $0 cost (no 30% guess).
 // Safe to re-run any time, it's all upserts.
 import catalogJson from "./evlv-catalog.json";
+import supplierCosts from "./evlv-supplier-costs.json";
+
+const SUPPLIER_COSTS = (supplierCosts as { costsCentsBySlug: Record<string, number> }).costsCentsBySlug;
 
 interface StaticProduct {
   slug: string;
@@ -47,7 +51,7 @@ const PRODUCTS = catalog.map((p) => ({
   sku: p.sku,
   chemicalName: p.name,
   priceCents: Math.round(p.price * 100),
-  cogsCents: p.cogsCents ?? Math.round(p.price * 100 * 0.3),
+  cogsCents: SUPPLIER_COSTS[p.slug] ?? p.cogsCents ?? 0,
   imageUrl: p.image ? ("https://" + STORE_DOMAIN + p.image) : undefined,
   shortDescription: p.shortDescription as string | undefined,
   description: p.description as string | undefined,
@@ -127,7 +131,8 @@ async function main() {
       where: { organizationId_sku: { organizationId: org.id, sku: p.sku } },
       update: {
         chemicalName: p.chemicalName,
-        cogsCents: p.cogsCents,
+        // Never overwrite a real cost with $0 when this product's cost is unknown.
+        ...(p.cogsCents > 0 ? { cogsCents: p.cogsCents } : {}),
         imageUrl: p.imageUrl,
         shortDescription: p.shortDescription,
         description: p.description,
