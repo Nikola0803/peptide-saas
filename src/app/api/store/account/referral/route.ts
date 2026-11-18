@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { resolveHeaderOverride } from "@/lib/store-context";
 import { bearerToken, verifyCustomerToken } from "@/lib/customer-auth";
 import { prisma } from "@/lib/prisma";
-import { ensureReferralCode, REFERRAL_REWARD_CENTS } from "@/lib/customer-referral";
+import { CUSTOMER_REFERRAL_REWARD_ENABLED, ensureReferralCode, REFERRAL_REWARD_CENTS } from "@/lib/customer-referral";
 
 export async function POST(req: NextRequest) {
   const store = await resolveHeaderOverride(req);
@@ -35,8 +35,10 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     referralCode,
     referralLink: `https://www.evlvpeptides.com/?ref=${encodeURIComponent(referralCode)}`,
-    friendRewardCents: REFERRAL_REWARD_CENTS,
-    referrerRewardCents: REFERRAL_REWARD_CENTS,
+    friendRewardCents: CUSTOMER_REFERRAL_REWARD_ENABLED ? REFERRAL_REWARD_CENTS : 0,
+    referrerRewardCents: CUSTOMER_REFERRAL_REWARD_ENABLED ? REFERRAL_REWARD_CENTS : 0,
+    // Rewards already issued before the $15 program was switched off stay
+    // redeemable; no new ones are created.
     availableStoreCreditCents: availableRewards * REFERRAL_REWARD_CENTS,
     referrals: referrals.map((item) => ({
       id: item.id,

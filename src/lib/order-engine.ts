@@ -16,7 +16,7 @@ import {
   RESEARCH_SET_PROMOTION_CODE,
 } from "@/lib/research-set-promotion";
 import { affiliateDiscountCents } from "@/lib/affiliate-program";
-import { REFERRAL_REWARD_CENTS } from "@/lib/customer-referral";
+import { CUSTOMER_REFERRAL_REWARD_ENABLED, REFERRAL_REWARD_CENTS } from "@/lib/customer-referral";
 import { JOIN25_PREFIX } from "@/lib/welcome-coupon";
 import { evaluateHalloweenBogo, evlvHalloweenPromotionOptions, halloweenPromotionIsLive, HALLOWEEN_BOGO_PROMOTION_CODE } from "@/lib/halloween-bogo-promotion";
 
@@ -406,7 +406,7 @@ export async function runCheckout(
       effectiveReferral && referralCodeOwner && effectiveReferral.referrerContactId === referralCodeOwner.id,
     );
     const maximumReferralDiscount = Math.max(0, grossCentsTotal - Math.ceil(cogsCentsTotal * (1 + marginPercent / 100)));
-    const eligibleReferral = !hasExclusiveJoin25 && !promotion.applies && referralCodeMatches && !effectiveReferral?.referredOrderId && !priorCustomerOrder
+    const eligibleReferral = CUSTOMER_REFERRAL_REWARD_ENABLED && !hasExclusiveJoin25 && !promotion.applies && referralCodeMatches && !effectiveReferral?.referredOrderId && !priorCustomerOrder
       && maximumReferralDiscount >= REFERRAL_REWARD_CENTS
       ? effectiveReferral
       : null;

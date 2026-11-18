@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { REFERRAL_REWARD_CENTS } from "@/lib/customer-referral";
+import { CUSTOMER_REFERRAL_REWARD_ENABLED, REFERRAL_REWARD_CENTS } from "@/lib/customer-referral";
 import { z } from "zod";
 import { resolveHeaderOverride } from "@/lib/store-context";
 import { prisma } from "@/lib/prisma";
@@ -247,7 +247,7 @@ export async function POST(req: NextRequest) {
     );
     const cogsCents = couponCartItems.reduce((sum, item) => sum + item.cogsCents * item.quantity, 0);
     const maximumReferralDiscount = Math.max(0, subtotalCents - Math.ceil(cogsCents * (1 + (org?.minMarginPercent ?? 30) / 100)));
-    if (referralMatches && !customerReferral?.referredOrderId && !priorOrder && maximumReferralDiscount >= REFERRAL_REWARD_CENTS) {
+    if (CUSTOMER_REFERRAL_REWARD_ENABLED && referralMatches && !customerReferral?.referredOrderId && !priorOrder && maximumReferralDiscount >= REFERRAL_REWARD_CENTS) {
       return NextResponse.json({
         valid: true,
         discountCents: REFERRAL_REWARD_CENTS,

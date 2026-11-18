@@ -3,6 +3,11 @@ import { prisma } from "@/lib/prisma";
 import { sendTemplate } from "@/lib/email";
 
 export const REFERRAL_REWARD_CENTS = 1500;
+// The customer-to-customer $15 + $15 reward is switched OFF (2026-11-18).
+// Friends who use a partner/referral code get whatever sitewide deal is live
+// (BOGO etc.); partners earn commission on the discounted total through the
+// Affiliate program. Flip to true only to bring the $15/$15 reward back.
+export const CUSTOMER_REFERRAL_REWARD_ENABLED = false;
 
 function codeStem(name: string | null, email: string) {
   const source = name?.split(/\s+/)[0] || email.split("@")[0] || "EVLV";
@@ -49,6 +54,7 @@ export async function attachReferralAtRegistration(input: {
 }
 
 export async function qualifyReferral(orderId: string): Promise<void> {
+  if (!CUSTOMER_REFERRAL_REWARD_ENABLED) return;
   const issued = await prisma.$transaction(async (tx) => {
     const referral = await tx.customerReferral.findUnique({
       where: { referredOrderId: orderId },
