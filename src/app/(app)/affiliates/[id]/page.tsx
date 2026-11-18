@@ -7,7 +7,7 @@ import { money, dateTime } from "@/lib/format";
 import { affiliateLevelForRevenue } from "@/lib/affiliate-program";
 import { getActiveBrand } from "@/lib/active-brand";
 import { AffiliateQrCode } from "../affiliate-qr-code";
-import { assignAffiliateOwner, updateAffiliateProgram } from "../actions";
+import { approveAffiliate, assignAffiliateOwner, rejectAffiliate, updateAffiliateProgram } from "../actions";
 
 export default async function AffiliateDetailPage({ params }: { params: { id: string } }) {
   const { organization } = await requireOrg();
@@ -46,6 +46,22 @@ export default async function AffiliateDetailPage({ params }: { params: { id: st
       subtitle={`Partner since ${dateTime(affiliate.createdAt)}`}
       actions={<Link href="/affiliates" className="text-sm border border-background-300 rounded-md px-3 py-1.5 text-foreground-700 hover:bg-background-100">Back to affiliates</Link>}
     />
+
+    {affiliate.status === "PENDING" && (
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4">
+        <div className="text-sm text-foreground-800">
+          <strong>Waiting for your approval.</strong> Approving gives them the partner command center at {affiliate.ratePercent}% right away and sends the approval email.
+        </div>
+        <div className="flex items-center gap-2">
+          <form action={approveAffiliate.bind(null, affiliate.id)}>
+            <button className="text-sm bg-primary-500 text-background-50 rounded-md px-3 py-1.5 font-medium hover:bg-primary-600">Approve</button>
+          </form>
+          <form action={rejectAffiliate.bind(null, affiliate.id)}>
+            <button className="text-sm border border-background-300 rounded-md px-3 py-1.5 text-foreground-700 hover:bg-background-100">Reject</button>
+          </form>
+        </div>
+      </div>
+    )}
 
     <div className="mb-6 flex flex-wrap items-center gap-2">
       <Badge status={affiliate.status.toLowerCase()} />

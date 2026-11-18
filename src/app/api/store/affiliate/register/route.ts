@@ -6,6 +6,7 @@ import { resolveContactFromToken } from "@/lib/store-customer";
 import { generateAffiliateCode } from "@/lib/affiliate-auth";
 import { pushNotifyAffiliateApplication } from "@/lib/push-notify";
 import { escapeHtml, sendEmail } from "@/lib/email";
+import { affiliateQuickApproveUrl } from "@/lib/affiliate-approval";
 
 const bodySchema = z.object({
   token: z.string().optional(),
@@ -61,7 +62,10 @@ export async function POST(req: NextRequest) {
 
   const existing = await prisma.affiliate.findUnique({ where: { contactId: contact.id } });
   if (existing) {
-    return NextResponse.json({ error: "You've already applied to the affiliate program" }, { status: 409 });
+    // The one-click "Apply" button on evlv-site /partner can be pressed
+    // twice (double tap, second tab). Report the current state instead of
+    // an error so the site just shows "under review" / opens the portal.
+    return NextResponse.json({ ok: true, alreadyApplied: true, status: existing.status }, { status: 200 });
   }
 
   const firstName = (contact.name ?? contact.email).split(" ")[0];
@@ -97,20 +101,29 @@ export async function POST(req: NextRequest) {
     },
   });
 
+  const approveUrl = affiliateQuickApproveUrl(affiliate.id);
+  const profileUrl = `${process.env.NEXTAUTH_URL || ""}/affiliates/${affiliate.id}`;
   pushNotifyAffiliateApplication({
     affiliateId: affiliate.id,
     name: affiliate.name,
     email: affiliate.email || contact.email,
     socialLink: affiliate.socialLink,
+    approveUrl,
   }).catch((error) => console.error("Affiliate application push failed", error));
   prisma.organization.findUnique({ where: { id: store.organizationId }, select: { notifyEmail: true } }).then((organization) => {
-    if (!organization?.notifyEmail) return;
+    if (!organization?.notifyEmail) {
+      console.warn("[affiliate-register] organization.notifyEmail not set; owner approval email skipped");
+      return;
+    }
+    const approveButton = approveUrl
+      ? `<p style="margin:24px 0"><a href="${escapeHtml(approveUrl)}" style="display:inline-block;background:#102d28;color:#ffffff;text-decoration:none;font-weight:700;padding:14px 22px;border-radius:10px">Approve partner (15%)</a></p>`
+      : "";
     return sendEmail(
       organization.notifyEmail,
-      `New partner application — ${affiliate.name}`,
-      `<h1>New partner application</h1><p><strong>${escapeHtml(affiliate.name)}</strong> (${escapeHtml(affiliate.email || contact.email)}) submitted an application.</p><p>Channel: ${affiliate.socialLink ? escapeHtml(affiliate.socialLink) : "Not provided"}</p><p><a href="${escapeHtml(process.env.NEXTAUTH_URL || "")}/affiliates/${affiliate.id}">Open partner profile</a></p>`,
+      `Approve partner? ${affiliate.name}`,
+      `<h1>New partner application</h1><p><strong>${escapeHtml(affiliate.name)}</strong> (${escapeHtml(affiliate.email || contact.email)}) wants partner access.</p><p>Channel: ${affiliate.socialLink ? escapeHtml(affiliate.socialLink) : "Not provided"}<br>Phone: ${affiliate.phone ? escapeHtml(affiliate.phone) : "Not provided"}<br>Referred by: ${affiliate.referredBy ? escapeHtml(affiliate.referredBy) : "Not provided"}<br>Code: ${escapeHtml(affiliate.couponCode)} at ${affiliate.ratePercent}%</p>${approveButton}<p><a href="${escapeHtml(profileUrl)}">Review the full profile in the CRM</a>. The approve link works for 7 days and only for this application.</p>`,
     );
   }).catch((error) => console.error("Affiliate application email failed", error));
 
-  return NextResponse.json({ ok: true }, { status: 201 });
+  return NextResponse.json({ ok: true, status: affiliate.status }, { status: 201 });
 }

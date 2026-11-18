@@ -13,7 +13,7 @@ export function pushNotifyConfigured(): boolean {
   return Boolean(NTFY_TOPIC);
 }
 
-async function pushNotify(opts: { title: string; message: string; tags?: string; priority?: string; click?: string }): Promise<void> {
+async function pushNotify(opts: { title: string; message: string; tags?: string; priority?: string; click?: string; actions?: string }): Promise<void> {
   if (!NTFY_TOPIC) {
     console.warn(`[push-notify] NTFY_TOPIC not set — skipped push "${opts.title}"`);
     return;
@@ -25,6 +25,8 @@ async function pushNotify(opts: { title: string; message: string; tags?: string;
     };
     if (opts.tags) headers.Tags = opts.tags;
     if (opts.click) headers.Click = opts.click;
+    // ntfy action buttons, e.g. "http, Approve, https://..., method=POST, clear=true"
+    if (opts.actions) headers.Actions = opts.actions;
     await fetch(`${NTFY_BASE_URL}/${NTFY_TOPIC}`, { method: "POST", headers, body: opts.message });
   } catch (err) {
     console.error("[push-notify] failed to send", err);
@@ -55,14 +57,23 @@ export async function pushNotifyContactForm(input: { name: string; email: string
   });
 }
 
-export async function pushNotifyAffiliateApplication(input: { affiliateId: string; name: string; email: string; socialLink?: string | null }): Promise<void> {
+// approveUrl: signed one-tap approve link (src/lib/affiliate-approval.ts).
+// The push gets an "Approve" button that POSTs to it straight from the
+// notification, plus a "Review" button that opens the CRM profile.
+export async function pushNotifyAffiliateApplication(input: { affiliateId: string; name: string; email: string; socialLink?: string | null; approveUrl?: string }): Promise<void> {
   const base = getBaseUrl();
+  const profileUrl = base ? `${base}/affiliates/${input.affiliateId}` : undefined;
+  const actions = [
+    input.approveUrl ? `http, Approve 15%, ${input.approveUrl}, method=POST, clear=true` : "",
+    profileUrl ? `view, Review, ${profileUrl}` : "",
+  ].filter(Boolean).join("; ");
   await pushNotify({
     title: "New partner application",
-    message: `${input.name} — ${input.email}${input.socialLink ? ` — ${input.socialLink}` : ""}`,
+    message: `${input.name} — ${input.email}${input.socialLink ? ` — ${input.socialLink}` : ""}\nTap Approve to give them partner access now.`,
     tags: "handshake",
     priority: "high",
-    click: base ? `${base}/affiliates/${input.affiliateId}` : undefined,
+    click: profileUrl,
+    actions: actions || undefined,
   });
 }
 

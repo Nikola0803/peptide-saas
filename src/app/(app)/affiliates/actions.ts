@@ -144,6 +144,7 @@ export async function approveAffiliate(affiliateId: string) {
     );
   }
   revalidatePath("/affiliates");
+  revalidatePath(`/affiliates/${affiliateId}`);
 }
 
 export async function rejectAffiliate(affiliateId: string) {
@@ -158,6 +159,7 @@ export async function rejectAffiliate(affiliateId: string) {
     );
   }
   revalidatePath("/affiliates");
+  revalidatePath(`/affiliates/${affiliateId}`);
 }
 
 export async function markPayoutPaid(payoutRequestId: string) {
