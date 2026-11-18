@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { DROPSHIP_ENABLED, WHOLESALE_ENABLED } from "@/lib/features";
 import { createId } from "@/lib/id";
 import { sendTemplate, escapeHtml } from "@/lib/email";
 import { pushNotifyNewOrder } from "@/lib/push-notify";
@@ -223,7 +224,7 @@ export async function runCheckout(
       brand?.slug.toLowerCase() === "evlv-au" ||
       brand?.domain.toLowerCase().replace(/^www\./, "") === "evlvpeptides.com.au";
 
-    const isWholesale = input.wholesaleCheckout === true && wholesale?.status === "APPROVED";
+    const isWholesale = WHOLESALE_ENABLED && input.wholesaleCheckout === true && wholesale?.status === "APPROVED";
 
     for (const item of input.items) {
       const quantity = Math.max(1, Math.floor(item.quantity));
@@ -624,7 +625,7 @@ export async function runCheckout(
     paymentMemo: input.paymentMemo,
   }).catch((err) => console.error("Order confirmation email failed", err));
 
-  notifySuppliers(organizationId, result.number, resolvedItems).catch((err) => console.error("Supplier notification email failed", err));
+  if (DROPSHIP_ENABLED) notifySuppliers(organizationId, result.number, resolvedItems).catch((err) => console.error("Supplier notification email failed", err));
 
   // Report the order to Omnisend for revenue attribution / email flows.
   // Best-effort: a failed push never fails a completed checkout. Only EVLV

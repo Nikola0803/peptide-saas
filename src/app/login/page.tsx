@@ -50,6 +50,11 @@ function LoginForm() {
       return;
     }
 
+    if (result.error === "ACCESS_REVOKED") {
+      router.push("/blocked");
+      return;
+    }
+
     setError("That email and password don't match an account.");
   }
 

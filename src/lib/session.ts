@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isAdminIpAllowed } from "@/lib/geo";
+import { DROPSHIP_ENABLED } from "@/lib/features";
 
 // Every dashboard page calls this first. Centralizing it here means the
 // day multi-org switching or invitations land, only this file changes.
@@ -24,7 +25,7 @@ export async function requireOrg() {
 
   // Suppliers have their own restricted area.
   if (role === "DROPSHIP_AGENT") {
-    redirect("/dropship");
+    redirect(DROPSHIP_ENABLED ? "/dropship" : "/blocked");
   }
 
   const organization = await prisma.organization.findUnique({
@@ -76,7 +77,7 @@ export async function requireSession() {
   }
 
   if (role === "DROPSHIP_AGENT") {
-    redirect("/dropship");
+    redirect(DROPSHIP_ENABLED ? "/dropship" : "/blocked");
   }
 
   return { session };
@@ -90,6 +91,8 @@ export async function requireAdmin() {
 }
 
 export async function requireSupplier() {
+  if (!DROPSHIP_ENABLED) redirect("/blocked");
+
   if (!isAdminIpAllowed()) {
     redirect("/login?blocked=1");
   }

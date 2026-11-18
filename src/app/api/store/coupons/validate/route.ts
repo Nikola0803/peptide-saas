@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { WHOLESALE_ENABLED } from "@/lib/features";
 import { CUSTOMER_REFERRAL_REWARD_ENABLED, REFERRAL_REWARD_CENTS } from "@/lib/customer-referral";
 import { z } from "zod";
 import { resolveHeaderOverride } from "@/lib/store-context";
@@ -118,7 +119,7 @@ export async function POST(req: NextRequest) {
         select: { id: true },
       }))
     : false;
-  const isWholesale = parsed.data.wholesaleCheckout === true && wholesale?.status === "APPROVED";
+  const isWholesale = WHOLESALE_ENABLED && parsed.data.wholesaleCheckout === true && wholesale?.status === "APPROVED";
   const marginPercent = org?.minMarginPercent ?? 30;
 
   const autoApplyCodes = await getAutoApplyCodes(store.organizationId, contactId);

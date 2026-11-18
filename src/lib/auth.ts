@@ -3,6 +3,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { verifyTotp, verifyRecoveryCode } from "@/lib/totp";
+import { DROPSHIP_ENABLED } from "@/lib/features";
 
 const LOGIN_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 const MAX_FAILED_ATTEMPTS = 5;
@@ -63,6 +64,12 @@ export const authOptions: NextAuthOptions = {
         if (!validPassword) {
           await prisma.loginAttempt.create({ data: { email, userId: user.id, ip, success: false } }).catch(() => {});
           return null;
+        }
+
+        // Supplier (dropship) logins are revoked while the module is off.
+        if (!DROPSHIP_ENABLED && user.memberships.length > 0 && user.memberships.every((m) => m.role === "DROPSHIP_AGENT")) {
+          await prisma.loginAttempt.create({ data: { email, userId: user.id, ip, success: false } }).catch(() => {});
+          throw new Error("ACCESS_REVOKED");
         }
 
         // --- 2FA check (only if enabled) ---
