@@ -5,6 +5,7 @@ import { slugify } from "@/lib/slugify";
 import { utcDateString } from "@/lib/order-engine";
 import { getBaseUrl } from "@/lib/base-url";
 import { stripDoseSuffix, doseLabel } from "@/lib/dose";
+import { stockGateEnabled } from "@/lib/stock-gate";
 
 // stripDoseSuffix falls back to stripping a trailing dose/strength ("5mg",
 // "10 IU", "500mg") off chemicalName when a product has no explicit
@@ -103,6 +104,9 @@ export async function GET(req: NextRequest) {
     inventoryDomain === "zoonetics.co" ||
     inventoryDomain === "evlvpeptides.com" ||
     inventoryDomain === "evlvpeptides.com.au";
+  // Stock gate on: report real availability (stock > 0) even for the
+  // always-available catalogs, so sold-out products show "Notify me".
+  const stockGate = stockGateEnabled({ domain: store.brandDomain });
 
   for (const m of mappings) {
     const product = m.product;
@@ -120,7 +124,7 @@ export async function GET(req: NextRequest) {
       sku: product.sku,
       label: product.variantLabel || doseLabel(product.chemicalName) || product.chemicalName,
       priceCents: isDeal ? (m.dealPriceCents as number) : regularPriceCents,
-      inStock: bypassInventory || stock > 0,
+      inStock: (bypassInventory && !stockGate) || stock > 0,
       coaUrl: absoluteMediaUrl(product.coas[0]?.url),
       imageUrl: absoluteMediaUrl(product.imageUrl),
       shortDescription: product.shortDescription ?? undefined,
