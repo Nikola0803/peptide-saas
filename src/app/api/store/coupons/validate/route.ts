@@ -22,6 +22,7 @@ import {
 } from "@/lib/research-set-promotion";
 import { affiliateDiscountCents } from "@/lib/affiliate-program";
 import { JOIN25_PREFIX, JOIN25_PERCENT } from "@/lib/welcome-coupon";
+import { evaluateBfExtraHalf, bfExtraHalfCode, bfExtraHalfMode, bfExtraHalfRequested, BF_EXTRA_HALF_ID, BF_EXTRA_HALF_LABEL } from "@/lib/bf-extra-half";
 import { evaluateHalloweenBogo, evlvHalloweenPromotionOptions, HALLOWEEN_BOGO_PROMOTION_CODE, HALLOWEEN_BOGO_PROMOTION_ID, HALLOWEEN_BOGO_PROMOTION_LABEL } from "@/lib/halloween-bogo-promotion";
 
 const bodySchema = z.object({
@@ -140,17 +141,32 @@ export async function POST(req: NextRequest) {
     // customer why their 25% is not on this order.
     const typedForBogo = [parsed.data.code, ...(parsed.data.codes ?? [])].filter(Boolean) as string[];
     const heroesDiscountPaused = [...autoApplyCodes, ...typedForBogo].some((c) => /^HEROES-/i.test(c.trim()));
+    // Same rule as order-engine.ts: the extra 50% is the only add-on to BOGO.
+    const extraHalf = bfExtraHalfRequested(typedForBogo)
+      ? evaluateBfExtraHalf(couponCartItems)
+      : { applies: false as const, discountCents: 0, discountedPairs: 0, skippedPairs: 0 };
+    const bogoDiscountCents = halloweenPromotion.discountCents + extraHalf.discountCents;
     return NextResponse.json({
       heroesDiscountPaused,
       valid: true,
-      discountCents: halloweenPromotion.discountCents,
+      discountCents: bogoDiscountCents,
+      bogoDiscountCents: halloweenPromotion.discountCents,
+      extraHalfDiscountCents: extraHalf.discountCents,
+      extraHalfMode: bfExtraHalfMode(),
+      extraHalfApplied: extraHalf.applies,
+      extraHalfSkippedPairs: extraHalf.skippedPairs,
       subtotalCents: halloweenPromotion.subtotalCents,
-      totalCents: halloweenPromotion.totalCents,
-      appliedCoupons: [{ code: HALLOWEEN_BOGO_PROMOTION_CODE, label: HALLOWEEN_BOGO_PROMOTION_LABEL }],
+      totalCents: Math.max(0, halloweenPromotion.subtotalCents - bogoDiscountCents),
+      appliedCoupons: [
+        { code: HALLOWEEN_BOGO_PROMOTION_CODE, label: HALLOWEEN_BOGO_PROMOTION_LABEL },
+        ...(extraHalf.applies ? [{ code: bfExtraHalfMode() === "code" ? bfExtraHalfCode() : BF_EXTRA_HALF_ID, label: BF_EXTRA_HALF_LABEL }] : []),
+      ],
       automaticPromotion: HALLOWEEN_BOGO_PROMOTION_ID,
-      promotionLabel: `${HALLOWEEN_BOGO_PROMOTION_LABEL} · ${halloweenPromotion.freeUnits} free`,
-      flooredByMargin: false,
-      maximumDiscountPercent: 50,
+      promotionLabel: extraHalf.applies
+        ? `${HALLOWEEN_BOGO_PROMOTION_LABEL} + extra 50% · ${halloweenPromotion.freeUnits} free`
+        : `${HALLOWEEN_BOGO_PROMOTION_LABEL} · ${halloweenPromotion.freeUnits} free`,
+      flooredByMargin: extraHalf.skippedPairs > 0,
+      maximumDiscountPercent: extraHalf.applies ? 75 : 50,
       stackingDisabled: true,
       errors: [],
     });

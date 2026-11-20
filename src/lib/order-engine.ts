@@ -20,6 +20,7 @@ import {
 import { affiliateDiscountCents } from "@/lib/affiliate-program";
 import { CUSTOMER_REFERRAL_REWARD_ENABLED, REFERRAL_REWARD_CENTS } from "@/lib/customer-referral";
 import { JOIN25_PREFIX } from "@/lib/welcome-coupon";
+import { evaluateBfExtraHalf, bfExtraHalfCode, bfExtraHalfMode, bfExtraHalfRequested, BF_EXTRA_HALF_ID } from "@/lib/bf-extra-half";
 import { evaluateHalloweenBogo, evlvHalloweenPromotionOptions, halloweenPromotionIsLive, HALLOWEEN_BOGO_PROMOTION_CODE } from "@/lib/halloween-bogo-promotion";
 
 // "YYYY-MM-DD" in UTC -- the calendar day used to decide whether a
@@ -446,6 +447,17 @@ export async function runCheckout(
       : eligibleReferral
       ? input.couponCode?.trim().toUpperCase()
       : undefined;
+    // Black Friday "50% on top of 50%": an extra half off what is still paid
+    // after BOGO, on pairs that stay profitable. Off unless
+    // BF_EXTRA_HALF_MODE is set (see bf-extra-half.ts). This is the only
+    // thing allowed to add to BOGO; every other coupon stays blocked below.
+    if (halloweenPromotion.applies && bfExtraHalfRequested([input.couponCode, ...(input.discountCodes ?? [])])) {
+      const extraHalf = evaluateBfExtraHalf(couponCartItems);
+      if (extraHalf.applies) {
+        discountCents += extraHalf.discountCents;
+        appliedCouponCodes = `${HALLOWEEN_BOGO_PROMOTION_CODE},${bfExtraHalfMode() === "code" ? bfExtraHalfCode() : BF_EXTRA_HALF_ID}`;
+      }
+    }
     // A partner's optional customer discount is never stacked on a sitewide
     // event. During BOGO or another event, their code is attribution only.
     if (eligibleAffiliate && !promotion.applies && eligibleAffiliate.customerDiscountPercent > 0) {
