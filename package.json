@@ -14,6 +14,7 @@
     "db:seed:evlv": "tsx prisma/seed-evlv.ts",
     "db:seed:evlv-au": "tsx prisma/seed-evlv-au.ts",
     "db:sync:evlv-catalog": "tsx scripts/sync-evlv-catalog.ts",
+    "db:stock:evlv": "tsx scripts/sync-evlv-warrior-inventory.ts",
     "db:costs:evlv": "tsx scripts/apply-evlv-supplier-costs.ts",
     "db:recalc-profit": "tsx scripts/recalc-order-profit.ts",
     "admin:provision-warrior": "tsx scripts/provision-warrior-admin.ts",

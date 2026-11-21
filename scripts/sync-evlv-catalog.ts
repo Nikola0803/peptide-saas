@@ -102,7 +102,6 @@ async function main() {
         productId: product.id,
         storePriceCents: priceCents,
         wholesaleCasePriceCents,
-        active: true,
       },
       create: {
         productId: product.id,
@@ -111,7 +110,7 @@ async function main() {
         slug: item.slug,
         storePriceCents: priceCents,
         wholesaleCasePriceCents,
-        active: true,
+        active: item.inStock !== false && (item.stockQty == null || item.stockQty > 0),
       },
     });
   }
