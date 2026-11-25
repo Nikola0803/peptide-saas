@@ -23,6 +23,7 @@ import {
 import { affiliateDiscountCents } from "@/lib/affiliate-program";
 import { JOIN25_PREFIX, JOIN25_PERCENT } from "@/lib/welcome-coupon";
 import { evaluateHalloweenBogo, evlvHalloweenPromotionOptions, HALLOWEEN_BOGO_PROMOTION_CODE, HALLOWEEN_BOGO_PROMOTION_ID, HALLOWEEN_BOGO_PROMOTION_LABEL } from "@/lib/halloween-bogo-promotion";
+import { evaluateKitTiers, isKitLine, KIT_TIER_PROMOTION_CODE, KIT_TIER_PROMOTION_ID, KIT_TIER_PROMOTION_LABEL, type KitTierItem } from "@/lib/kit-tier-promotion";
 
 const bodySchema = z.object({
   items: z.array(z.object({ slug: z.string().min(1), quantity: z.number().int().positive() })).min(1),
@@ -64,6 +65,9 @@ export async function POST(req: NextRequest) {
 
   const couponCartItems: CouponCartItem[] = [];
   const promotionItems: GlpPairPromotionItem[] = [];
+  // Same kit rule as runCheckout(): retail 10-vial kits never take BOGO.
+  const kitFlags: boolean[] = [];
+  const kitItems: KitTierItem[] = [];
   let subtotalCents = 0;
 
   for (const item of parsed.data.items) {
@@ -85,6 +89,9 @@ export async function POST(req: NextRequest) {
       unitPriceCents,
       cogsCents: mapping.product.cogsCents,
     });
+    const kitLine = isKitLine(quantity, mapping.retailCasePriceCents);
+    kitFlags.push(kitLine);
+    if (kitLine) kitItems.push({ quantity, unitPriceCents, wholesaleCasePriceCents: mapping.wholesaleCasePriceCents });
     promotionItems.push({
       slug: item.slug,
       quantity,
@@ -124,7 +131,7 @@ export async function POST(req: NextRequest) {
 
   const autoApplyCodes = await getAutoApplyCodes(store.organizationId, contactId);
   const join25Code = autoApplyCodes.find((code) => code.toUpperCase().startsWith(JOIN25_PREFIX));
-  const halloweenPromotion = evaluateHalloweenBogo(couponCartItems, {
+  const halloweenPromotion = evaluateHalloweenBogo(couponCartItems.filter((_, i) => !kitFlags[i]), {
     ...evlvHalloweenPromotionOptions({
       active: brand?.halloweenBogoActive ?? false,
       startsAt: brand?.halloweenStartsAt,
@@ -133,24 +140,39 @@ export async function POST(req: NextRequest) {
     }),
     isWholesale,
   });
-  if (halloweenPromotion.applies) {
+  // Wholesale carts skip kit lines entirely (case pricing applies instead).
+  const kitTier = evaluateKitTiers(isWholesale ? [] : kitItems, { isWholesale });
+  if (halloweenPromotion.applies || kitTier.ownsCart) {
     // The verified service (HEROES-) discount never stacks with BOGO: the
     // real checkout in order-engine.ts drops every coupon while a sitewide
     // event applies. Flag it here so the storefront can tell a verified
     // customer why their 25% is not on this order.
     const typedForBogo = [parsed.data.code, ...(parsed.data.codes ?? [])].filter(Boolean) as string[];
     const heroesDiscountPaused = [...autoApplyCodes, ...typedForBogo].some((c) => /^HEROES-/i.test(c.trim()));
+    const discountCents = halloweenPromotion.discountCents + kitTier.discountCents;
+    const appliedCoupons = [
+      ...(halloweenPromotion.applies ? [{ code: HALLOWEEN_BOGO_PROMOTION_CODE, label: HALLOWEEN_BOGO_PROMOTION_LABEL }] : []),
+      ...(kitTier.ownsCart ? [{ code: KIT_TIER_PROMOTION_CODE, label: KIT_TIER_PROMOTION_LABEL }] : []),
+    ];
+    const labels = [
+      ...(halloweenPromotion.applies ? [`${HALLOWEEN_BOGO_PROMOTION_LABEL} · ${halloweenPromotion.freeUnits} free`] : []),
+      ...(kitTier.ownsCart ? [`${kitTier.totalKits} kit${kitTier.totalKits === 1 ? "" : "s"} · ${kitTier.percent}% off each kit`] : []),
+    ];
     return NextResponse.json({
       heroesDiscountPaused,
       valid: true,
-      discountCents: halloweenPromotion.discountCents,
-      subtotalCents: halloweenPromotion.subtotalCents,
-      totalCents: halloweenPromotion.totalCents,
-      appliedCoupons: [{ code: HALLOWEEN_BOGO_PROMOTION_CODE, label: HALLOWEEN_BOGO_PROMOTION_LABEL }],
-      automaticPromotion: HALLOWEEN_BOGO_PROMOTION_ID,
-      promotionLabel: `${HALLOWEEN_BOGO_PROMOTION_LABEL} · ${halloweenPromotion.freeUnits} free`,
+      discountCents,
+      subtotalCents,
+      totalCents: Math.max(0, subtotalCents - discountCents),
+      appliedCoupons,
+      // BOGO keeps its id when it applies so existing storefront code keeps
+      // working; a kits-only cart reports the kit sale.
+      automaticPromotion: halloweenPromotion.applies ? HALLOWEEN_BOGO_PROMOTION_ID : KIT_TIER_PROMOTION_ID,
+      promotionLabel: labels.join(" + "),
+      kitTier: kitTier.ownsCart ? { kits: kitTier.totalKits, percent: kitTier.percent, discountCents: kitTier.discountCents } : null,
+      bogoDiscountCents: halloweenPromotion.discountCents,
       flooredByMargin: false,
-      maximumDiscountPercent: 50,
+      maximumDiscountPercent: halloweenPromotion.applies ? 50 : 40,
       stackingDisabled: true,
       errors: [],
     });
