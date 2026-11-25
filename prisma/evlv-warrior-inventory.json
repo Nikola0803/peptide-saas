@@ -1,9 +1,9 @@
 {
   "source": "WARRIOR PEPTIDE PRICE LIST 1 1Inventory.csv",
   "refreshedAt": "2026-11-25",
-  "note": "Authoritative physical stock snapshot. Quantities are individual vials. Public retail pricing is intentionally not stored here.",
+  "note": "Authoritative physical stock snapshot. Quantities are individual vials. Public retail pricing is intentionally not stored here. 2026-11-25: products with no list price (5-Amino 30mg, Oxytocin 1mg, Hexarelin 2mg, Pinealon 2mg, CJC/IPA 20mg) and sizes not on the list (GLP3-R 5mg, GLP1-S 20mg, GLP2-T 60mg) are held at 0 so they cannot be sold.",
   "stockBySlug": {
-    "5-amino-1mq-30mg": 10,
+    "5-amino-1mq-30mg": 0,
     "5-amino-1mq-50mg": 0,
     "5-amino-1mq-5mg": 0,
     "aod-9604-10mg": 10,
@@ -45,7 +45,7 @@
     "glutathione-500mg": 0,
     "glutathione-600mg": 0,
     "hexarelin-10mg": 90,
-    "hexarelin-2mg": 9,
+    "hexarelin-2mg": 0,
     "hexarelin-5mg": 0,
     "igf-1-lr3-1mg": 4,
     "ipamorelin-10mg": 94,
@@ -63,11 +63,11 @@
     "nad-100mg": 0,
     "nad-500mg": 9,
     "oxytocin-10mg": 0,
-    "oxytocin-1mg": 10,
+    "oxytocin-1mg": 0,
     "oxytocin-5mg": 19,
     "pinealon-10mg": 0,
     "pinealon-20mg": 0,
-    "pinealon-2mg": 10,
+    "pinealon-2mg": 0,
     "pt-141-10mg": 19,
     "selank-10mg": 108,
     "semax-10mg": 103,
@@ -85,6 +85,9 @@
     "thymosin-alpha-1-10mg": 10,
     "vip-10mg": 10,
     "wolverine-10mg": 0,
-    "wolverine-20mg": 110
+    "wolverine-20mg": 110,
+    "evlv-3-5mg": 0,
+    "evlv-1-20mg": 0,
+    "evlv-2-60mg": 0
   }
 }
