@@ -40,6 +40,7 @@ type CatalogProduct = {
   reconstitution?: string;
   bulkOption?: { qty: number; price: number };
   stockQty?: number;
+  inStock?: boolean;
 };
 
 async function main() {
