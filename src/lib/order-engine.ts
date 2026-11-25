@@ -361,7 +361,7 @@ export async function runCheckout(
       ...halloweenWindow,
       isWholesale,
     });
-    const kitTier = evaluateKitTiers(kitItems, { isWholesale });
+    const kitTier = evaluateKitTiers(kitItems, { isWholesale, brandDomain: brand?.domain });
     const hasExclusiveJoin25 = join25Codes.length > 0 && !halloweenPromotion.applies && !kitTier.ownsCart;
 
     const glpPromotion = !hasExclusiveJoin25 && !halloweenPromotion.applies && !kitTier.ownsCart && (brand?.glpPairActive ?? true)

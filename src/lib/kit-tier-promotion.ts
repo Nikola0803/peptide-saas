@@ -54,12 +54,17 @@ export interface KitTierItem {
   wholesaleCasePriceCents?: number | null;
 }
 
+// Only the EVLV US store runs the kit sale.
+export function kitSaleBrand(brandDomain?: string | null): boolean {
+  return brandDomain?.toLowerCase().replace(/^www\./, "") === "evlvpeptides.com";
+}
+
 export function evaluateKitTiers(
   kitItems: KitTierItem[],
-  options: { isWholesale: boolean; now?: number },
+  options: { isWholesale: boolean; brandDomain?: string | null; now?: number },
 ) {
   const totalKits = kitItems.reduce((sum, item) => sum + Math.floor(item.quantity / KIT_SIZE), 0);
-  const live = !options.isWholesale && kitSaleIsLive(options.now);
+  const live = !options.isWholesale && kitSaleBrand(options.brandDomain) && kitSaleIsLive(options.now);
   // The sale owns the cart (blocks other discounts) whenever it is live and
   // there is at least one kit, even at the 0% one-kit tier.
   const ownsCart = live && totalKits > 0;

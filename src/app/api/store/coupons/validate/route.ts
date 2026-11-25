@@ -141,7 +141,7 @@ export async function POST(req: NextRequest) {
     isWholesale,
   });
   // Wholesale carts skip kit lines entirely (case pricing applies instead).
-  const kitTier = evaluateKitTiers(isWholesale ? [] : kitItems, { isWholesale });
+  const kitTier = evaluateKitTiers(isWholesale ? [] : kitItems, { isWholesale, brandDomain: brand?.domain });
   if (halloweenPromotion.applies || kitTier.ownsCart) {
     // The verified service (HEROES-) discount never stacks with BOGO: the
     // real checkout in order-engine.ts drops every coupon while a sitewide
