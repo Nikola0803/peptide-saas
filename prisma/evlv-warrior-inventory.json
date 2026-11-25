@@ -1,7 +1,7 @@
 {
   "source": "WARRIOR PEPTIDE PRICE LIST 1 1Inventory.csv",
   "refreshedAt": "2026-11-25",
-  "note": "Authoritative physical stock snapshot. Quantities are individual vials. Public retail pricing is intentionally not stored here. 2026-11-25: products with no list price (5-Amino 30mg, Oxytocin 1mg, Hexarelin 2mg, Pinealon 2mg, CJC/IPA 20mg) and sizes not on the list (GLP3-R 5mg, GLP1-S 20mg, GLP2-T 60mg) are held at 0 so they cannot be sold.",
+  "note": "Authoritative physical stock snapshot. Quantities are individual vials. Public retail pricing is intentionally not stored here. 2026-11-25: products with no list price (5-Amino 30mg, Oxytocin 1mg, Hexarelin 2mg, Pinealon 2mg, CJC/IPA 20mg) and sizes not on the list (GLP3-R 5mg, GLP1-S 20mg, GLP2-T 60mg) are held at 0 so they cannot be sold. GLP3-R 15mg dropped from the catalogue (Nikola, Nov 25).",
   "stockBySlug": {
     "5-amino-1mq-30mg": 0,
     "5-amino-1mq-50mg": 0,
@@ -29,7 +29,7 @@
     "evlv-2-30mg": 19,
     "evlv-2-40mg": 0,
     "evlv-3-10mg": 30,
-    "evlv-3-15mg": 4,
+    "evlv-3-15mg": 0,
     "evlv-3-20mg": 0,
     "evlv-3-30mg": 44,
     "evlv-3-60mg": 20,
