@@ -1,8 +1,12 @@
 {
-  "_note": "EVLV public retail prices from WARRIOR PEPTIDE PRICE LIST 1 1Retail.csv (2026-11-25). priceCents = 'Retail' per vial (5x cost); retailCasePriceCents = 10-vial kit at full retail (10x vial, no pack discount). Products not listed keep their current price. Apply with npm run db:prices:evlv [-- --apply]. wholesaleCasePriceCents = Warrior 'Wholesale' tab kit price (10 vials, 3x cost), rounded up to a whole cent per vial where needed. Exception: BAC water stays at $9.99 per vial on the site (Nikola, Nov 25).",
+  "_note": "EVLV public retail prices from WARRIOR PEPTIDE PRICE LIST 1 1Retail.csv (2026-11-25). priceCents = 'Retail' per vial (5x cost); retailCasePriceCents = 10-vial kit at full retail (10x vial, no pack discount). Products not listed keep their current price. Apply with npm run db:prices:evlv [-- --apply]. wholesaleCasePriceCents = Warrior 'Wholesale' tab kit price (10 vials, 3x cost), rounded up to a whole cent per vial where needed. Exception: BAC water stays at $9.99 per vial on the site (Nikola, Nov 25). 5-Amino 30mg, Oxytocin 1mg and Hexarelin 2mg have no list price: they keep their current vial price with a full-retail 10-pack and their existing wholesale price.",
   "source": "WARRIOR PEPTIDE PRICE LIST 1 1Retail.csv",
   "refreshedAt": "2026-11-25",
   "pricesBySlug": {
+    "5-amino-1mq-30mg": {
+      "priceCents": 2700,
+      "retailCasePriceCents": 27000
+    },
     "5-amino-1mq-50mg": {
       "priceCents": 3795,
       "retailCasePriceCents": 37950,
@@ -198,6 +202,10 @@
       "retailCasePriceCents": 82500,
       "wholesaleCasePriceCents": 49500
     },
+    "hexarelin-2mg": {
+      "priceCents": 1994,
+      "retailCasePriceCents": 19940
+    },
     "hexarelin-5mg": {
       "priceCents": 3750,
       "retailCasePriceCents": 37500,
@@ -282,6 +290,10 @@
       "priceCents": 2000,
       "retailCasePriceCents": 20000,
       "wholesaleCasePriceCents": 12000
+    },
+    "oxytocin-1mg": {
+      "priceCents": 4667,
+      "retailCasePriceCents": 46670
     },
     "oxytocin-5mg": {
       "priceCents": 1500,
