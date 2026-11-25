@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import supplierCosts from "../prisma/evlv-supplier-costs.json";
+import warriorPricing from "../prisma/evlv-warrior-pricing.json";
 
 const prisma = new PrismaClient();
 const STORE_DOMAIN = "evlvpeptides.com";
@@ -7,6 +8,11 @@ const STORE_DOMAIN = "evlvpeptides.com";
 // a product is first created; an existing product's cost is never touched, so
 // edits made on the CRM Products page stay.
 const SUPPLIER_COSTS = (supplierCosts as { costsCentsBySlug: Record<string, number> }).costsCentsBySlug;
+// Reviewed Warrior prices (npm run db:prices:evlv). A listed slug's prices win
+// over whatever the storefront catalog returned, so a deploy that reads a
+// stale or fallback catalog can never put old prices back.
+type WarriorPrice = { priceCents: number; retailCasePriceCents?: number; wholesaleCasePriceCents?: number };
+const WARRIOR_PRICES = (warriorPricing as { pricesBySlug: Record<string, WarriorPrice> }).pricesBySlug;
 
 function canonicalStorefrontImageUrl(image: string | undefined): string | null {
   if (!image) return null;
@@ -54,8 +60,12 @@ async function main() {
   }
   const missingCost: string[] = [];
   for (const item of catalog) {
-    const priceCents = Math.round(item.price * 100);
-    const wholesaleCasePriceCents = Math.round(
+    const reviewed = WARRIOR_PRICES[item.slug];
+    const priceCents = reviewed?.priceCents ?? Math.round(item.price * 100);
+    // The public 10-pack is now the full-retail kit, so it must never be
+    // copied into the wholesale case price. Reviewed wholesale wins; otherwise
+    // the old derived value is used only when a mapping is first created.
+    const wholesaleCasePriceCents = reviewed?.wholesaleCasePriceCents ?? Math.round(
       (item.bulkOption?.qty === 10 ? item.bulkOption.price : item.price * 9) * 100,
     );
     const imageUrl = canonicalStorefrontImageUrl(item.image);
@@ -101,7 +111,12 @@ async function main() {
       update: {
         productId: product.id,
         storePriceCents: priceCents,
-        wholesaleCasePriceCents,
+        ...(reviewed
+          ? {
+              wholesaleCasePriceCents: reviewed.wholesaleCasePriceCents ?? undefined,
+              retailCasePriceCents: reviewed.retailCasePriceCents ?? undefined,
+            }
+          : {}),
       },
       create: {
         productId: product.id,
@@ -109,6 +124,7 @@ async function main() {
         externalProductId: item.slug,
         slug: item.slug,
         storePriceCents: priceCents,
+        retailCasePriceCents: reviewed?.retailCasePriceCents,
         wholesaleCasePriceCents,
         active: item.inStock !== false && (item.stockQty == null || item.stockQty > 0),
       },
