@@ -1,0 +1,387 @@
+{
+  "_note": "EVLV public retail prices from WARRIOR PEPTIDE PRICE LIST 1 1Retail.csv (2026-11-25). priceCents = 'Retail' per vial (5x cost); retailCasePriceCents = 10-vial kit at full retail (10x vial, no pack discount). Products not listed keep their current price. Apply with npm run db:prices:evlv [-- --apply]. wholesaleCasePriceCents = Warrior 'Wholesale' tab kit price (10 vials, 3x cost), rounded up to a whole cent per vial where needed.",
+  "source": "WARRIOR PEPTIDE PRICE LIST 1 1Retail.csv",
+  "refreshedAt": "2026-11-25",
+  "pricesBySlug": {
+    "5-amino-1mq-50mg": {
+      "priceCents": 3795,
+      "retailCasePriceCents": 37950,
+      "wholesaleCasePriceCents": 22770
+    },
+    "5-amino-1mq-5mg": {
+      "priceCents": 2250,
+      "retailCasePriceCents": 22500,
+      "wholesaleCasePriceCents": 13500
+    },
+    "aod-9604-10mg": {
+      "priceCents": 6750,
+      "retailCasePriceCents": 67500,
+      "wholesaleCasePriceCents": 40500
+    },
+    "aod-9604-5mg": {
+      "priceCents": 3750,
+      "retailCasePriceCents": 37500,
+      "wholesaleCasePriceCents": 22500
+    },
+    "bacteriostatic-water-10ml": {
+      "priceCents": 500,
+      "retailCasePriceCents": 5000,
+      "wholesaleCasePriceCents": 3000
+    },
+    "bpc-157-10mg": {
+      "priceCents": 3000,
+      "retailCasePriceCents": 30000,
+      "wholesaleCasePriceCents": 18000
+    },
+    "bpc-157-5mg": {
+      "priceCents": 3500,
+      "retailCasePriceCents": 35000,
+      "wholesaleCasePriceCents": 21000
+    },
+    "cagrilintide-10mg": {
+      "priceCents": 6000,
+      "retailCasePriceCents": 60000,
+      "wholesaleCasePriceCents": 36000
+    },
+    "cartalax-20mg": {
+      "priceCents": 6600,
+      "retailCasePriceCents": 66000,
+      "wholesaleCasePriceCents": 39600
+    },
+    "cjc-ipa-blend-10mg": {
+      "priceCents": 4600,
+      "retailCasePriceCents": 46000,
+      "wholesaleCasePriceCents": 27600
+    },
+    "dsip-10mg": {
+      "priceCents": 6750,
+      "retailCasePriceCents": 67500,
+      "wholesaleCasePriceCents": 40500
+    },
+    "dsip-15mg": {
+      "priceCents": 7500,
+      "retailCasePriceCents": 75000,
+      "wholesaleCasePriceCents": 45000
+    },
+    "dsip-5mg": {
+      "priceCents": 1500,
+      "retailCasePriceCents": 15000,
+      "wholesaleCasePriceCents": 9000
+    },
+    "epitalon-10mg": {
+      "priceCents": 2300,
+      "retailCasePriceCents": 23000,
+      "wholesaleCasePriceCents": 13800
+    },
+    "epitalon-50mg": {
+      "priceCents": 11250,
+      "retailCasePriceCents": 112500,
+      "wholesaleCasePriceCents": 67500
+    },
+    "evlv-1-10mg": {
+      "priceCents": 1750,
+      "retailCasePriceCents": 17500,
+      "wholesaleCasePriceCents": 10500
+    },
+    "evlv-1-30mg": {
+      "priceCents": 3500,
+      "retailCasePriceCents": 35000,
+      "wholesaleCasePriceCents": 21000
+    },
+    "evlv-1-5mg": {
+      "priceCents": 1250,
+      "retailCasePriceCents": 12500,
+      "wholesaleCasePriceCents": 7500
+    },
+    "evlv-2-10mg": {
+      "priceCents": 1500,
+      "retailCasePriceCents": 15000,
+      "wholesaleCasePriceCents": 9000
+    },
+    "evlv-2-15mg": {
+      "priceCents": 5000,
+      "retailCasePriceCents": 50000,
+      "wholesaleCasePriceCents": 30000
+    },
+    "evlv-2-20mg": {
+      "priceCents": 3000,
+      "retailCasePriceCents": 30000,
+      "wholesaleCasePriceCents": 18000
+    },
+    "evlv-2-30mg": {
+      "priceCents": 5250,
+      "retailCasePriceCents": 52500,
+      "wholesaleCasePriceCents": 31500
+    },
+    "evlv-2-40mg": {
+      "priceCents": 4750,
+      "retailCasePriceCents": 47500,
+      "wholesaleCasePriceCents": 28500
+    },
+    "evlv-3-10mg": {
+      "priceCents": 2800,
+      "retailCasePriceCents": 28000,
+      "wholesaleCasePriceCents": 16800
+    },
+    "evlv-3-15mg": {
+      "priceCents": 9000,
+      "retailCasePriceCents": 90000,
+      "wholesaleCasePriceCents": 54000
+    },
+    "evlv-3-20mg": {
+      "priceCents": 4500,
+      "retailCasePriceCents": 45000,
+      "wholesaleCasePriceCents": 27000
+    },
+    "evlv-3-30mg": {
+      "priceCents": 5600,
+      "retailCasePriceCents": 56000,
+      "wholesaleCasePriceCents": 33600
+    },
+    "evlv-3-60mg": {
+      "priceCents": 9600,
+      "retailCasePriceCents": 96000,
+      "wholesaleCasePriceCents": 57600
+    },
+    "ghk-cu-100mg": {
+      "priceCents": 1250,
+      "retailCasePriceCents": 12500,
+      "wholesaleCasePriceCents": 7500
+    },
+    "ghk-cu-50mg": {
+      "priceCents": 1450,
+      "retailCasePriceCents": 14500,
+      "wholesaleCasePriceCents": 8700
+    },
+    "ghrp-6-10mg": {
+      "priceCents": 3625,
+      "retailCasePriceCents": 36250,
+      "wholesaleCasePriceCents": 21750
+    },
+    "ghrp-6-5mg": {
+      "priceCents": 1500,
+      "retailCasePriceCents": 15000,
+      "wholesaleCasePriceCents": 9000
+    },
+    "glow-70mg": {
+      "priceCents": 8400,
+      "retailCasePriceCents": 84000,
+      "wholesaleCasePriceCents": 50400
+    },
+    "glutathione-1000mg": {
+      "priceCents": 6750,
+      "retailCasePriceCents": 67500,
+      "wholesaleCasePriceCents": 40500
+    },
+    "glutathione-1200mg": {
+      "priceCents": 4750,
+      "retailCasePriceCents": 47500,
+      "wholesaleCasePriceCents": 28500
+    },
+    "glutathione-1500mg": {
+      "priceCents": 5150,
+      "retailCasePriceCents": 51500,
+      "wholesaleCasePriceCents": 30900
+    },
+    "glutathione-500mg": {
+      "priceCents": 4500,
+      "retailCasePriceCents": 45000,
+      "wholesaleCasePriceCents": 27000
+    },
+    "glutathione-600mg": {
+      "priceCents": 1625,
+      "retailCasePriceCents": 16250,
+      "wholesaleCasePriceCents": 9750
+    },
+    "hexarelin-10mg": {
+      "priceCents": 8250,
+      "retailCasePriceCents": 82500,
+      "wholesaleCasePriceCents": 49500
+    },
+    "hexarelin-5mg": {
+      "priceCents": 3750,
+      "retailCasePriceCents": 37500,
+      "wholesaleCasePriceCents": 22500
+    },
+    "igf-1-lr3-1mg": {
+      "priceCents": 9250,
+      "retailCasePriceCents": 92500,
+      "wholesaleCasePriceCents": 55500
+    },
+    "ipamorelin-10mg": {
+      "priceCents": 2750,
+      "retailCasePriceCents": 27500,
+      "wholesaleCasePriceCents": 16500
+    },
+    "ipamorelin-5mg": {
+      "priceCents": 1638,
+      "retailCasePriceCents": 16375,
+      "wholesaleCasePriceCents": 9830
+    },
+    "kisspeptin-10mg": {
+      "priceCents": 3800,
+      "retailCasePriceCents": 38000,
+      "wholesaleCasePriceCents": 22800
+    },
+    "klow-80mg": {
+      "priceCents": 10000,
+      "retailCasePriceCents": 100000,
+      "wholesaleCasePriceCents": 60000
+    },
+    "kpv-10mg": {
+      "priceCents": 2250,
+      "retailCasePriceCents": 22500,
+      "wholesaleCasePriceCents": 13500
+    },
+    "ll-37-10mg": {
+      "priceCents": 7000,
+      "retailCasePriceCents": 70000,
+      "wholesaleCasePriceCents": 42000
+    },
+    "melanotan-i-10mg": {
+      "priceCents": 2500,
+      "retailCasePriceCents": 25000,
+      "wholesaleCasePriceCents": 15000
+    },
+    "melanotan-ii-10mg": {
+      "priceCents": 2250,
+      "retailCasePriceCents": 22500,
+      "wholesaleCasePriceCents": 13500
+    },
+    "mots-c-10mg": {
+      "priceCents": 3000,
+      "retailCasePriceCents": 30000,
+      "wholesaleCasePriceCents": 18000
+    },
+    "mots-c-20mg": {
+      "priceCents": 5250,
+      "retailCasePriceCents": 52500,
+      "wholesaleCasePriceCents": 31500
+    },
+    "mots-c-40mg": {
+      "priceCents": 10200,
+      "retailCasePriceCents": 102000,
+      "wholesaleCasePriceCents": 61200
+    },
+    "nad-1000mg": {
+      "priceCents": 2750,
+      "retailCasePriceCents": 27500,
+      "wholesaleCasePriceCents": 16500
+    },
+    "nad-100mg": {
+      "priceCents": 1750,
+      "retailCasePriceCents": 17500,
+      "wholesaleCasePriceCents": 10500
+    },
+    "nad-500mg": {
+      "priceCents": 5000,
+      "retailCasePriceCents": 50000,
+      "wholesaleCasePriceCents": 30000
+    },
+    "oxytocin-10mg": {
+      "priceCents": 2000,
+      "retailCasePriceCents": 20000,
+      "wholesaleCasePriceCents": 12000
+    },
+    "oxytocin-5mg": {
+      "priceCents": 1500,
+      "retailCasePriceCents": 15000,
+      "wholesaleCasePriceCents": 9000
+    },
+    "pinealon-10mg": {
+      "priceCents": 5750,
+      "retailCasePriceCents": 57500,
+      "wholesaleCasePriceCents": 34500
+    },
+    "pinealon-20mg": {
+      "priceCents": 6000,
+      "retailCasePriceCents": 60000,
+      "wholesaleCasePriceCents": 36000
+    },
+    "pt-141-10mg": {
+      "priceCents": 2950,
+      "retailCasePriceCents": 29500,
+      "wholesaleCasePriceCents": 17700
+    },
+    "selank-10mg": {
+      "priceCents": 3000,
+      "retailCasePriceCents": 30000,
+      "wholesaleCasePriceCents": 18000
+    },
+    "semax-10mg": {
+      "priceCents": 3000,
+      "retailCasePriceCents": 30000,
+      "wholesaleCasePriceCents": 18000
+    },
+    "sermorelin-10mg": {
+      "priceCents": 4000,
+      "retailCasePriceCents": 40000,
+      "wholesaleCasePriceCents": 24000
+    },
+    "sermorelin-5mg": {
+      "priceCents": 3000,
+      "retailCasePriceCents": 30000,
+      "wholesaleCasePriceCents": 18000
+    },
+    "slu-pp-332-10mg": {
+      "priceCents": 3800,
+      "retailCasePriceCents": 38000,
+      "wholesaleCasePriceCents": 22800
+    },
+    "snap-8-10mg": {
+      "priceCents": 2000,
+      "retailCasePriceCents": 20000,
+      "wholesaleCasePriceCents": 12000
+    },
+    "ss-31-10mg": {
+      "priceCents": 4375,
+      "retailCasePriceCents": 43750,
+      "wholesaleCasePriceCents": 26250
+    },
+    "ss-31-50mg": {
+      "priceCents": 7000,
+      "retailCasePriceCents": 70000,
+      "wholesaleCasePriceCents": 42000
+    },
+    "tb-500-10mg": {
+      "priceCents": 6400,
+      "retailCasePriceCents": 64000,
+      "wholesaleCasePriceCents": 38400
+    },
+    "tesamorelin-10mg": {
+      "priceCents": 6600,
+      "retailCasePriceCents": 66000,
+      "wholesaleCasePriceCents": 39600
+    },
+    "tesamorelin-20mg": {
+      "priceCents": 10400,
+      "retailCasePriceCents": 104000,
+      "wholesaleCasePriceCents": 62400
+    },
+    "tesamorelin-ipamorelin-15mg": {
+      "priceCents": 13500,
+      "retailCasePriceCents": 135000,
+      "wholesaleCasePriceCents": 81000
+    },
+    "thymosin-alpha-1-10mg": {
+      "priceCents": 5250,
+      "retailCasePriceCents": 52500,
+      "wholesaleCasePriceCents": 31500
+    },
+    "vip-10mg": {
+      "priceCents": 5250,
+      "retailCasePriceCents": 52500,
+      "wholesaleCasePriceCents": 31500
+    },
+    "wolverine-10mg": {
+      "priceCents": 4200,
+      "retailCasePriceCents": 42000,
+      "wholesaleCasePriceCents": 25200
+    },
+    "wolverine-20mg": {
+      "priceCents": 4250,
+      "retailCasePriceCents": 42500,
+      "wholesaleCasePriceCents": 25500
+    }
+  }
+}
