@@ -1,7 +1,7 @@
 // Business modules that are switched off. Data stays in the database; only
 // access is removed. Flip to true (and redeploy) to bring a module back.
 export const DROPSHIP_ENABLED = false; // supplier logins, /dropship, /suppliers
-export const WHOLESALE_ENABLED = false; // /wholesale admin, store wholesale API, case pricing
+export const WHOLESALE_ENABLED = true; // /wholesale admin, store wholesale API, case pricing (approved partners only)
 // Partner applications only: the public inquiry endpoint (used by the
 // distributions.evlvpeptides.com Apply form) and the /wholesale inbox where
 // staff review them. Case pricing and the partner dashboard/settings APIs

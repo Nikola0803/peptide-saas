@@ -39,6 +39,7 @@ export async function linkAndApproveInquiry(inquiryId: string) {
   sendTemplate(organization.id, "wholesale_approved", inquiry.email, {
     contactName: inquiry.contactName,
     companyName: inquiry.companyName,
+    email: inquiry.email,
   }).catch((err) => console.error("Wholesale approval email failed", err));
 
   revalidatePath("/wholesale");

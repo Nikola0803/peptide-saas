@@ -454,10 +454,13 @@ export const DEFAULT_TEMPLATES: EmailTemplateDefault[] = [
     name: "Wholesale inquiry approved",
     description: "Sent when a wholesale inquiry is linked & approved from the Wholesale page.",
     subject: "You're approved as an EVLV wholesale partner",
-    sampleVars: { contactName: "Jordan", companyName: "Acme Labs" },
+    sampleVars: { contactName: "Jordan", companyName: "Acme Labs", email: "jordan@acmelabs.com" },
     html: LAYOUT(`
       <h1>Welcome as an EVLV wholesale partner, {{contactName}}</h1>
-      <p>{{companyName}}'s wholesale inquiry has been approved. We'll be in touch with next steps, or reply to this email with any questions in the meantime.</p>
+      <p>{{companyName}}'s wholesale inquiry has been approved.</p>
+      <p>To see wholesale case pricing and place an order, sign in at evlvpeptides.com with this same email address ({{email}}) and open the Wholesale tab in your account.</p>
+      <p><a href="https://www.evlvpeptides.com/account?tab=wholesale" style="display:inline-block;padding:12px 22px;background:#07383a;color:#ffffff;text-decoration:none;border-radius:6px;font-weight:600">Open wholesale ordering</a></p>
+      <p>Reply to this email with any questions.</p>
     `, EVLV_VIAL_HERO),
   },
   {
