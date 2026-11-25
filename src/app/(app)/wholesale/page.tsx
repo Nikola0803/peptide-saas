@@ -1,6 +1,7 @@
 import { requireOrg } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader, Card, StatCard, Badge, EmptyState } from "@/components/ui";
+import Link from "next/link";
 import { money, shortDate } from "@/lib/format";
 import { linkAndApproveInquiry, rejectInquiry, createWholesaleInvoice, markWholesaleInvoicePaid } from "./actions";
 import { getActiveBrand } from "@/lib/active-brand";
@@ -9,12 +10,28 @@ export default async function WholesalePage() {
   const { organization } = await requireOrg();
   const activeBrand = await getActiveBrand(organization.id);
 
-  const [newInquiries, partners] = await Promise.all([
+  const [newInquiries, partners, pastInquiries] = await Promise.all([
     prisma.wholesaleInquiry.findMany({ where: { organizationId: organization.id, status: "NEW", ...(activeBrand ? { brandId: activeBrand.id } : {}) }, orderBy: { createdAt: "desc" } }),
     prisma.wholesalePartner.findMany({
       where: { contact: { organizationId: organization.id, ...(activeBrand ? { brandLinks: { some: { brandId: activeBrand.id } } } : {}) } },
-      include: { contact: true, invoices: { orderBy: { issuedDate: "desc" } } },
+      include: {
+        contact: {
+          include: {
+            orders: {
+              orderBy: { placedAt: "desc" },
+              take: 10,
+              select: { id: true, orderSeq: true, status: true, grossCents: true, shippingCents: true, placedAt: true },
+            },
+          },
+        },
+        invoices: { orderBy: { issuedDate: "desc" } },
+      },
       orderBy: { createdAt: "desc" },
+    }),
+    prisma.wholesaleInquiry.findMany({
+      where: { organizationId: organization.id, status: { not: "NEW" }, ...(activeBrand ? { brandId: activeBrand.id } : {}) },
+      orderBy: { createdAt: "desc" },
+      take: 50,
     }),
   ]);
 
@@ -93,6 +110,22 @@ export default async function WholesalePage() {
                   <Badge status={p.status} />
                 </div>
 
+                {p.contact.orders.length > 0 && (
+                  <div className="mb-2">
+                    <div className="text-[10px] font-semibold uppercase tracking-wide text-foreground-500 mb-1">Recent orders</div>
+                    <ul className="text-xs divide-y divide-background-100">
+                      {p.contact.orders.map((o) => (
+                        <li key={o.id} className="py-1.5 flex items-center justify-between gap-2">
+                          <Link href={`/orders/${o.id}`} className="text-primary-600 hover:underline">
+                            Order {o.orderSeq} — {money(o.grossCents + o.shippingCents)} — {shortDate(o.placedAt)}
+                          </Link>
+                          <Badge status={o.status} />
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
                 {p.status === "APPROVED" && (
                   <>
                     <ul className="text-xs divide-y divide-background-100 mb-2">
@@ -134,6 +167,22 @@ export default async function WholesalePage() {
           </div>
         )}
       </Card>
+
+      {pastInquiries.length > 0 && (
+        <Card className="p-4 mt-6">
+          <h2 className="text-sm font-semibold text-foreground-950 mb-3">Application history</h2>
+          <ul className="text-xs divide-y divide-background-100">
+            {pastInquiries.map((inq) => (
+              <li key={inq.id} className="py-1.5 flex items-center justify-between gap-2">
+                <span className="text-foreground-800 min-w-0 truncate">
+                  {inq.companyName} — {inq.contactName} — {inq.email} — applied {shortDate(inq.createdAt)}
+                </span>
+                <Badge status={inq.status === "LINKED" ? "APPROVED" : inq.status} />
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
     </div>
   );
 }
