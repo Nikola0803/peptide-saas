@@ -1,5 +1,5 @@
 {
-  "_note": "EVLV public retail prices from WARRIOR PEPTIDE PRICE LIST 1 1Retail.csv (2026-11-25). priceCents = 'Retail' per vial (5x cost); retailCasePriceCents = 10-vial kit at full retail (10x vial, no pack discount). Products not listed keep their current price. Apply with npm run db:prices:evlv [-- --apply]. wholesaleCasePriceCents = Warrior 'Wholesale' tab kit price (10 vials, 3x cost), rounded up to a whole cent per vial where needed.",
+  "_note": "EVLV public retail prices from WARRIOR PEPTIDE PRICE LIST 1 1Retail.csv (2026-11-25). priceCents = 'Retail' per vial (5x cost); retailCasePriceCents = 10-vial kit at full retail (10x vial, no pack discount). Products not listed keep their current price. Apply with npm run db:prices:evlv [-- --apply]. wholesaleCasePriceCents = Warrior 'Wholesale' tab kit price (10 vials, 3x cost), rounded up to a whole cent per vial where needed. Exception: BAC water stays at $9.99 per vial on the site (Nikola, Nov 25).",
   "source": "WARRIOR PEPTIDE PRICE LIST 1 1Retail.csv",
   "refreshedAt": "2026-11-25",
   "pricesBySlug": {
@@ -24,8 +24,8 @@
       "wholesaleCasePriceCents": 22500
     },
     "bacteriostatic-water-10ml": {
-      "priceCents": 500,
-      "retailCasePriceCents": 5000,
+      "priceCents": 999,
+      "retailCasePriceCents": 9990,
       "wholesaleCasePriceCents": 3000
     },
     "bpc-157-10mg": {
