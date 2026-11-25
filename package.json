@@ -16,7 +16,6 @@
     "db:sync:evlv-catalog": "tsx scripts/sync-evlv-catalog.ts",
     "db:stock:evlv": "tsx scripts/sync-evlv-warrior-inventory.ts",
     "db:costs:evlv": "tsx scripts/apply-evlv-supplier-costs.ts",
-    "db:prices:evlv": "tsx scripts/apply-evlv-warrior-pricing.ts",
     "db:recalc-profit": "tsx scripts/recalc-order-profit.ts",
     "admin:provision-warrior": "tsx scripts/provision-warrior-admin.ts",
     "db:seed:zoonetics": "tsx prisma/seed-zoonetics.ts",
