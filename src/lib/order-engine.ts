@@ -21,6 +21,7 @@ import { affiliateDiscountCents } from "@/lib/affiliate-program";
 import { CUSTOMER_REFERRAL_REWARD_ENABLED, REFERRAL_REWARD_CENTS } from "@/lib/customer-referral";
 import { JOIN25_PREFIX } from "@/lib/welcome-coupon";
 import { evaluateHalloweenBogo, evlvHalloweenPromotionOptions, halloweenPromotionIsLive, HALLOWEEN_BOGO_PROMOTION_CODE } from "@/lib/halloween-bogo-promotion";
+import { evaluateKitTiers, isKitLine, KIT_TIER_PROMOTION_CODE, type KitTierItem } from "@/lib/kit-tier-promotion";
 
 // "YYYY-MM-DD" in UTC -- the calendar day used to decide whether a
 // StoreMapping's Deal of the Day is currently active and to bucket
@@ -209,6 +210,10 @@ export async function runCheckout(
     }[] = [];
     const couponCartItems: CouponCartItem[] = [];
     const promotionItems: GlpPairPromotionItem[] = [];
+    // Parallel to couponCartItems: which lines are retail 10-vial kits.
+    // Kits never take BOGO and get the kit-sale tier instead.
+    const kitFlags: boolean[] = [];
+    const kitItems: KitTierItem[] = [];
     // ZOONETICS and both EVLV markets are fulfilled as always-available catalogs —
     // inventory counts must never block or be decremented by their orders.
     const bypassInventory =
@@ -330,6 +335,9 @@ export async function runCheckout(
         supplierId: supplierProduct?.supplierId,
       });
       couponCartItems.push({ productId: product.id, quantity, unitPriceCents, cogsCents: product.cogsCents });
+      const kitLine = !isWholesale && isKitLine(quantity, mapping.retailCasePriceCents);
+      kitFlags.push(kitLine);
+      if (kitLine) kitItems.push({ quantity, unitPriceCents, wholesaleCasePriceCents: mapping.wholesaleCasePriceCents });
       promotionItems.push({
         slug: item.slug,
         quantity,
@@ -348,13 +356,15 @@ export async function runCheckout(
       endsAt: brand?.halloweenEndsAt,
       brandDomain: brand?.domain,
     });
-    const halloweenPromotion = evaluateHalloweenBogo(couponCartItems, {
+    // Kits never take BOGO: only single-vial lines are paired.
+    const halloweenPromotion = evaluateHalloweenBogo(couponCartItems.filter((_, i) => !kitFlags[i]), {
       ...halloweenWindow,
       isWholesale,
     });
-    const hasExclusiveJoin25 = join25Codes.length > 0 && !halloweenPromotion.applies;
+    const kitTier = evaluateKitTiers(kitItems, { isWholesale, brandDomain: brand?.domain });
+    const hasExclusiveJoin25 = join25Codes.length > 0 && !halloweenPromotion.applies && !kitTier.ownsCart;
 
-    const glpPromotion = !hasExclusiveJoin25 && !halloweenPromotion.applies && (brand?.glpPairActive ?? true)
+    const glpPromotion = !hasExclusiveJoin25 && !halloweenPromotion.applies && !kitTier.ownsCart && (brand?.glpPairActive ?? true)
       ? evaluateGlpPairPromotion(promotionItems, {
           alreadyRedeemed: Boolean(priorPromotionOrder),
           isWholesale,
@@ -379,7 +389,7 @@ export async function runCheckout(
       unitPriceCents: item.unitPriceCents,
       cogsCents: item.cogsCents,
     }));
-    const researchSetPromotion = !hasExclusiveJoin25 && !halloweenPromotion.applies && !glpPromotion.applies
+    const researchSetPromotion = !hasExclusiveJoin25 && !halloweenPromotion.applies && !kitTier.ownsCart && !glpPromotion.applies
       ? evaluateResearchSetPromotion(researchSetItems, {
           active: brand?.researchSetActive ?? false,
           startsAt: brand?.researchSetStartsAt ?? null,
@@ -390,6 +400,9 @@ export async function runCheckout(
       : { applies: false as const };
 
     const promotion = halloweenPromotion.applies ? halloweenPromotion : glpPromotion.applies ? glpPromotion : researchSetPromotion;
+    // A sitewide event owns the discount slot: BOGO/GLP/Research Set, or the
+    // kit sale whenever the cart holds a kit while it is live.
+    const eventOwnsCart = promotion.applies || kitTier.ownsCart;
 
     let effectiveReferral = customerReferral;
     if (!hasExclusiveJoin25 && !effectiveReferral && referralCodeOwner && referralCodeOwner.id !== contact.id && !priorCustomerOrder) {
@@ -402,7 +415,7 @@ export async function runCheckout(
       effectiveReferral && referralCodeOwner && effectiveReferral.referrerContactId === referralCodeOwner.id,
     );
     const maximumReferralDiscount = Math.max(0, grossCentsTotal - Math.ceil(cogsCentsTotal * (1 + marginPercent / 100)));
-    const eligibleReferral = CUSTOMER_REFERRAL_REWARD_ENABLED && !hasExclusiveJoin25 && !promotion.applies && referralCodeMatches && !effectiveReferral?.referredOrderId && !priorCustomerOrder
+    const eligibleReferral = CUSTOMER_REFERRAL_REWARD_ENABLED && !hasExclusiveJoin25 && !eventOwnsCart && referralCodeMatches && !effectiveReferral?.referredOrderId && !priorCustomerOrder
       && maximumReferralDiscount >= REFERRAL_REWARD_CENTS
       ? effectiveReferral
       : null;
@@ -432,11 +445,11 @@ export async function runCheckout(
     // combined with another one just doesn't apply (checkout never fails
     // over a bad promo code) -- evlv-site's checkout should call
     // /api/store/coupons/validate first so the customer sees why.
-    let discountCents = promotion.applies && "discountCents" in promotion
+    let discountCents = (promotion.applies && "discountCents" in promotion
       ? promotion.discountCents
       : eligibleReferral
       ? REFERRAL_REWARD_CENTS
-      : 0;
+      : 0) + kitTier.discountCents;
     let couponId: string | undefined;
     let appliedCouponCodes: string | undefined = halloweenPromotion.applies
       ? HALLOWEEN_BOGO_PROMOTION_CODE
@@ -446,9 +459,12 @@ export async function runCheckout(
       : eligibleReferral
       ? input.couponCode?.trim().toUpperCase()
       : undefined;
+    if (kitTier.applies) {
+      appliedCouponCodes = appliedCouponCodes ? `${appliedCouponCodes},${KIT_TIER_PROMOTION_CODE}` : KIT_TIER_PROMOTION_CODE;
+    }
     // A partner's optional customer discount is never stacked on a sitewide
     // event. During BOGO or another event, their code is attribution only.
-    if (eligibleAffiliate && !promotion.applies && eligibleAffiliate.customerDiscountPercent > 0) {
+    if (eligibleAffiliate && !eventOwnsCart && eligibleAffiliate.customerDiscountPercent > 0) {
       const affiliateDiscount = affiliateDiscountCents(
         grossCentsTotal,
         cogsCentsTotal,
@@ -468,10 +484,10 @@ export async function runCheckout(
     // type in, and is applied even if they never enter anything at all.
     const requestedCodes = hasExclusiveJoin25
       ? join25Codes
-      : promotion.applies || eligibleAffiliate || eligibleReferral
+      : eventOwnsCart || eligibleAffiliate || eligibleReferral
       ? []
       : [...autoApplyCodes, ...(input.discountCodes?.filter(Boolean) ?? [])];
-    if (!promotion.applies && !eligibleAffiliate && !eligibleReferral && requestedCodes.length > 0) {
+    if (!eventOwnsCart && !eligibleAffiliate && !eligibleReferral && requestedCodes.length > 0) {
       const maximumDiscountPercent = wholesale?.status === "APPROVED" ? 40 : 30;
       const { coupons } = await resolveCoupons(organizationId, requestedCodes, grossCentsTotal, contact.id);
       if (coupons.length > 0) {
