@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { computeProductProfit } from "../src/lib/order-profit";
 import supplierCosts from "../prisma/evlv-supplier-costs.json";
+import { AUD_PER_USD, toUsdCents } from "../src/lib/store-currency";
 
 const SHEET = (supplierCosts as { costsCentsBySlug: Record<string, number> }).costsCentsBySlug;
 
@@ -19,6 +20,11 @@ const SHEET = (supplierCosts as { costsCentsBySlug: Record<string, number> }).co
 //   npm run db:recalc-profit -- --before=2026-11-18T15:00:00Z
 //       only orders placed before that time (default: now)
 //
+// EVLV Australia (brand evlv-au) orders are in AUD: their cost is the AU
+// store mapping's AUD cost (prisma/evlv-au-pricing.json, applied by
+// db:prices:evlv-au), else the US cost converted at AUD_PER_USD. Totals
+// below add AU orders in at USD.
+//
 // Run db:costs:evlv -- --apply first, so products not on the sheet and new
 // orders use the same costs.
 
@@ -36,7 +42,7 @@ async function main() {
 
   const products = await prisma.product.findMany({
     where: { organizationId: org.id },
-    select: { id: true, sku: true, cogsCents: true, storeMappings: { select: { slug: true } } },
+    select: { id: true, sku: true, cogsCents: true, storeMappings: { select: { slug: true, brandId: true, cogsCents: true } } },
   });
   // Sheet cost through any store slug of the product, else the CRM cost.
   const unitCost = (p: (typeof products)[number]) => {
@@ -48,6 +54,18 @@ async function main() {
   const costById = new Map(products.map((p) => [p.id, unitCost(p)]));
   const costBySku = new Map(products.map((p) => [p.sku.toUpperCase(), unitCost(p)]));
 
+  const auBrand = await prisma.brand.findUnique({
+    where: { organizationId_slug: { organizationId: org.id, slug: "evlv-au" } },
+    select: { id: true },
+  });
+  // AUD cost per vial for AU orders.
+  const auUnitCost = (p: (typeof products)[number]) => {
+    const au = auBrand ? p.storeMappings.find((m) => m.brandId === auBrand.id && m.cogsCents != null) : undefined;
+    return au ? (au.cogsCents as number) : Math.round(unitCost(p) * AUD_PER_USD);
+  };
+  const auCostById = new Map(products.map((p) => [p.id, auUnitCost(p)]));
+  const auCostBySku = new Map(products.map((p) => [p.sku.toUpperCase(), auUnitCost(p)]));
+
   const orders = await prisma.order.findMany({
     where: { organizationId: org.id, placedAt: { lt: before } },
     orderBy: { placedAt: "asc" },
@@ -57,6 +75,7 @@ async function main() {
       externalOrderNumber: true,
       placedAt: true,
       status: true,
+      brandId: true,
       grossCents: true,
       paymentMethod: true,
       netProfitCents: true,
@@ -78,8 +97,11 @@ async function main() {
   for (const order of orders) {
     let cogsCents = 0;
     let unknownCost = false;
+    const isAu = auBrand != null && order.brandId === auBrand.id;
+    const byId = isAu ? auCostById : costById;
+    const bySku = isAu ? auCostBySku : costBySku;
     for (const item of order.items) {
-      const unit = (item.productId ? costById.get(item.productId) : undefined) ?? costBySku.get(item.sku.toUpperCase());
+      const unit = (item.productId ? byId.get(item.productId) : undefined) ?? bySku.get(item.sku.toUpperCase());
       if (unit == null) unknownCost = true;
       else cogsCents += unit * item.quantity;
     }
@@ -97,22 +119,23 @@ async function main() {
     });
     const oldProfit = order.netProfitCents ?? 0;
 
-    totals.all.old += oldProfit;
-    totals.all.next += result.netProfitCents;
+    const usd = (cents: number) => toUsdCents(cents, isAu ? "AUD" : "USD");
+    totals.all.old += usd(oldProfit);
+    totals.all.next += usd(result.netProfitCents);
     if (PAID.has(order.status)) {
-      totals.paid.old += oldProfit;
-      totals.paid.next += result.netProfitCents;
-      totals.paid.revenue += result.productsPaidCents;
-      totals.paid.cogs += result.cogsCents;
-      totals.paid.fees += result.feeCents;
-      totals.paid.commission += result.commissionCents;
-      totals.paid.p2pDiscount += result.p2pDiscountCents;
+      totals.paid.old += usd(oldProfit);
+      totals.paid.next += usd(result.netProfitCents);
+      totals.paid.revenue += usd(result.productsPaidCents);
+      totals.paid.cogs += usd(result.cogsCents);
+      totals.paid.fees += usd(result.feeCents);
+      totals.paid.commission += usd(result.commissionCents);
+      totals.paid.p2pDiscount += usd(result.p2pDiscountCents);
     }
 
     if (order.netProfitCents === result.netProfitCents) continue;
     changed += 1;
     console.log(
-      `${label.padEnd(10)} ${order.placedAt.toISOString().slice(0, 10)}  ${order.status.padEnd(11)} ${(order.paymentMethod || "-").padEnd(11)} ${money(oldProfit).padStart(10)} -> ${money(result.netProfitCents)}`,
+      `${label.padEnd(10)} ${order.placedAt.toISOString().slice(0, 10)}  ${order.status.padEnd(11)} ${(order.paymentMethod || "-").padEnd(11)} ${money(oldProfit).padStart(10)} -> ${money(result.netProfitCents)}${isAu ? " AUD" : ""}`,
     );
     if (apply) {
       await prisma.order.update({ where: { id: order.id }, data: { netProfitCents: result.netProfitCents } });
@@ -124,7 +147,7 @@ async function main() {
     console.log(`Skipped (an item has no matching product, profit left as is): ${skipped.join(", ")}`);
   }
   const p = totals.paid;
-  console.log("\nPaid orders (completed + processing):");
+  console.log(`\nPaid orders (completed + processing), in USD${auBrand ? ` (AU orders converted at ${AUD_PER_USD} AUD per USD)` : ""}:`);
   console.log(`  Products paid   ${money(p.revenue)}   (after ${money(p.p2pDiscount)} P2P discount)`);
   console.log(`  Product cost    ${money(p.cogs)}`);
   console.log(`  Card fees       ${money(p.fees)}`);

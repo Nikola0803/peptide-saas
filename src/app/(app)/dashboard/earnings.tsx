@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { money } from "@/lib/format";
 import { computeProductProfit } from "@/lib/order-profit";
+import { AUD_PER_USD, brandCurrency, toUsdCents } from "@/lib/store-currency";
 
 // Earnings from paid orders (completed + processing). Net profit is the sum
 // of each order's saved "Net profit" -- the same number the Orders list
@@ -13,10 +14,17 @@ type Totals = { orders: number; revenue: number; cogs: number; fees: number; com
 const empty = (): Totals => ({ orders: 0, revenue: 0, cogs: 0, fees: 0, commission: 0, net: 0 });
 
 export async function DashboardEarnings({ organizationId, brandId }: { organizationId: string; brandId?: string }) {
+  // EVLV Australia orders are saved in AUD. One AUD store selected: show
+  // AUD. Otherwise everything is shown in USD, AUD orders converted.
+  const brands = await prisma.brand.findMany({ where: { organizationId }, select: { id: true, slug: true, domain: true } });
+  const currencyByBrand = new Map(brands.map((b) => [b.id, brandCurrency(b)]));
+  const display = brandId ? (currencyByBrand.get(brandId) ?? "USD") : "USD";
+  const hasAud = !brandId && [...currencyByBrand.values()].includes("AUD");
   const orders = await prisma.order.findMany({
     where: { organizationId, ...(brandId ? { brandId } : {}), status: { in: ["COMPLETED", "PROCESSING"] } },
     select: {
       placedAt: true,
+      brandId: true,
       grossCents: true,
       paymentMethod: true,
       netProfitCents: true,
@@ -36,14 +44,16 @@ export async function DashboardEarnings({ organizationId, brandId }: { organizat
     });
     const net = order.netProfitCents ?? 0;
     const cogs = r.productsPaidCents - r.feeCents - r.commissionCents - net;
+    const conv = (cents: number) =>
+      display === "USD" ? toUsdCents(cents, currencyByBrand.get(order.brandId) ?? "USD") : cents;
     const targets = order.placedAt.getTime() >= weekAgo ? [allTime, lastWeek] : [allTime];
     for (const t of targets) {
       t.orders += 1;
-      t.revenue += r.productsPaidCents;
-      t.cogs += cogs;
-      t.fees += r.feeCents;
-      t.commission += r.commissionCents;
-      t.net += net;
+      t.revenue += conv(r.productsPaidCents);
+      t.cogs += conv(cogs);
+      t.fees += conv(r.feeCents);
+      t.commission += conv(r.commissionCents);
+      t.net += conv(net);
     }
   }
 
@@ -58,7 +68,10 @@ export async function DashboardEarnings({ organizationId, brandId }: { organizat
     <div className="rounded-lg border border-background-200 bg-background-50 p-4 mb-6">
       <div className="flex items-baseline justify-between mb-3">
         <h2 className="text-sm font-semibold text-foreground-950">Earnings</h2>
-        <span className="text-xs text-foreground-500">Paid orders · net profit matches the Orders list</span>
+        <span className="text-xs text-foreground-500">
+          Paid orders · {display}
+          {hasAud ? ` (AU orders converted at ${AUD_PER_USD} AUD per USD)` : " · net profit matches the Orders list"}
+        </span>
       </div>
       <table className="w-full text-sm tabular-nums">
         <thead>
@@ -77,14 +90,14 @@ export async function DashboardEarnings({ organizationId, brandId }: { organizat
           {rows.map((row) => (
             <tr key={row.key}>
               <td className="py-1 text-foreground-600">{row.label}</td>
-              <td className="py-1 text-right">{row.negative ? "-" : ""}{money(lastWeek[row.key])}</td>
-              <td className="py-1 text-right">{row.negative ? "-" : ""}{money(allTime[row.key])}</td>
+              <td className="py-1 text-right">{row.negative ? "-" : ""}{money(lastWeek[row.key], display)}</td>
+              <td className="py-1 text-right">{row.negative ? "-" : ""}{money(allTime[row.key], display)}</td>
             </tr>
           ))}
           <tr className="border-t border-background-200 font-semibold text-foreground-950">
             <td className="pt-2">Net profit</td>
-            <td className="pt-2 text-right">{money(lastWeek.net)}</td>
-            <td className="pt-2 text-right">{money(allTime.net)}</td>
+            <td className="pt-2 text-right">{money(lastWeek.net, display)}</td>
+            <td className="pt-2 text-right">{money(allTime.net, display)}</td>
           </tr>
         </tbody>
       </table>

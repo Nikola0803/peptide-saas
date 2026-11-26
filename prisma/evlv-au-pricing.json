@@ -1,0 +1,306 @@
+{
+  "_readme": "EVLV Australia (CRM brand evlv-au) prices in AUD cents, from Nikola's Peptide Centre combined price list (26 Nov 2026). priceCents = website price per vial; cogsCents = Peptide Centre wholesale A$ (35% of website) = our cost per vial; salePriceCents = sale-file price (charged only with --sale). No fixed 10-pack price: 3/5/10 vials get the standard 3%/7%/10% quantity discount. Applied by: npm run db:prices:evlv-au [-- --apply] [-- --sale]. Slugs in pendingNewProducts have no CRM product yet.",
+  "currency": "AUD",
+  "audPerUsd": 1.3889,
+  "pricesBySlug": {
+    "aod-9604-5mg": {
+      "listName": "AOD 9604 (5mg)",
+      "priceCents": 10800,
+      "cogsCents": 3780,
+      "salePriceCents": 7800
+    },
+    "bacteriostatic-water-10ml": {
+      "listName": "Bacteriostatic Water (10ml)",
+      "priceCents": 2900,
+      "cogsCents": 1015,
+      "salePriceCents": 2100
+    },
+    "wolverine-10mg": {
+      "listName": "BPC-157 & TB-500 Blend (10mg)",
+      "priceCents": 19900,
+      "cogsCents": 6965,
+      "salePriceCents": 14300
+    },
+    "bpc-157-10mg": {
+      "listName": "BPC-157 (5mg / 10mg) - 10mg",
+      "priceCents": 19900,
+      "cogsCents": 6965
+    },
+    "bpc-157-5mg": {
+      "listName": "BPC-157 (5mg / 10mg) - 5mg",
+      "priceCents": 10800,
+      "cogsCents": 3780,
+      "salePriceCents": 7800
+    },
+    "glow-70mg": {
+      "listName": "BPC-157, TB-500, GHK-Cu (70mg GLOW Blend)",
+      "priceCents": 34900,
+      "cogsCents": 12215,
+      "salePriceCents": 25100
+    },
+    "klow-80mg": {
+      "listName": "BPC-157, TB-500, GHK-Cu (80mg KLOW Blend)",
+      "priceCents": 39900,
+      "cogsCents": 13965,
+      "salePriceCents": 28700
+    },
+    "cjc-ipa-blend-10mg": {
+      "listName": "CJC-1295 & Ipamorelin Blend (10mg)",
+      "priceCents": 24900,
+      "cogsCents": 8715,
+      "salePriceCents": 17900
+    },
+    "cjc-1295-no-dac-5mg": {
+      "listName": "CJC-1295 NO DAC (5mg)",
+      "priceCents": 10800,
+      "cogsCents": 3780,
+      "salePriceCents": 7800
+    },
+    "dsip-10mg": {
+      "listName": "DSIP (10mg)",
+      "priceCents": 14900,
+      "cogsCents": 5215,
+      "salePriceCents": 10700
+    },
+    "epitalon-10mg": {
+      "listName": "Epithalon (5mg / 10mg) - 10mg",
+      "priceCents": 14900,
+      "cogsCents": 5215
+    },
+    "ghk-cu-50mg": {
+      "listName": "GHK-CU (50mg)",
+      "priceCents": 14900,
+      "cogsCents": 5215,
+      "salePriceCents": 10700
+    },
+    "glutathione-1500mg": {
+      "listName": "Glutathione (1500mg)",
+      "priceCents": 15800,
+      "cogsCents": 5530,
+      "salePriceCents": 11400
+    },
+    "igf-1-lr3-1mg": {
+      "listName": "IGF-1 LR3 Receptor Grade (1mg)",
+      "priceCents": 19900,
+      "cogsCents": 6965,
+      "salePriceCents": 14300
+    },
+    "ipamorelin-5mg": {
+      "listName": "Ipamorelin (5mg)",
+      "priceCents": 10800,
+      "cogsCents": 3780,
+      "salePriceCents": 7800
+    },
+    "kisspeptin-10mg": {
+      "listName": "Kisspeptin (10mg)",
+      "priceCents": 19900,
+      "cogsCents": 6965,
+      "salePriceCents": 14300
+    },
+    "kpv-10mg": {
+      "listName": "KPV (10mg)",
+      "priceCents": 12900,
+      "cogsCents": 4515,
+      "salePriceCents": 9300
+    },
+    "mots-c-10mg": {
+      "listName": "Mots C (10mg)",
+      "priceCents": 15800,
+      "cogsCents": 5530,
+      "salePriceCents": 11400
+    },
+    "melanotan-ii-10mg": {
+      "listName": "MT-2 (10mg)",
+      "priceCents": 10800,
+      "cogsCents": 3780,
+      "salePriceCents": 7800
+    },
+    "nad-500mg": {
+      "listName": "NAD+ (100mg / 500mg)-500mg",
+      "priceCents": 24900,
+      "cogsCents": 8715
+    },
+    "oxytocin-2mg": {
+      "listName": "Oxytocin (2mg)",
+      "priceCents": 7900,
+      "cogsCents": 2765,
+      "salePriceCents": 5700
+    },
+    "pinealon-2mg": {
+      "listName": "Pinealon",
+      "priceCents": 12900,
+      "cogsCents": 4515,
+      "salePriceCents": 9300,
+      "note": "size not given in list; confirm"
+    },
+    "pt-141-10mg": {
+      "listName": "PT-141 (10mg)",
+      "priceCents": 10800,
+      "cogsCents": 3780,
+      "salePriceCents": 7800
+    },
+    "evlv-3-10mg": {
+      "listName": "Reta (GLP-1 / GIP) (10mg)",
+      "priceCents": 24900,
+      "cogsCents": 8715,
+      "salePriceCents": 17900
+    },
+    "selank-10mg": {
+      "listName": "Selank (10mg)",
+      "priceCents": 15800,
+      "cogsCents": 5530
+    },
+    "evlv-1-10mg": {
+      "listName": "Sema (GLP-1) (5mg / 10mg)-10mg",
+      "priceCents": 24900,
+      "cogsCents": 8715
+    },
+    "evlv-1-5mg": {
+      "listName": "Sema (GLP-1) (5mg / 10mg)-5mg",
+      "priceCents": 15800,
+      "cogsCents": 5530,
+      "salePriceCents": 11400
+    },
+    "semax-10mg": {
+      "listName": "Semex (10mg)",
+      "priceCents": 15800,
+      "cogsCents": 5530
+    },
+    "sermorelin-10mg": {
+      "listName": "Sermo (10mg)",
+      "priceCents": 16900,
+      "cogsCents": 5915
+    },
+    "sermorelin-5mg": {
+      "listName": "Sermo (5mg)",
+      "priceCents": 10400,
+      "cogsCents": 3640,
+      "salePriceCents": 7500
+    },
+    "ss-31-10mg": {
+      "listName": "SS-31",
+      "priceCents": 12900,
+      "cogsCents": 4515,
+      "salePriceCents": 9300,
+      "note": "size not given in list; confirm"
+    },
+    "tb-500-10mg": {
+      "listName": "TB-500 (Thymosin Beta 4) (5mg / 10mg)-10mg",
+      "priceCents": 18900,
+      "cogsCents": 6615
+    },
+    "tb-500-5mg": {
+      "listName": "TB-500 (Thymosin Beta 4) (5mg / 10mg)-5mg",
+      "priceCents": 9900,
+      "cogsCents": 3465,
+      "salePriceCents": 7100
+    },
+    "tesamorelin-ipamorelin-15mg": {
+      "listName": "Tesamorlin & Ipamorelin Blend (16mg)",
+      "priceCents": 22100,
+      "cogsCents": 7735,
+      "salePriceCents": 15900,
+      "note": "size not given in list; confirm"
+    },
+    "tesamorelin-10mg": {
+      "listName": "Tesamorlin (5mg / 10mg)-10mg",
+      "priceCents": 22900,
+      "cogsCents": 8015
+    },
+    "thymosin-alpha-1-10mg": {
+      "listName": "Thymosin Alpha (5mg / 10mg)-10mg",
+      "priceCents": 19900,
+      "cogsCents": 6965
+    },
+    "evlv-2-10mg": {
+      "listName": "Tirz (GLP-1 / GIP) (5mg / 10mg)-10mg",
+      "priceCents": 29900,
+      "cogsCents": 10465
+    }
+  },
+  "pendingNewProducts": {
+    "5-amino-1mq-50mg": {
+      "listName": "5-Amino (50mg)",
+      "priceCents": 13900,
+      "cogsCents": 4865
+    },
+    "cerebrolysin-60mg": {
+      "listName": "Cerebrolysin (60mg)",
+      "priceCents": 15800,
+      "cogsCents": 5530,
+      "salePriceCents": 11400
+    },
+    "cjc-1295-dac-5mg": {
+      "listName": "CJC-1295 DAC (5mg)",
+      "priceCents": 12900,
+      "cogsCents": 4515,
+      "salePriceCents": 9300
+    },
+    "epitalon-5mg": {
+      "listName": "Epithalon (5mg / 10mg) - 5mg",
+      "priceCents": 7900,
+      "cogsCents": 2765,
+      "salePriceCents": 5700
+    },
+    "hcg-5000iu": {
+      "listName": "Hcg (5000iu)",
+      "priceCents": 12900,
+      "cogsCents": 4515,
+      "salePriceCents": 9300
+    },
+    "humanin-10mg": {
+      "listName": "Humanin (10mg)",
+      "priceCents": 20800,
+      "cogsCents": 7280,
+      "salePriceCents": 15000
+    },
+    "ll-37-5mg": {
+      "listName": "LL-37 (5mg / 10mg)-5mg",
+      "priceCents": 8200,
+      "cogsCents": 2870,
+      "salePriceCents": 5900
+    },
+    "nad-100mg": {
+      "listName": "NAD+ (100mg / 500mg)-100mg",
+      "priceCents": 9900,
+      "cogsCents": 3465,
+      "salePriceCents": 7100
+    },
+    "selank-semax-blend-10mg": {
+      "listName": "Selank & Semex Blend (10MG)",
+      "priceCents": 24900,
+      "cogsCents": 8715,
+      "salePriceCents": 17900
+    },
+    "selank-5mg": {
+      "listName": "Selank (5mg)",
+      "priceCents": 8900,
+      "cogsCents": 3115,
+      "salePriceCents": 6400
+    },
+    "semax-5mg": {
+      "listName": "Semex (5mg)",
+      "priceCents": 8900,
+      "cogsCents": 3115,
+      "salePriceCents": 6400
+    },
+    "tesamorelin-5mg": {
+      "listName": "Tesamorlin (5mg / 10mg)-5mg",
+      "priceCents": 13900,
+      "cogsCents": 4865,
+      "salePriceCents": 10000
+    },
+    "thymosin-alpha-1-5mg": {
+      "listName": "Thymosin Alpha -1 (5mg)",
+      "priceCents": 10800,
+      "cogsCents": 3780,
+      "salePriceCents": 7800
+    },
+    "evlv-2-5mg": {
+      "listName": "Tirz (GLP-1 / GIP) (5mg / 10mg)-5mg",
+      "priceCents": 16900,
+      "cogsCents": 5915,
+      "salePriceCents": 12200
+    }
+  }
+}

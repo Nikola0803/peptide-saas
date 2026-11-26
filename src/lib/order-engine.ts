@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { computeProductProfit } from "./order-profit";
+import { brandCurrency } from "./store-currency";
 import { DROPSHIP_ENABLED, WHOLESALE_ENABLED } from "@/lib/features";
 import { createId } from "@/lib/id";
 import { sendTemplate, escapeHtml } from "@/lib/email";
@@ -223,6 +224,9 @@ export async function runCheckout(
       brand?.domain.toLowerCase().replace(/^www\./, "") === "evlvpeptides.com" ||
       brand?.slug.toLowerCase() === "evlv-au" ||
       brand?.domain.toLowerCase().replace(/^www\./, "") === "evlvpeptides.com.au";
+    // AUD on EVLV Australia: its mapping prices and costs are AUD, so the
+    // order's money (and profit) is saved in AUD too.
+    const currency = brandCurrency(brand);
 
     const isWholesale = WHOLESALE_ENABLED && input.wholesaleCheckout === true && wholesale?.status === "APPROVED";
 
@@ -236,6 +240,8 @@ export async function runCheckout(
         throw new CheckoutError(`Unknown or unpriced product: ${item.slug}`, "UNKNOWN_PRODUCT", { slug: item.slug });
       }
       const product = mapping.product;
+      // This store's own cost (in its currency) wins over the shared USD cost.
+      const unitCogsCents = mapping.cogsCents ?? product.cogsCents;
 
       if (isWholesale && quantity % 10 !== 0) {
         throw new CheckoutError(
@@ -289,7 +295,7 @@ export async function runCheckout(
         ? (mapping.wholesaleCasePriceCents as number) / 10
         : getRetailUnitPriceCents(retailUnitPriceCents, quantity, mapping.retailCasePriceCents);
       grossCentsTotal += unitPriceCents * quantity;
-      cogsCentsTotal += product.cogsCents * quantity;
+      cogsCentsTotal += unitCogsCents * quantity;
 
       // "Stock locked until payment confirmed": whichever pool actually
       // covers this item gets decremented now, at order time, not at
@@ -334,7 +340,7 @@ export async function runCheckout(
         lotId,
         supplierId: supplierProduct?.supplierId,
       });
-      couponCartItems.push({ productId: product.id, quantity, unitPriceCents, cogsCents: product.cogsCents });
+      couponCartItems.push({ productId: product.id, quantity, unitPriceCents, cogsCents: unitCogsCents });
       const kitLine = !isWholesale && isKitLine(quantity, mapping.retailCasePriceCents);
       kitFlags.push(kitLine);
       if (kitLine) kitItems.push({ quantity, unitPriceCents, wholesaleCasePriceCents: mapping.wholesaleCasePriceCents });
@@ -343,7 +349,7 @@ export async function runCheckout(
         quantity,
         productId: product.id,
         regularUnitPriceCents: mapping.storePriceCents,
-        cogsCents: product.cogsCents,
+        cogsCents: unitCogsCents,
       });
     }
 
@@ -620,7 +626,7 @@ export async function runCheckout(
         grossCents: grossCentsTotal,
         shippingCents,
         total: ((grossCentsTotal + shippingCents) / 100).toFixed(2),
-        currency: "USD",
+        currency,
         status: order.status,
       },
       contactEmail: contact.email,
@@ -656,7 +662,7 @@ export async function runCheckout(
     orderID: result.number,
     email: contactEmail,
     createdAt: new Date().toISOString(),
-    currency: "USD",
+    currency: result.currency,
     // Omnisend v3 money fields are integer cents. Sending decimal dollars
     // produces a 422 and prevents order/revenue automations from updating.
     orderSum: grossCentsTotal + shippingCents,
