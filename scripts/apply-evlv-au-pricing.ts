@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import pricing from "../prisma/evlv-au-pricing.json";
+import catalog from "../prisma/evlv-catalog.json";
 
 // Sets EVLV Australia (CRM brand "evlv-au") prices and costs, all in AUD,
 // from prisma/evlv-au-pricing.json:
@@ -10,7 +11,9 @@ import pricing from "../prisma/evlv-au-pricing.json";
 // The active evlv-au mappings ARE the AU catalog, so any AU mapping whose
 // slug is not in the file is deactivated (it disappears from the AU site).
 // A slug with no AU mapping yet gets one, pointing at the product that the
-// same slug uses on the US store. The US store is never touched.
+// same slug uses on the US store, or (if the US store no longer lists it)
+// the CRM product with that slug's SKU from evlv-catalog.json. The US store
+// is never touched.
 //
 //   npm run db:prices:evlv-au                     -> dry run, prints changes
 //   npm run db:prices:evlv-au -- --apply          -> writes them
@@ -44,7 +47,22 @@ async function main() {
     prisma.storeMapping.findMany({ where: { brandId: usBrand.id, slug: { in: Object.keys(PRICES) } } }),
   ]);
   const auBySlug = new Map(auMappings.map((m) => [m.slug, m]));
-  const usBySlug = new Map(usMappings.map((m) => [m.slug, m]));
+  const productIdBySlug = new Map(usMappings.map((m) => [m.slug as string, m.productId]));
+  // Slugs the US store dropped: find the product by its catalog SKU.
+  const skuBySlug = new Map((catalog as Array<{ slug: string; sku: string }>).map((p) => [p.slug, p.sku]));
+  const missingSkus = Object.keys(PRICES)
+    .filter((slug) => !productIdBySlug.has(slug) && skuBySlug.has(slug))
+    .map((slug) => skuBySlug.get(slug) as string);
+  if (missingSkus.length) {
+    const products = await prisma.product.findMany({
+      where: { organizationId: org.id, sku: { in: missingSkus } },
+      select: { id: true, sku: true },
+    });
+    for (const [slug, sku] of skuBySlug) {
+      const product = products.find((p) => p.sku === sku);
+      if (product && !productIdBySlug.has(slug)) productIdBySlug.set(slug, product.id);
+    }
+  }
 
   let created = 0;
   let updated = 0;
@@ -73,8 +91,8 @@ async function main() {
       if (apply) await prisma.storeMapping.update({ where: { id: existing.id }, data });
       continue;
     }
-    const source = usBySlug.get(slug);
-    if (!source) {
+    const productId = productIdBySlug.get(slug);
+    if (!productId) {
       noProduct.push(slug);
       continue;
     }
@@ -82,7 +100,7 @@ async function main() {
     console.log(`${apply ? "ADD" : "would add"}     ${line}`);
     if (apply) {
       await prisma.storeMapping.create({
-        data: { ...data, brandId: auBrand.id, productId: source.productId, externalProductId: `au-${slug}`, slug },
+        data: { ...data, brandId: auBrand.id, productId, externalProductId: `au-${slug}`, slug },
       });
     }
   }
@@ -94,7 +112,7 @@ async function main() {
   }
 
   console.log(`\n${created} added, ${updated} updated, ${remove.length} hidden, ${same} already correct.`);
-  if (noProduct.length) console.log(`No US product for these slugs, not added: ${noProduct.join(", ")}`);
+  if (noProduct.length) console.log(`No CRM product for these slugs, not added: ${noProduct.join(", ")}`);
   const pending = Object.keys(doc.pendingNewProducts);
   if (pending.length) console.log(`Waiting for a CRM product (pendingNewProducts): ${pending.join(", ")}`);
   if (!apply && (created || updated || remove.length)) console.log("Dry run only. Re-run with -- --apply to save.");
