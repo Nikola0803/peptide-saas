@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import pricing from "../prisma/evlv-au-pricing.json";
 import catalog from "../prisma/evlv-catalog.json";
+import { AUD_PER_USD } from "../src/lib/store-currency";
 
 // Sets EVLV Australia (CRM brand "evlv-au") prices and costs, all in AUD,
 // from prisma/evlv-au-pricing.json:
@@ -12,8 +13,10 @@ import catalog from "../prisma/evlv-catalog.json";
 // slug is not in the file is deactivated (it disappears from the AU site).
 // A slug with no AU mapping yet gets one, pointing at the product that the
 // same slug uses on the US store, or (if the US store no longer lists it)
-// the CRM product with that slug's SKU from evlv-catalog.json. The US store
-// is never touched.
+// the CRM product with that slug's SKU from evlv-catalog.json. If the CRM has
+// no product with that SKU at all, the product is created from the catalog
+// entry (cost = the AU cost in USD, stock 0: AU inventory is not gated). The
+// US store's mappings are never touched.
 //
 //   npm run db:prices:evlv-au                     -> dry run, prints changes
 //   npm run db:prices:evlv-au -- --apply          -> writes them
@@ -49,7 +52,12 @@ async function main() {
   const auBySlug = new Map(auMappings.map((m) => [m.slug, m]));
   const productIdBySlug = new Map(usMappings.map((m) => [m.slug as string, m.productId]));
   // Slugs the US store dropped: find the product by its catalog SKU.
-  const skuBySlug = new Map((catalog as Array<{ slug: string; sku: string }>).map((p) => [p.slug, p.sku]));
+  type CatalogItem = {
+    slug: string; sku: string; name: string; image?: string; purity?: string; categoryLabel?: string;
+    shortDescription?: string; description?: string; storage?: string; reconstitution?: string;
+  };
+  const catalogBySlug = new Map((catalog as CatalogItem[]).map((p) => [p.slug, p]));
+  const skuBySlug = new Map((catalog as CatalogItem[]).map((p) => [p.slug, p.sku]));
   const missingSkus = Object.keys(PRICES)
     .filter((slug) => !productIdBySlug.has(slug) && skuBySlug.has(slug))
     .map((slug) => skuBySlug.get(slug) as string);
@@ -91,14 +99,36 @@ async function main() {
       if (apply) await prisma.storeMapping.update({ where: { id: existing.id }, data });
       continue;
     }
-    const productId = productIdBySlug.get(slug);
-    if (!productId) {
+    let productId = productIdBySlug.get(slug);
+    const item = catalogBySlug.get(slug);
+    if (!productId && !item) {
       noProduct.push(slug);
       continue;
     }
     created += 1;
-    console.log(`${apply ? "ADD" : "would add"}     ${line}`);
+    console.log(`${apply ? "ADD" : "would add"}     ${line}${productId ? "" : "   (new CRM product " + item!.sku + ")"}`);
     if (apply) {
+      if (!productId) {
+        const product = await prisma.product.upsert({
+          where: { organizationId_sku: { organizationId: org.id, sku: item!.sku } },
+          update: {},
+          create: {
+            organizationId: org.id,
+            sku: item!.sku,
+            chemicalName: item!.name,
+            cogsCents: Math.round(price.cogsCents / AUD_PER_USD),
+            masterStock: 0,
+            imageUrl: item!.image ? `https://evlvpeptides.com${item!.image}` : null,
+            purity: item!.purity,
+            categoryLabel: item!.categoryLabel,
+            shortDescription: item!.shortDescription,
+            description: item!.description,
+            storageInstructions: item!.storage,
+            reconstitutionInstructions: item!.reconstitution,
+          },
+        });
+        productId = product.id;
+      }
       await prisma.storeMapping.create({
         data: { ...data, brandId: auBrand.id, productId, externalProductId: `au-${slug}`, slug },
       });
@@ -112,7 +142,7 @@ async function main() {
   }
 
   console.log(`\n${created} added, ${updated} updated, ${remove.length} hidden, ${same} already correct.`);
-  if (noProduct.length) console.log(`No CRM product for these slugs, not added: ${noProduct.join(", ")}`);
+  if (noProduct.length) console.log(`No CRM product and no catalog entry for these slugs, not added: ${noProduct.join(", ")}`);
   const pending = Object.keys(doc.pendingNewProducts);
   if (pending.length) console.log(`Waiting for a CRM product (pendingNewProducts): ${pending.join(", ")}`);
   if (!apply && (created || updated || remove.length)) console.log("Dry run only. Re-run with -- --apply to save.");
