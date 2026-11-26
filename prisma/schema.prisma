@@ -415,6 +415,10 @@ model StoreMapping {
   // Approved wholesale partners buy sealed 10-vial cases only. This is
   // the total price for one case, scoped to this brand just like retail.
   wholesaleCasePriceCents Int?
+  // Our cost for one vial on this store, in the store's own currency (AUD on
+  // evlv-au). When set it is the COGS for this store's orders; null falls
+  // back to Product.cogsCents (USD, shared by all stores of the product).
+  cogsCents               Int?
 
   // For headless storefronts (see /api/store/checkout) that don't have a
   // WooCommerce product id to send — evlv-site's static catalog references

@@ -1,7 +1,7 @@
-export function money(cents: number): string {
+export function money(cents: number, currency: "USD" | "AUD" = "USD"): string {
   return (cents / 100).toLocaleString("en-US", {
     style: "currency",
-    currency: "USD",
+    currency,
   });
 }
 

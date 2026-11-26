@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { brandAllowsSitewideEvents } from "@/lib/store-currency";
 import { resolveHeaderOverride } from "@/lib/store-context";
 import { prisma } from "@/lib/prisma";
 import { evlvHalloweenPromotionOptions, halloweenPromotionIsLive } from "@/lib/halloween-bogo-promotion";
@@ -15,12 +16,13 @@ export async function GET(req: NextRequest) {
       halloweenStartsAt: true,
       halloweenEndsAt: true,
       halloweenFreeShippingCents: true,
+      slug: true,
       domain: true,
     },
   });
   if (!brand) return NextResponse.json({ error: "Brand not found" }, { status: 404 });
   const halloween = evlvHalloweenPromotionOptions({
-    active: brand.halloweenBogoActive,
+    active: brandAllowsSitewideEvents(brand) && brand.halloweenBogoActive,
     startsAt: brand.halloweenStartsAt,
     endsAt: brand.halloweenEndsAt,
     brandDomain: brand.domain,
