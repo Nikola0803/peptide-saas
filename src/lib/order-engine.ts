@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { computeProductProfit } from "./order-profit";
-import { brandCurrency } from "./store-currency";
+import { brandAllowsSitewideEvents, brandCurrency } from "./store-currency";
 import { DROPSHIP_ENABLED, WHOLESALE_ENABLED } from "@/lib/features";
 import { createId } from "@/lib/id";
 import { sendTemplate, escapeHtml } from "@/lib/email";
@@ -356,8 +356,10 @@ export async function runCheckout(
     const marginPercent = org?.minMarginPercent ?? 30;
     const autoApplyCodes = await getAutoApplyCodes(organizationId, contact.id);
     const join25Codes = autoApplyCodes.filter((code) => code.toUpperCase().startsWith(JOIN25_PREFIX));
+    // No BOGO / GLP pair / Research Set on EVLV Australia (store-currency.ts).
+    const noSitewideEvents = !brandAllowsSitewideEvents(brand);
     const halloweenWindow = evlvHalloweenPromotionOptions({
-      active: brand?.halloweenBogoActive ?? false,
+      active: !noSitewideEvents && (brand?.halloweenBogoActive ?? false),
       startsAt: brand?.halloweenStartsAt,
       endsAt: brand?.halloweenEndsAt,
       brandDomain: brand?.domain,
@@ -370,7 +372,7 @@ export async function runCheckout(
     const kitTier = evaluateKitTiers(kitItems, { isWholesale, brandDomain: brand?.domain });
     const hasExclusiveJoin25 = join25Codes.length > 0 && !halloweenPromotion.applies && !kitTier.ownsCart;
 
-    const glpPromotion = !hasExclusiveJoin25 && !halloweenPromotion.applies && !kitTier.ownsCart && (brand?.glpPairActive ?? true)
+    const glpPromotion = !hasExclusiveJoin25 && !halloweenPromotion.applies && !kitTier.ownsCart && !noSitewideEvents && (brand?.glpPairActive ?? true)
       ? evaluateGlpPairPromotion(promotionItems, {
           alreadyRedeemed: Boolean(priorPromotionOrder),
           isWholesale,
@@ -397,7 +399,7 @@ export async function runCheckout(
     }));
     const researchSetPromotion = !hasExclusiveJoin25 && !halloweenPromotion.applies && !kitTier.ownsCart && !glpPromotion.applies
       ? evaluateResearchSetPromotion(researchSetItems, {
-          active: brand?.researchSetActive ?? false,
+          active: !noSitewideEvents && (brand?.researchSetActive ?? false),
           startsAt: brand?.researchSetStartsAt ?? null,
           endsAt: brand?.researchSetEndsAt ?? null,
           isWholesale,

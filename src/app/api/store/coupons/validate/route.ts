@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { brandAllowsSitewideEvents } from "@/lib/store-currency";
 import { WHOLESALE_ENABLED } from "@/lib/features";
 import { CUSTOMER_REFERRAL_REWARD_ENABLED, REFERRAL_REWARD_CENTS } from "@/lib/customer-referral";
 import { z } from "zod";
@@ -87,7 +88,7 @@ export async function POST(req: NextRequest) {
       productId: mapping.product.id,
       quantity,
       unitPriceCents,
-      cogsCents: mapping.product.cogsCents,
+      cogsCents: mapping.cogsCents ?? mapping.product.cogsCents,
     });
     const kitLine = isKitLine(quantity, mapping.retailCasePriceCents);
     kitFlags.push(kitLine);
@@ -97,7 +98,7 @@ export async function POST(req: NextRequest) {
       quantity,
       productId: mapping.product.id,
       regularUnitPriceCents: mapping.storePriceCents,
-      cogsCents: mapping.product.cogsCents,
+      cogsCents: mapping.cogsCents ?? mapping.product.cogsCents,
     });
   }
 
@@ -109,7 +110,7 @@ export async function POST(req: NextRequest) {
     prisma.organization.findUnique({ where: { id: store.organizationId } }),
     prisma.brand.findUnique({
       where: { id: store.brandId },
-      select: { domain: true, researchSetActive: true, researchSetStartsAt: true, researchSetEndsAt: true, glpPairActive: true, halloweenBogoActive: true, halloweenStartsAt: true, halloweenEndsAt: true },
+      select: { slug: true, domain: true, researchSetActive: true, researchSetStartsAt: true, researchSetEndsAt: true, glpPairActive: true, halloweenBogoActive: true, halloweenStartsAt: true, halloweenEndsAt: true },
     }),
     contactId
       ? prisma.wholesalePartner.findUnique({ where: { contactId }, select: { status: true } })
@@ -133,7 +134,7 @@ export async function POST(req: NextRequest) {
   const join25Code = autoApplyCodes.find((code) => code.toUpperCase().startsWith(JOIN25_PREFIX));
   const halloweenPromotion = evaluateHalloweenBogo(couponCartItems.filter((_, i) => !kitFlags[i]), {
     ...evlvHalloweenPromotionOptions({
-      active: brand?.halloweenBogoActive ?? false,
+      active: brandAllowsSitewideEvents(brand) && (brand?.halloweenBogoActive ?? false),
       startsAt: brand?.halloweenStartsAt,
       endsAt: brand?.halloweenEndsAt,
       brandDomain: brand?.domain,
@@ -199,7 +200,7 @@ export async function POST(req: NextRequest) {
   }
 
   // GLP Pair event — second same-item 70% off. Overridden by glpPairActive flag.
-  const glpPromotion = (brand?.glpPairActive ?? true)
+  const glpPromotion = brandAllowsSitewideEvents(brand) && (brand?.glpPairActive ?? true)
     ? evaluateGlpPairPromotion(promotionItems, {
         alreadyRedeemed,
         isWholesale,
@@ -229,7 +230,7 @@ export async function POST(req: NextRequest) {
     cogsCents: item.cogsCents,
   }));
   const researchSetPromotion = evaluateResearchSetPromotion(researchSetItems, {
-    active: brand?.researchSetActive ?? false,
+    active: brandAllowsSitewideEvents(brand) && (brand?.researchSetActive ?? false),
     startsAt: brand?.researchSetStartsAt ?? null,
     endsAt: brand?.researchSetEndsAt ?? null,
     isWholesale,

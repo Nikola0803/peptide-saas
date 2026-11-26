@@ -18,3 +18,11 @@ export function brandCurrency(brand: { slug?: string | null; domain?: string | n
 export function toUsdCents(cents: number, currency: StoreCurrency): number {
   return currency === "AUD" ? Math.round(cents / AUD_PER_USD) : cents;
 }
+
+// EVLV Australia runs no sitewide events (BOGO, GLP pair, Research Set, kit
+// sale): Nikola wants no deep discounts on the AU market, only the mild
+// 3/5/10-vial quantity discount. Checkout, coupon preview and the active
+// promotions feed all check this.
+export function brandAllowsSitewideEvents(brand: { slug?: string | null; domain?: string | null } | null | undefined): boolean {
+  return brandCurrency(brand) !== "AUD";
+}
