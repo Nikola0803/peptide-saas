@@ -84,9 +84,21 @@ async function runAbandonment(
     });
     if (orderedSince) continue;
 
-    await sendTemplate(organizationId, automation.templateKey, contact.email, buildVars({ name: contact.name, email: contact.email }, events));
+    await sendTemplate(organizationId, automation.templateKey, contact.email, buildVars({ name: contact.name, email: contact.email }, events), saleEndNotice(eventName));
     await recordSend(automation.id, contact.id, contact.id);
   }
+}
+
+// Black Friday 2026: cart and checkout reminders say when the sale ends.
+// Same cutoff as the BOGO / kit / AU sale: Mon Nov 30, 11:59:59 PM PT.
+// After that the reminders go back to the saved template unchanged.
+const BF_REMINDER_ENDS_AT = Date.parse("2026-12-01T07:59:59.000Z");
+function saleEndNotice(eventName: "view_content" | "add_to_cart" | "begin_checkout") {
+  if (eventName === "view_content" || Date.now() >= BF_REMINDER_ENDS_AT || process.env.BF_REMINDER_NOTICE_DISABLED === "1") return undefined;
+  return {
+    subjectPrefix: "Black Friday ends Monday: ",
+    noticeHtml: `<p style="margin:14px 0;padding:12px 14px;border-left:4px solid #203a37;background:#f1eee7;color:#0e1113;font-weight:600;">Black Friday pricing ends Monday, Nov 30 at 11:59 PM PT. Sale prices apply automatically at checkout, no code needed.</p>`,
+  };
 }
 
 // --- payment_pending_reminder: order still ON_HOLD, unpaid ---------------
