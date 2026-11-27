@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { computeProductProfit } from "./order-profit";
 import { brandAllowsSitewideEvents, brandCurrency } from "./store-currency";
+import { auBlackFridaySaleApplies, auBlackFridayUnitPriceCents, AU_BF_SALE_PROMOTION_CODE } from "./au-black-friday-sale";
 import { DROPSHIP_ENABLED, WHOLESALE_ENABLED } from "@/lib/features";
 import { createId } from "@/lib/id";
 import { sendTemplate, escapeHtml } from "@/lib/email";
@@ -230,6 +231,8 @@ export async function runCheckout(
     const currency = brandCurrency(brand);
 
     const isWholesale = WHOLESALE_ENABLED && input.wholesaleCheckout === true && wholesale?.status === "APPROVED";
+    // EVLV Australia Black Friday: regular AU price minus 20% (au-black-friday-sale.ts).
+    const auSale = !isWholesale && auBlackFridaySaleApplies(brand);
 
     // Today-only free BAC water: one unit is taken out before pricing and
     // added back below as a $0 line (src/lib/free-bac-gift.ts).
@@ -295,7 +298,9 @@ export async function runCheckout(
       // that IS the real price -- not just a display discount (see the
       // dealPriceCents/dealDate doc comment in schema.prisma).
       const dealActive = mapping.dealDate === utcDateString() && mapping.dealPriceCents != null;
-      const retailUnitPriceCents = dealActive ? (mapping.dealPriceCents as number) : mapping.storePriceCents;
+      const retailUnitPriceCents = auSale
+        ? auBlackFridayUnitPriceCents(mapping.storePriceCents)
+        : dealActive ? (mapping.dealPriceCents as number) : mapping.storePriceCents;
       const unitPriceCents = isWholesale
         ? (mapping.wholesaleCasePriceCents as number) / 10
         : getRetailUnitPriceCents(retailUnitPriceCents, quantity, mapping.retailCasePriceCents);
@@ -397,7 +402,7 @@ export async function runCheckout(
       isWholesale,
     });
     const kitTier = evaluateKitTiers(kitItems, { isWholesale, brandDomain: brand?.domain });
-    const hasExclusiveJoin25 = join25Codes.length > 0 && !halloweenPromotion.applies && !kitTier.ownsCart;
+    const hasExclusiveJoin25 = join25Codes.length > 0 && !auSale && !halloweenPromotion.applies && !kitTier.ownsCart;
 
     const glpPromotion = !hasExclusiveJoin25 && !halloweenPromotion.applies && !kitTier.ownsCart && !noSitewideEvents && (brand?.glpPairActive ?? true)
       ? evaluateGlpPairPromotion(promotionItems, {
@@ -437,7 +442,8 @@ export async function runCheckout(
     const promotion = halloweenPromotion.applies ? halloweenPromotion : glpPromotion.applies ? glpPromotion : researchSetPromotion;
     // A sitewide event owns the discount slot: BOGO/GLP/Research Set, or the
     // kit sale whenever the cart holds a kit while it is live.
-    const eventOwnsCart = promotion.applies || kitTier.ownsCart;
+    // The AU Black Friday sale owns it too: its price is already lowered.
+    const eventOwnsCart = promotion.applies || kitTier.ownsCart || auSale;
 
     let effectiveReferral = customerReferral;
     if (!hasExclusiveJoin25 && !effectiveReferral && referralCodeOwner && referralCodeOwner.id !== contact.id && !priorCustomerOrder) {
@@ -494,6 +500,7 @@ export async function runCheckout(
       : eligibleReferral
       ? input.couponCode?.trim().toUpperCase()
       : undefined;
+    if (auSale) appliedCouponCodes = AU_BF_SALE_PROMOTION_CODE;
     if (kitTier.applies) {
       appliedCouponCodes = appliedCouponCodes ? `${appliedCouponCodes},${KIT_TIER_PROMOTION_CODE}` : KIT_TIER_PROMOTION_CODE;
     }
