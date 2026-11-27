@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { brandAllowsSitewideEvents } from "@/lib/store-currency";
+import { auBlackFridaySaleApplies, auBlackFridayUnitPriceCents, AU_BF_SALE_LABEL, AU_BF_SALE_PROMOTION_CODE, AU_BF_SALE_PROMOTION_ID } from "@/lib/au-black-friday-sale";
 import { WHOLESALE_ENABLED } from "@/lib/features";
 import { CUSTOMER_REFERRAL_REWARD_ENABLED, REFERRAL_REWARD_CENTS } from "@/lib/customer-referral";
 import { z } from "zod";
@@ -64,6 +65,10 @@ export async function POST(req: NextRequest) {
     contactId = contact?.id;
   }
 
+  // EVLV Australia Black Friday: same lowered price runCheckout() charges.
+  const saleBrand = await prisma.brand.findUnique({ where: { id: store.brandId }, select: { slug: true, domain: true } });
+  const auSale = auBlackFridaySaleApplies(saleBrand);
+
   const couponCartItems: CouponCartItem[] = [];
   const promotionItems: GlpPairPromotionItem[] = [];
   // Same kit rule as runCheckout(): retail 10-vial kits never take BOGO.
@@ -80,7 +85,9 @@ export async function POST(req: NextRequest) {
     if (!mapping || mapping.storePriceCents == null) continue; // ignore unknown lines, same tolerance as checkout would hit later
 
     const dealActive = mapping.dealDate === utcDateString() && mapping.dealPriceCents != null;
-    const retailUnitPriceCents = dealActive ? (mapping.dealPriceCents as number) : mapping.storePriceCents;
+    const retailUnitPriceCents = auSale
+      ? auBlackFridayUnitPriceCents(mapping.storePriceCents)
+      : dealActive ? (mapping.dealPriceCents as number) : mapping.storePriceCents;
     const unitPriceCents = getRetailUnitPriceCents(retailUnitPriceCents, quantity, mapping.retailCasePriceCents);
 
     subtotalCents += unitPriceCents * quantity;
@@ -174,6 +181,24 @@ export async function POST(req: NextRequest) {
       bogoDiscountCents: halloweenPromotion.discountCents,
       flooredByMargin: false,
       maximumDiscountPercent: halloweenPromotion.applies ? 50 : 40,
+      stackingDisabled: true,
+      errors: [],
+    });
+  }
+
+  // AU Black Friday owns the discount slot: the price is already 20% lower,
+  // so no code, JOIN25, referral or partner discount is previewed on top.
+  if (auSale) {
+    return NextResponse.json({
+      valid: true,
+      discountCents: 0,
+      subtotalCents,
+      totalCents: subtotalCents,
+      appliedCoupons: [{ code: AU_BF_SALE_PROMOTION_CODE, label: AU_BF_SALE_LABEL }],
+      automaticPromotion: AU_BF_SALE_PROMOTION_ID,
+      promotionLabel: `${AU_BF_SALE_LABEL} applied`,
+      flooredByMargin: false,
+      maximumDiscountPercent: 0,
       stackingDisabled: true,
       errors: [],
     });
