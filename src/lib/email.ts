@@ -785,8 +785,15 @@ export async function getTemplate(organizationId: string, key: string): Promise<
   return row ? { subject: row.subject, html: row.html } : { subject: fallback.subject, html: fallback.html };
 }
 
-export async function sendTemplate(organizationId: string, key: string, to: string, vars: Record<string, string>, options?: { replyTo?: string; brandId?: string }): Promise<boolean> {
+export async function sendTemplate(organizationId: string, key: string, to: string, vars: Record<string, string>, options?: { replyTo?: string; brandId?: string; subjectPrefix?: string; noticeHtml?: string }): Promise<boolean> {
   let { subject, html } = await getTemplate(organizationId, key);
+  // Time-limited notice (e.g. "sale ends Monday") added on top of whatever
+  // template is saved in the CRM, so the saved template never needs editing.
+  if (options?.subjectPrefix) subject = `${options.subjectPrefix}${subject}`;
+  if (options?.noticeHtml) {
+    const at = html.indexOf("</h1>");
+    html = at >= 0 ? `${html.slice(0, at + 5)}${options.noticeHtml}${html.slice(at + 5)}` : html;
+  }
   const brand = options?.brandId
     ? await prisma.brand.findFirst({ where: { id: options.brandId, organizationId } })
     : null;
