@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import type { OrderStatus } from "@prisma/client";
-import { sendTemplate } from "@/lib/email";
+import { sendShippingConfirmationEmail } from "@/lib/automation-job";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -290,22 +290,14 @@ async function handleShipNotify(req: NextRequest): Promise<NextResponse> {
     data: { fulfillmentStatus: "SHIPPED", shippedAt: new Date(), trackingNumber, carrierCode },
   });
 
-  // Best-effort, same pattern as every other order-lifecycle email in
-  // this app -- the automation job (automation-job.ts's
-  // runShippingConfirmation) also picks this order up on its own next
-  // pass since shippedAt is now set, so this isn't the only path to the
-  // customer getting notified if it fails here.
-  if (order.contactId) {
-    const contact = await prisma.contact.findUnique({ where: { id: order.contactId } });
-    if (contact) {
-      sendTemplate(order.organizationId, "shipping_confirmation", contact.email, {
-        customerName: contact.name || contact.email,
-        orderNumber: order.externalOrderNumber,
-        trackingNumber: trackingNumber ?? "",
-        carrierCode: carrierCode ?? "",
-      }).catch((err) => console.error("Shipping confirmation email failed", err));
-    }
-  }
+  // Best-effort. Goes through the shipping_confirmation automation so the
+  // Email Marketing toggle, the Omnisend hand-off (ORDER_EMAILS_VIA) and
+  // the once-per-order dedup all apply -- before, this path emailed the
+  // customer even with the toggle off, and the automation job could send
+  // the same email again on its next tick.
+  sendShippingConfirmationEmail(order.organizationId, order.id).catch((err) =>
+    console.error("Shipping confirmation email failed", err)
+  );
 
   return xmlResponse('<?xml version="1.0" encoding="utf-8"?>\n<Result><Success>true</Success></Result>');
 }

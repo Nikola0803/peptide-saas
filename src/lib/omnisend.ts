@@ -37,6 +37,51 @@ export async function ensureEvlvEventSchemas(): Promise<boolean> {
       return false;
     }
   }
+  return ensureOrderEventSchemas();
+}
+
+// Events for Omnisend's transactional order flows (see order-email-owner.ts).
+const ORDER_EVENT_SCHEMAS = [
+  {
+    name: "order-placed",
+    displayName: "Order Placed (payment details)",
+    properties: {
+      orderNumber: { type: "string", displayName: "Order number" },
+      orderTotal: { type: "string", displayName: "Order total" },
+      shippingTotal: { type: "string", displayName: "Shipping" },
+      paymentMethod: { type: "string", displayName: "Payment method" },
+      paymentMemo: { type: "string", displayName: "Payment memo" },
+      itemsText: { type: "string", displayName: "Items" },
+    },
+  },
+  {
+    name: "order-shipped",
+    displayName: "Order Shipped (tracking)",
+    properties: {
+      orderNumber: { type: "string", displayName: "Order number" },
+      trackingNumber: { type: "string", displayName: "Tracking number" },
+      carrier: { type: "string", displayName: "Carrier" },
+      trackingURL: { type: "string", displayName: "Tracking URL" },
+    },
+  },
+] as const;
+
+async function ensureOrderEventSchemas(): Promise<boolean> {
+  for (const schema of ORDER_EVENT_SCHEMAS) {
+    const res = await fetch("https://api.omnisend.com/api/event-metadata", {
+      method: "POST",
+      headers: {
+        "Authorization": `Omnisend-API-Key ${process.env.OMNISEND_API_KEY!}`,
+        "Omnisend-Version": "2026-03-15",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name: schema.name, displayName: schema.displayName, origin: "api", properties: schema.properties }),
+    });
+    if (!res.ok && res.status !== 409) {
+      console.error(`[omnisend] Could not register ${schema.name}: ${res.status} ${await res.text().catch(() => "")}`);
+      return false;
+    }
+  }
   return true;
 }
 
@@ -128,6 +173,8 @@ export interface OmnisendOrderInput {
   discountSum?: number;
   discountCode?: string;
   paymentMethod?: string;
+  trackingCode?: string;
+  courierTitle?: string;
   paymentStatus: "awaitingPayment" | "paid" | "voided" | "partiallyRefunded" | "refunded";
   fulfillmentStatus: "unfulfilled" | "inProgress" | "fulfilled" | "restocked";
   products: OmnisendOrderItem[];
@@ -153,6 +200,8 @@ export async function pushOrderToOmnisend(input: OmnisendOrderInput): Promise<bo
         discountSum: input.discountSum,
         discountCode: input.discountCode,
         paymentMethod: input.paymentMethod,
+        trackingCode: input.trackingCode,
+        courierTitle: input.courierTitle,
         paymentStatus: input.paymentStatus,
         fulfillmentStatus: input.fulfillmentStatus,
         products: input.products,

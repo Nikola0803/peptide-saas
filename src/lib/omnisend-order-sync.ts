@@ -8,7 +8,7 @@
 // orders that never made it (every push before the variantID fix was
 // rejected). Same single-process interval pattern as stock-release-job.ts.
 import { prisma } from "@/lib/prisma";
-import { omnisendConfigured, pushOrderToOmnisend, type OmnisendOrderInput } from "@/lib/omnisend";
+import { omnisendConfigured, pushCustomEventToOmnisend, pushOrderToOmnisend, type OmnisendOrderInput } from "@/lib/omnisend";
 
 const CHECK_INTERVAL_MS = 10 * 60 * 1000;
 // Orders placed before this are never backfilled -- a first "placed order"
@@ -40,6 +40,17 @@ function omnisendState(order: { status: string; shippedAt: Date | null }): { pay
     default:
       return { paymentStatus: "paid", fulfillmentStatus };
   }
+}
+
+function trackingUrl(carrier: string | null, tracking: string | null): string {
+  if (!tracking) return "";
+  const t = encodeURIComponent(tracking);
+  const c = (carrier ?? "").toLowerCase();
+  if (c.includes("ups")) return `https://www.ups.com/track?tracknum=${t}`;
+  if (c.includes("fedex")) return `https://www.fedex.com/fedextrack/?trknbr=${t}`;
+  if (c.includes("dhl")) return `https://www.dhl.com/en/express/tracking.html?AWB=${t}`;
+  // USPS is the default carrier for EVLV's US shipments.
+  return `https://tools.usps.com/go/TrackConfirmAction?tLabels=${t}`;
 }
 
 export async function syncOrdersToOmnisend(): Promise<void> {
@@ -80,12 +91,30 @@ export async function syncOrdersToOmnisend(): Promise<void> {
       paymentMethod: order.paymentMethod ?? undefined,
       paymentStatus,
       fulfillmentStatus,
+      trackingCode: order.trackingNumber ?? undefined,
+      courierTitle: order.carrierCode ?? undefined,
       products: order.items.map((item) => {
         const id = slugFor(item.productId, item.sku);
         return { productID: id, variantID: id, sku: item.sku, title: item.name, quantity: item.quantity, price: Math.round(item.unitPriceCents) };
       }),
     });
     if (ok) {
+      // First time Omnisend hears this order shipped: send the tracking
+      // details as their own event for the Shipping Confirmation flow
+      // (event merge tags are simpler to template than order fields).
+      const wasFulfilled = order.omnisendSyncedState?.endsWith("|fulfilled") ?? false;
+      if (fulfillmentStatus === "fulfilled" && !wasFulfilled && paymentStatus === "paid") {
+        await pushCustomEventToOmnisend({
+          eventName: "order-shipped",
+          email: order.contact.email,
+          properties: {
+            orderNumber: order.externalOrderNumber,
+            trackingNumber: order.trackingNumber ?? "",
+            carrier: order.carrierCode ?? "",
+            trackingURL: trackingUrl(order.carrierCode, order.trackingNumber),
+          },
+        });
+      }
       await prisma.order.update({ where: { id: order.id }, data: { omnisendSyncedState: state } });
     }
   }

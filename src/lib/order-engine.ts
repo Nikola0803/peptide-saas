@@ -6,8 +6,9 @@ import { DROPSHIP_ENABLED, WHOLESALE_ENABLED } from "@/lib/features";
 import { createId } from "@/lib/id";
 import { sendTemplate, escapeHtml } from "@/lib/email";
 import { pushNotifyNewOrder } from "@/lib/push-notify";
-import { pushOrderToOmnisend } from "@/lib/omnisend";
+import { pushCustomEventToOmnisend, pushOrderToOmnisend } from "@/lib/omnisend";
 import { isEvlvBrandId } from "@/lib/omnisend-order-sync";
+import { crmSkipsCustomerOrderEmail } from "@/lib/order-email-owner";
 import { resolveCoupons, evaluateCoupons, getAutoApplyCodes, type CouponCartItem } from "@/lib/coupon-engine";
 import { getRetailUnitPriceCents } from "@/lib/quantity-pricing";
 import {
@@ -723,6 +724,23 @@ export async function runCheckout(
     })),
   })).catch((err) => console.error("Omnisend order push failed", err));
 
+  // What Omnisend's Order Confirmation email needs that the order object
+  // can't carry: how to pay and which memo to use. Omnisend templates read
+  // these as event merge tags. Sent for every EVLV order; nothing in
+  // Omnisend listens to it until the Order Confirmation flow is switched on.
+  isEvlvBrandId(brandId).then((isEvlv) => isEvlv && pushCustomEventToOmnisend({
+    eventName: "order-placed",
+    email: contactEmail,
+    properties: {
+      orderNumber: result.number,
+      orderTotal: `$${((grossCentsTotal + shippingCents) / 100).toFixed(2)}`,
+      shippingTotal: shippingCents > 0 ? `$${(shippingCents / 100).toFixed(2)}` : "Free",
+      paymentMethod: input.paymentMethod ?? "",
+      paymentMemo: input.paymentMemo ?? "",
+      itemsText: resolvedItems.map((item) => `${item.name} x${item.quantity}`).join(", "),
+    },
+  })).catch((err) => console.error("Omnisend order-placed event failed", err));
+
   enterGiveawayIfQualifying(brandId, contactEmail, grossCentsTotal, result.orderId).catch((err) =>
     console.error("Giveaway entry failed", err)
   );
@@ -800,7 +818,12 @@ async function sendOrderEmails(organizationId: string, input: OrderEmailInput): 
     paymentMemo: input.paymentMemo ?? "",
   };
 
-  await sendTemplate(organizationId, "order_confirmation_customer", input.customerEmail, vars, { brandId: input.brandId });
+  // With ORDER_EMAILS_VIA=omnisend, EVLV's customer confirmation comes from
+  // Omnisend's Order Confirmation flow (the "order-placed" event pushed in
+  // runCheckout carries the payment memo). Office copies below still send.
+  if (!(await crmSkipsCustomerOrderEmail(input.brandId))) {
+    await sendTemplate(organizationId, "order_confirmation_customer", input.customerEmail, vars, { brandId: input.brandId });
+  }
 
   const organization = await prisma.organization.findUnique({ where: { id: organizationId } });
   if (organization?.notifyEmail) {
