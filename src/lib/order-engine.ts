@@ -23,6 +23,7 @@ import { CUSTOMER_REFERRAL_REWARD_ENABLED, REFERRAL_REWARD_CENTS } from "@/lib/c
 import { JOIN25_PREFIX } from "@/lib/welcome-coupon";
 import { evaluateHalloweenBogo, evlvHalloweenPromotionOptions, halloweenPromotionIsLive, HALLOWEEN_BOGO_PROMOTION_CODE } from "@/lib/halloween-bogo-promotion";
 import { evaluateKitTiers, isKitLine, KIT_TIER_PROMOTION_CODE, type KitTierItem } from "@/lib/kit-tier-promotion";
+import { splitFreeBacGift, FREE_BAC_GIFT_PROMOTION_CODE } from "@/lib/free-bac-gift";
 
 // "YYYY-MM-DD" in UTC -- the calendar day used to decide whether a
 // StoreMapping's Deal of the Day is currently active and to bucket
@@ -230,7 +231,11 @@ export async function runCheckout(
 
     const isWholesale = WHOLESALE_ENABLED && input.wholesaleCheckout === true && wholesale?.status === "APPROVED";
 
-    for (const item of input.items) {
+    // Today-only free BAC water: one unit is taken out before pricing and
+    // added back below as a $0 line (src/lib/free-bac-gift.ts).
+    const { items: pricedItems, gift: freeBacGift } = splitFreeBacGift(input.items, { brand, isWholesale });
+
+    for (const item of pricedItems) {
       const quantity = Math.max(1, Math.floor(item.quantity));
       const mapping = await tx.storeMapping.findFirst({
         where: { brandId, slug: item.slug, active: true },
@@ -352,6 +357,28 @@ export async function runCheckout(
         cogsCents: unitCogsCents,
       });
     }
+
+    if (freeBacGift) {
+      const giftMapping = await tx.storeMapping.findFirst({
+        where: { brandId, slug: freeBacGift.slug, active: true },
+        include: { product: true },
+      });
+      if (giftMapping) {
+        cogsCentsTotal += (giftMapping.cogsCents ?? giftMapping.product.cogsCents) * freeBacGift.quantity;
+        if (!bypassInventory) {
+          await tx.product.update({ where: { id: giftMapping.product.id }, data: { masterStock: { decrement: freeBacGift.quantity } } });
+        }
+        resolvedItems.push({
+          productId: giftMapping.product.id,
+          slug: freeBacGift.slug,
+          sku: giftMapping.product.sku,
+          name: `${giftMapping.product.chemicalName} (free gift)`,
+          quantity: freeBacGift.quantity,
+          unitPriceCents: 0,
+        });
+      }
+    }
+    const freeBacGiftApplied = Boolean(freeBacGift) && resolvedItems.some((item) => item.unitPriceCents === 0 && item.slug === freeBacGift?.slug);
 
     const marginPercent = org?.minMarginPercent ?? 30;
     const autoApplyCodes = await getAutoApplyCodes(organizationId, contact.id);
@@ -507,6 +534,10 @@ export async function runCheckout(
           await tx.coupon.update({ where: { id: applied.id }, data: { redemptionCount: { increment: 1 } } });
         }
       }
+    }
+
+    if (freeBacGiftApplied) {
+      appliedCouponCodes = appliedCouponCodes ? `${appliedCouponCodes},${FREE_BAC_GIFT_PROMOTION_CODE}` : FREE_BAC_GIFT_PROMOTION_CODE;
     }
 
     // Everything downstream (netProfitCents, the merchant fee estimate,

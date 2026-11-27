@@ -6,6 +6,7 @@ import { z } from "zod";
 import { resolveHeaderOverride } from "@/lib/store-context";
 import { prisma } from "@/lib/prisma";
 import { utcDateString } from "@/lib/order-engine";
+import { splitFreeBacGift } from "@/lib/free-bac-gift";
 import { resolveCoupons, evaluateCoupons, getAutoApplyCodes, type CouponCartItem } from "@/lib/coupon-engine";
 import { getRetailUnitPriceCents } from "@/lib/quantity-pricing";
 import {
@@ -71,7 +72,11 @@ export async function POST(req: NextRequest) {
   const kitItems: KitTierItem[] = [];
   let subtotalCents = 0;
 
-  for (const item of parsed.data.items) {
+  // Same as runCheckout(): the today-only free BAC water unit is never priced.
+  const giftBrand = await prisma.brand.findUnique({ where: { id: store.brandId }, select: { slug: true, domain: true } });
+  const { items: pricedItems } = splitFreeBacGift(parsed.data.items, { brand: giftBrand, isWholesale: parsed.data.wholesaleCheckout === true });
+
+  for (const item of pricedItems) {
     const quantity = Math.max(1, Math.floor(item.quantity));
     const mapping = await prisma.storeMapping.findFirst({
       where: { brandId: store.brandId, slug: item.slug, active: true },
