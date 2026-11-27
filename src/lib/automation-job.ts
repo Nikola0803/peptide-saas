@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { sendTemplate } from "@/lib/email";
 import { getAutomations, delayToMs } from "@/lib/email-automations";
 import type { EmailAutomation } from "@prisma/client";
+import { crmSkipsCustomerOrderEmail } from "@/lib/order-email-owner";
 
 const CHECK_INTERVAL_MS = 15 * 60 * 1000; // matches stock-release-job.ts's cadence
 let started = false;
@@ -111,6 +112,7 @@ async function runPaymentPendingReminder(organizationId: string, automation: Ema
   });
   for (const order of orders) {
     if (!order.contact) continue;
+    if (await crmSkipsCustomerOrderEmail(order.brandId)) continue;
     if (await alreadySent(automation.id, order.id)) continue;
     await sendTemplate(organizationId, automation.templateKey, order.contact.email, {
       customerName: order.contact.name || order.contact.email,
@@ -132,6 +134,7 @@ async function runShippingConfirmation(organizationId: string, automation: Email
   });
   for (const order of orders) {
     if (!order.contact) continue;
+    if (await crmSkipsCustomerOrderEmail(order.brandId)) continue;
     if (await alreadySent(automation.id, order.id)) continue;
     await sendTemplate(organizationId, automation.templateKey, order.contact.email, {
       customerName: order.contact.name || order.contact.email,
@@ -272,6 +275,29 @@ export function startAutomationJob() {
   }, CHECK_INTERVAL_MS);
 }
 
+// Called by the ShipStation shipnotify webhook. Same rules as
+// runShippingConfirmation (toggle on, not already sent, not handed to
+// Omnisend), and records the send so the next job tick doesn't email the
+// customer a second time.
+export async function sendShippingConfirmationEmail(organizationId: string, orderId: string) {
+  const automations = await getAutomations(organizationId);
+  const automation = automationByKey(automations, "shipping_confirmation");
+  if (!automation?.enabled) return;
+
+  const order = await prisma.order.findUnique({ where: { id: orderId }, include: { contact: true } });
+  if (!order?.contact) return;
+  if (await crmSkipsCustomerOrderEmail(order.brandId)) return;
+  if (await alreadySent(automation.id, order.id)) return;
+
+  await sendTemplate(organizationId, automation.templateKey, order.contact.email, {
+    customerName: order.contact.name || order.contact.email,
+    orderNumber: order.externalOrderNumber,
+    trackingNumber: order.trackingNumber ?? "",
+    carrierCode: order.carrierCode ?? "",
+  });
+  await recordSend(automation.id, order.id, order.contactId ?? undefined);
+}
+
 // Referenced by orders/actions.ts's confirmPayment -- delay=0 flows fire
 // immediately from the action itself rather than waiting for the next poll
 // tick, since "the moment we confirm payment" is a real event, not
@@ -283,6 +309,7 @@ export async function sendPaymentConfirmedEmail(organizationId: string, orderId:
 
   const order = await prisma.order.findUnique({ where: { id: orderId }, include: { contact: true } });
   if (!order?.contact) return;
+  if (await crmSkipsCustomerOrderEmail(order.brandId)) return;
   if (await alreadySent(automation.id, order.id)) return;
 
   await sendTemplate(organizationId, automation.templateKey, order.contact.email, {
