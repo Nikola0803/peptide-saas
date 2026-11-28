@@ -54,6 +54,7 @@ model Organization {
 
   memberships             Membership[]
   brands                  Brand[]
+  expenses                Expense[]
   products                Product[]
   contacts                Contact[]
   affiliates              Affiliate[]
@@ -250,6 +251,7 @@ model Brand {
   affiliateApplications Affiliate[]        @relation("AffiliateSourceBrand")
   wholesaleInquiries    WholesaleInquiry[]
   membershipAccess      MembershipBrandAccess[]
+  expenses              Expense[]
 
   // Campaign promotion toggles — set from the Promotions page.
   // Active flag is the gate; startsAt/endsAt are optional guards.
@@ -1843,4 +1845,65 @@ model ZooProtocolAuditEvent {
   createdAt      DateTime               @default(now())
 
   @@index([caseId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Expenses (business costs outside the order profit math)
+// ---------------------------------------------------------------------------
+// Order net profit already takes off product cost (COGS), card fees and
+// affiliate commission (src/lib/order-profit.ts). Expenses are everything
+// else the business pays: ads, shipping labels, software, rent... The
+// Expenses page subtracts them from order profit to get the real bottom
+// line. INVENTORY (stock purchases from the supplier) is kept apart and
+// left out of that net by default, because the same money is already
+// counted as COGS on every order sold.
+
+enum ExpenseCategory {
+  ADS
+  SHIPPING
+  SOFTWARE
+  INVENTORY
+  PAYMENT_FEES
+  PAYROLL
+  OTHER
+}
+
+enum ExpenseRecurrence {
+  NONE
+  WEEKLY
+  MONTHLY
+  YEARLY
+}
+
+model Expense {
+  id             String       @id @default(cuid())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+  // Null = shared by every store (e.g. one software bill for the business).
+  brand          Brand?       @relation(fields: [brandId], references: [id], onDelete: SetNull)
+  brandId        String?
+
+  category    ExpenseCategory
+  amountCents Int
+  // "USD" or "AUD", converted with AUD_PER_USD for mixed totals.
+  currency    String          @default("USD")
+  // Calendar date the cost belongs to (stored at 00:00 UTC). For a
+  // recurring expense this is the first charge.
+  incurredOn  DateTime
+  description String
+  vendor      String?
+  notes       String?
+
+  // A recurring expense is one row that repeats from incurredOn every
+  // week/month/year until recurringUntil (or forever while null). Totals
+  // count each repeat that falls in the chosen period, up to today.
+  recurrence     ExpenseRecurrence @default(NONE)
+  recurringUntil DateTime?
+
+  createdByEmail String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([organizationId, incurredOn])
+  @@index([brandId, incurredOn])
 }
