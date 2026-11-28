@@ -23,7 +23,7 @@ import {
 import { affiliateDiscountCents } from "@/lib/affiliate-program";
 import { CUSTOMER_REFERRAL_REWARD_ENABLED, REFERRAL_REWARD_CENTS } from "@/lib/customer-referral";
 import { JOIN25_PREFIX } from "@/lib/welcome-coupon";
-import { evaluateHalloweenBogo, evlvHalloweenPromotionOptions, halloweenPromotionIsLive, HALLOWEEN_BOGO_PROMOTION_CODE } from "@/lib/halloween-bogo-promotion";
+import { evaluateHalloweenBogo, evlvHalloweenPromotionOptions, halloweenPromotionIsLive } from "@/lib/halloween-bogo-promotion";
 import { evaluateKitTiers, isKitLine, KIT_TIER_PROMOTION_CODE, type KitTierItem } from "@/lib/kit-tier-promotion";
 import { splitFreeBacGift, FREE_BAC_GIFT_PROMOTION_CODE } from "@/lib/free-bac-gift";
 
@@ -397,7 +397,7 @@ export async function runCheckout(
       endsAt: brand?.halloweenEndsAt,
       brandDomain: brand?.domain,
     });
-    // Kits never take BOGO: only single-vial lines are paired.
+    // Kits never take BOGO or Buy 2 Get 1: only single-vial lines count.
     const halloweenPromotion = evaluateHalloweenBogo(couponCartItems.filter((_, i) => !kitFlags[i]), {
       ...halloweenWindow,
       isWholesale,
@@ -493,8 +493,9 @@ export async function runCheckout(
       ? REFERRAL_REWARD_CENTS
       : 0) + kitTier.discountCents;
     let couponId: string | undefined;
+    // BOGOFRIDAY until Mon Nov 30 11:59 PM PT, B2G1STOCKUP after it.
     let appliedCouponCodes: string | undefined = halloweenPromotion.applies
-      ? HALLOWEEN_BOGO_PROMOTION_CODE
+      ? halloweenPromotion.code
       : glpPromotion.applies ? GLP_PAIR_PROMOTION_CODE
       : researchSetPromotion.applies
       ? RESEARCH_SET_PROMOTION_CODE

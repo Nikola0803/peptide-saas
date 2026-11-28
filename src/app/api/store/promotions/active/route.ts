@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { brandAllowsSitewideEvents } from "@/lib/store-currency";
 import { resolveHeaderOverride } from "@/lib/store-context";
 import { prisma } from "@/lib/prisma";
-import { evlvHalloweenPromotionOptions, halloweenPromotionIsLive } from "@/lib/halloween-bogo-promotion";
+import { evlvHalloweenPromotionOptions, halloweenPromotionIsLive, multiBuyKind } from "@/lib/halloween-bogo-promotion";
 
 export async function GET(req: NextRequest) {
   const store = await resolveHeaderOverride(req);
@@ -28,6 +28,7 @@ export async function GET(req: NextRequest) {
     brandDomain: brand.domain,
   });
   const live = halloweenPromotionIsLive(halloween);
+  const kind = multiBuyKind(halloween);
 
   return NextResponse.json({
     halloween: {
@@ -37,8 +38,12 @@ export async function GET(req: NextRequest) {
       endsAt: halloween.endsAt?.toISOString() ?? null,
       freeShippingThresholdCents: brand?.halloweenFreeShippingCents ?? 30000,
       promotionId: "HALLOWEEN_BOGO_2026",
-      headline: "Buy one, get one free",
-      detail: "Mix any two vials: the lower-priced one in each pair is free. No pair limit.",
+      kind,
+      b2g1StartsAt: halloween.b2g1From?.toISOString() ?? null,
+      headline: kind === "b2g1" ? "Buy 2, get 1 free" : "Buy one, get one free",
+      detail: kind === "b2g1"
+        ? "Mix any single vials: the cheapest of every 3 is free. No limit."
+        : "Mix any vials: the cheapest half of your vials is free. No pair limit.",
     },
   });
 }
