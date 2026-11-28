@@ -122,9 +122,35 @@ export default async function AffiliatesPage({ searchParams }: { searchParams?: 
                     {a.country && <span><i className="ri-map-pin-line mr-1" />{a.country}</span>}
                   </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <form action={approveAffiliate.bind(null, a.id)}>
-                    <button className="text-xs bg-primary-500 text-background-50 rounded-md px-2.5 py-1.5 font-medium hover:bg-primary-600">Approve</button>
+                <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+                  <form action={approveAffiliate.bind(null, a.id)} className="flex items-center gap-1.5">
+                    <div className="flex flex-col items-end gap-0.5">
+                      <label className="text-[10px] text-foreground-500">Commission&nbsp;%</label>
+                      <input
+                        name="ratePercent"
+                        type="number"
+                        min="0"
+                        max="40"
+                        step="0.5"
+                        defaultValue="10"
+                        required
+                        className="w-14 rounded border border-background-300 bg-background-50 px-1.5 py-1 text-xs text-right"
+                      />
+                    </div>
+                    <div className="flex flex-col items-end gap-0.5">
+                      <label className="text-[10px] text-foreground-500">Disc&nbsp;%</label>
+                      <input
+                        name="customerDiscountPercent"
+                        type="number"
+                        min="0"
+                        max="30"
+                        step="1"
+                        defaultValue="0"
+                        required
+                        className="w-12 rounded border border-background-300 bg-background-50 px-1.5 py-1 text-xs text-right"
+                      />
+                    </div>
+                    <button className="self-end text-xs bg-primary-500 text-background-50 rounded-md px-2.5 py-1.5 font-medium hover:bg-primary-600">Approve</button>
                   </form>
                   <form action={rejectAffiliate.bind(null, a.id)}>
                     <button className="text-xs border border-background-300 rounded-md px-2.5 py-1.5 text-foreground-700 hover:bg-background-100">Reject</button>

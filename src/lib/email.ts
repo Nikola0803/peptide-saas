@@ -430,11 +430,26 @@ export const DEFAULT_TEMPLATES: EmailTemplateDefault[] = [
     name: "Affiliate application approved",
     description: "Sent when a self-serve affiliate application is approved from the Affiliates page.",
     subject: "You're approved as an EVLV affiliate!",
-    sampleVars: { affiliateName: "Jordan" },
+    sampleVars: { affiliateName: "Jordan", couponCode: "JORDAN10", referralUrl: "https://www.evlvpeptides.com/?ref=JORDAN10" },
     html: LAYOUT(`
       <h1>Welcome to the EVLV affiliate program, {{affiliateName}}</h1>
-      <p>Your application has been approved. Log in to your affiliate dashboard to grab your referral link, track clicks and commission, and set up how you'd like to get paid.</p>
-      <p><a href="https://www.evlvpeptides.com/partner" style="display:inline-block;background:#0e1113;color:#ffffff;padding:14px 22px;text-decoration:none;border-radius:5px;font-weight:650;letter-spacing:0.8px;">OPEN PARTNER COMMAND CENTER</a></p>
+      <p>Your application has been approved. Here are your affiliate details:</p>
+      <table style="border-collapse:collapse;width:100%;max-width:420px;margin:20px 0;">
+        <tr>
+          <td style="padding:10px 14px;background:#f4f4f5;border-radius:6px 6px 0 0;font-size:12px;color:#71717a;font-weight:600;text-transform:uppercase;letter-spacing:.06em;">Your coupon code</td>
+        </tr>
+        <tr>
+          <td style="padding:12px 14px;background:#fafafa;border:1px solid #e4e4e7;border-top:none;font-size:22px;font-family:monospace;font-weight:700;color:#0e1113;letter-spacing:.05em;">{{couponCode}}</td>
+        </tr>
+        <tr>
+          <td style="padding:10px 14px;background:#f4f4f5;font-size:12px;color:#71717a;font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-top:12px;">Your referral link</td>
+        </tr>
+        <tr>
+          <td style="padding:12px 14px;background:#fafafa;border:1px solid #e4e4e7;border-top:none;border-radius:0 0 6px 6px;font-size:13px;font-family:monospace;color:#3b82f6;word-break:break-all;">{{referralUrl}}</td>
+        </tr>
+      </table>
+      <p>Share your referral link or coupon code and earn commission on every order placed through it. Track clicks, revenue, and commission from your partner dashboard.</p>
+      <p><a href="https://www.evlvpeptides.com/partner" style="display:inline-block;background:#0e1113;color:#ffffff;padding:14px 22px;text-decoration:none;border-radius:5px;font-weight:650;letter-spacing:0.8px;">OPEN PARTNER DASHBOARD</a></p>
     `, EVLV_VIAL_HERO),
   },
   {
