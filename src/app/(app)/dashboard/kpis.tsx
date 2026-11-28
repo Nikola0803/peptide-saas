@@ -4,13 +4,18 @@ import { money } from "@/lib/format";
 import { brandCurrency, toUsdCents } from "@/lib/store-currency";
 
 export async function DashboardKpis({ organizationId, brandId }: { organizationId: string; brandId?: string }) {
-  const [byBrand, brands, openCommission] = await Promise.all([
+  // Revenue and profit count paid orders only (completed + processing),
+  // the same rule as the Earnings card and the Expenses page. Unpaid
+  // on-hold, cancelled, failed and refunded orders used to be summed here
+  // too, which made this card show more profit than was ever received.
+  const [byBrand, allOrders, brands, openCommission] = await Promise.all([
     prisma.order.groupBy({
       by: ["brandId"],
-      where: { organizationId, ...(brandId ? { brandId } : {}) },
+      where: { organizationId, ...(brandId ? { brandId } : {}), status: { in: ["COMPLETED", "PROCESSING"] } },
       _sum: { grossCents: true, netProfitCents: true },
       _count: true,
     }),
+    prisma.order.count({ where: { organizationId, ...(brandId ? { brandId } : {}) } }),
     prisma.brand.findMany({ where: { organizationId }, select: { id: true, slug: true, domain: true } }),
     prisma.affiliateOrderAttribution.aggregate({
       where: { affiliate: { organizationId }, ...(brandId ? { order: { brandId } } : {}) },
@@ -35,13 +40,13 @@ export async function DashboardKpis({ organizationId, brandId }: { organizationI
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-      <StatCard label="Gross revenue" value={money(orderAgg.gross, display)} hint={brandId ? "All-time, selected store" : "All-time, all stores"} />
+      <StatCard label="Gross revenue" value={money(orderAgg.gross, display)} hint={`Paid orders, all-time, ${brandId ? "selected store" : "all stores"}`} />
       <StatCard
         label="Net profit"
         value={money(orderAgg.net, display)}
-        hint="After COGS, fees, commission"
+        hint="Paid orders, after COGS, fees, commission"
       />
-      <StatCard label="Total orders" value={String(orderAgg.count)} hint="All-time" />
+      <StatCard label="Paid orders" value={String(orderAgg.count)} hint={`${allOrders} placed all-time, incl. unpaid/cancelled`} />
       <StatCard
         label="Affiliate commission owed"
         value={money(openCommission._sum.commissionCents ?? 0)}
