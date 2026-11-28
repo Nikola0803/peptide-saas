@@ -19,6 +19,7 @@
     "db:prices:evlv": "tsx scripts/apply-evlv-warrior-pricing.ts",
     "db:prices:evlv-au": "tsx scripts/apply-evlv-au-pricing.ts",
     "db:recalc-profit": "tsx scripts/recalc-order-profit.ts",
+    "test:bogo": "tsx scripts/test-bogo.ts",
     "admin:provision-warrior": "tsx scripts/provision-warrior-admin.ts",
     "db:seed:zoonetics": "tsx prisma/seed-zoonetics.ts",
     "db:studio": "prisma studio",
