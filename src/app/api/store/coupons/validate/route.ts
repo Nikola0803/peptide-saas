@@ -25,7 +25,7 @@ import {
 } from "@/lib/research-set-promotion";
 import { affiliateDiscountCents } from "@/lib/affiliate-program";
 import { JOIN25_PREFIX, JOIN25_PERCENT } from "@/lib/welcome-coupon";
-import { evaluateHalloweenBogo, evlvHalloweenPromotionOptions, HALLOWEEN_BOGO_PROMOTION_CODE, HALLOWEEN_BOGO_PROMOTION_ID, HALLOWEEN_BOGO_PROMOTION_LABEL } from "@/lib/halloween-bogo-promotion";
+import { evaluateHalloweenBogo, evlvHalloweenPromotionOptions, HALLOWEEN_BOGO_PROMOTION_ID } from "@/lib/halloween-bogo-promotion";
 import { evaluateKitTiers, isKitLine, KIT_TIER_PROMOTION_CODE, KIT_TIER_PROMOTION_ID, KIT_TIER_PROMOTION_LABEL, type KitTierItem } from "@/lib/kit-tier-promotion";
 
 const bodySchema = z.object({
@@ -164,11 +164,11 @@ export async function POST(req: NextRequest) {
     const heroesDiscountPaused = [...autoApplyCodes, ...typedForBogo].some((c) => /^HEROES-/i.test(c.trim()));
     const discountCents = halloweenPromotion.discountCents + kitTier.discountCents;
     const appliedCoupons = [
-      ...(halloweenPromotion.applies ? [{ code: HALLOWEEN_BOGO_PROMOTION_CODE, label: HALLOWEEN_BOGO_PROMOTION_LABEL }] : []),
+      ...(halloweenPromotion.applies ? [{ code: halloweenPromotion.code, label: halloweenPromotion.label }] : []),
       ...(kitTier.ownsCart ? [{ code: KIT_TIER_PROMOTION_CODE, label: KIT_TIER_PROMOTION_LABEL }] : []),
     ];
     const labels = [
-      ...(halloweenPromotion.applies ? [`${HALLOWEEN_BOGO_PROMOTION_LABEL} · ${halloweenPromotion.freeUnits} free`] : []),
+      ...(halloweenPromotion.applies ? [`${halloweenPromotion.label} · ${halloweenPromotion.freeUnits} free`] : []),
       ...(kitTier.ownsCart ? [`${kitTier.totalKits} kit${kitTier.totalKits === 1 ? "" : "s"} · ${kitTier.percent}% off each kit`] : []),
     ];
     return NextResponse.json({
@@ -181,11 +181,13 @@ export async function POST(req: NextRequest) {
       // BOGO keeps its id when it applies so existing storefront code keeps
       // working; a kits-only cart reports the kit sale.
       automaticPromotion: halloweenPromotion.applies ? HALLOWEEN_BOGO_PROMOTION_ID : KIT_TIER_PROMOTION_ID,
+      // "bogo" until Mon Nov 30 11:59 PM PT, then "b2g1" (Buy 2, Get 1 Free).
+      dealKind: halloweenPromotion.kind,
       promotionLabel: labels.join(" + "),
       kitTier: kitTier.ownsCart ? { kits: kitTier.totalKits, percent: kitTier.percent, discountCents: kitTier.discountCents } : null,
       bogoDiscountCents: halloweenPromotion.discountCents,
       flooredByMargin: false,
-      maximumDiscountPercent: halloweenPromotion.applies ? 50 : 40,
+      maximumDiscountPercent: halloweenPromotion.applies ? (halloweenPromotion.kind === "b2g1" ? 40 : 50) : 40,
       stackingDisabled: true,
       errors: [],
     });
